@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "navigatior"
+version = "0.1.0"
+description = ""
+authors = ["Nischal nbhattarai@crimson.ua.edu"]
+readme = "README.md"
+packages = [{include = "navigatior", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+black = "^23.7.0"
+ruff = "^0.0.287"
+georinex = "^1.16.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
