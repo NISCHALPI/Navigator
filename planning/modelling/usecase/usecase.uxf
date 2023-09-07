@@ -1,24 +1,24 @@
-<diagram program="umletino" version="15.1"><zoom_level>7</zoom_level><element><id>UMLGeneric</id><coordinates><x>238</x><y>49</y><w>721</w><h>819</h></coordinates><panel_attributes>GNSS Software CLI
+<diagram program="umletino" version="15.1"><zoom_level>6</zoom_level><element><id>UMLGeneric</id><coordinates><x>207</x><y>58</y><w>618</w><h>732</h></coordinates><panel_attributes>GNSS Software CLI
 halign=left
---</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLActor</id><coordinates><x>63</x><y>378</y><w>42</w><h>84</h></coordinates><panel_attributes>User
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>98</x><y>378</y><w>238</w><h>28</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;320;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>756</x><y>420</y><w>112</w><h>49</h></coordinates><panel_attributes>Rinex Intregraty Check</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>406</x><y>679</y><w>84</w><h>105</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;extends&gt;&gt;</panel_attributes><additional_attributes>70;10;10;130</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>826</x><y>791</y><w>105</w><h>42</h></coordinates><panel_attributes>URL Download</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>301</x><y>728</y><w>112</w><h>84</h></coordinates><panel_attributes>Download RINEX
+--</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLActor</id><coordinates><x>39</x><y>340</y><w>36</w><h>72</h></coordinates><panel_attributes>User
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>69</x><y>340</y><w>204</w><h>24</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;320;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>633</x><y>376</y><w>96</w><h>42</h></coordinates><panel_attributes>Rinex Intregraty Check</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>333</x><y>598</y><w>72</w><h>90</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;extends&gt;&gt;</panel_attributes><additional_attributes>70;10;10;130</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>693</x><y>694</y><w>90</w><h>36</h></coordinates><panel_attributes>URL Download</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>243</x><y>640</y><w>96</w><h>72</h></coordinates><panel_attributes>Download RINEX
 --
 extension points
 valign=top
 By Channel (NASA)
 By URL
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>98</x><y>385</y><w>217</w><h>399</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;290;550</additional_attributes></element><element><id>Relation</id><coordinates><x>371</x><y>798</y><w>469</w><h>28</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;extends&gt;&gt;</panel_attributes><additional_attributes>650;20;10;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>455</x><y>651</y><w>140</w><h>84</h></coordinates><panel_attributes>Downaload NASA
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>69</x><y>346</y><w>186</w><h>342</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;290;550</additional_attributes></element><element><id>Relation</id><coordinates><x>303</x><y>700</y><w>402</w><h>24</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;extends&gt;&gt;</panel_attributes><additional_attributes>650;20;10;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>375</x><y>574</y><w>120</w><h>72</h></coordinates><panel_attributes>Downaload NASA
 --
 extension points
 valign=top
 By Date
 By Station
 By Type
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>833</x><y>462</y><w>63</w><h>350</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;480;10;10</additional_attributes></element><element><id>Relation</id><coordinates><x>588</x><y>693</y><w>259</w><h>126</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;10;350;160</additional_attributes></element><element><id>UMLActor</id><coordinates><x>1148</x><y>427</y><w>56</w><h>77</h></coordinates><panel_attributes>Parse Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>861</x><y>427</y><w>308</w><h>35</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;420;30</additional_attributes></element><element><id>UMLActor</id><coordinates><x>1148</x><y>161</y><w>56</w><h>77</h></coordinates><panel_attributes>Satellite Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>749</x><y>343</y><w>119</w><h>49</h></coordinates><panel_attributes>Fetch Parsed</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>861</x><y>357</y><w>308</w><h>105</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;420;130</additional_attributes></element><element><id>UMLActor</id><coordinates><x>1148</x><y>791</y><w>42</w><h>77</h></coordinates><panel_attributes>Web Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>924</x><y>798</y><w>238</w><h>28</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;320;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>329</x><y>91</y><w>119</w><h>49</h></coordinates><panel_attributes>Configure Logger</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>98</x><y>119</y><w>252</w><h>287</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;390;340;10</additional_attributes></element><element><id>Relation</id><coordinates><x>98</x><y>385</y><w>245</w><h>231</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;330;310</additional_attributes></element><element><id>UMLActor</id><coordinates><x>1141</x><y>595</y><w>70</w><h>77</h></coordinates><panel_attributes>Compute Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>448</x><y>588</y><w>721</w><h>28</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;1010;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>322</x><y>350</y><w>161</w><h>98</h></coordinates><panel_attributes>Compute Operations
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>699</x><y>412</y><w>54</w><h>300</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;480;10;10</additional_attributes></element><element><id>Relation</id><coordinates><x>489</x><y>610</y><w>222</w><h>108</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;10;350;160</additional_attributes></element><element><id>UMLActor</id><coordinates><x>969</x><y>382</y><w>48</w><h>66</h></coordinates><panel_attributes>Parse Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>723</x><y>382</y><w>264</w><h>30</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;420;30</additional_attributes></element><element><id>UMLActor</id><coordinates><x>969</x><y>154</y><w>48</w><h>66</h></coordinates><panel_attributes>Satellite Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>627</x><y>310</y><w>102</w><h>42</h></coordinates><panel_attributes>Fetch Parsed</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>723</x><y>322</y><w>264</w><h>90</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;420;130</additional_attributes></element><element><id>UMLActor</id><coordinates><x>969</x><y>694</y><w>36</w><h>66</h></coordinates><panel_attributes>Web Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>777</x><y>700</y><w>204</w><h>24</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;320;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>267</x><y>94</y><w>102</w><h>42</h></coordinates><panel_attributes>Configure Logger</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>69</x><y>118</y><w>216</w><h>246</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;390;340;10</additional_attributes></element><element><id>Relation</id><coordinates><x>69</x><y>346</y><w>210</w><h>198</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;330;310</additional_attributes></element><element><id>UMLActor</id><coordinates><x>963</x><y>526</y><w>60</w><h>66</h></coordinates><panel_attributes>Compute Lib</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>369</x><y>520</y><w>618</w><h>24</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;1010;20</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>261</x><y>316</y><w>138</w><h>84</h></coordinates><panel_attributes>Compute Operations
 --
 extension points
 valign=top
@@ -27,33 +27,33 @@ Triangulate SV
 Streaming Triangulate
 Streaming Interpolate
 
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>378</x><y>441</y><w>63</w><h>147</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;10;10;190</additional_attributes></element><element><id>Relation</id><coordinates><x>441</x><y>427</y><w>329</w><h>28</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;20;450;20</additional_attributes></element><element><id>Relation</id><coordinates><x>469</x><y>357</y><w>294</w><h>35</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;30;400;20</additional_attributes></element><element><id>Relation</id><coordinates><x>455</x><y>175</y><w>714</w><h>203</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;270;1000;10</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>329</x><y>574</y><w>126</w><h>63</h></coordinates><panel_attributes>Compute 
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>309</x><y>394</y><w>54</w><h>126</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;10;10;190</additional_attributes></element><element><id>Relation</id><coordinates><x>363</x><y>382</y><w>282</w><h>24</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;20;450;20</additional_attributes></element><element><id>Relation</id><coordinates><x>387</x><y>322</y><w>252</w><h>30</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;includes&gt;&gt;</panel_attributes><additional_attributes>10;30;400;20</additional_attributes></element><element><id>Relation</id><coordinates><x>375</x><y>166</y><w>612</w><h>174</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;270;1000;10</additional_attributes></element><element><id>UMLUseCase</id><coordinates><x>267</x><y>508</y><w>108</w><h>54</h></coordinates><panel_attributes>Compute 
 --
 extension points
 valign=top
 Configure Contex
 Dispatch Single
 Dispatch Batch
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1197</x><y>798</y><w>91</w><h>63</h></coordinates><panel_attributes>Necessary Library
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1011</x><y>700</y><w>78</w><h>54</h></coordinates><panel_attributes>Necessary Library
 bg=none
 Request
-BeautifulSoup4</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1218</x><y>595</y><w>98</w><h>63</h></coordinates><panel_attributes>Necessary Library
+BeautifulSoup4</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1029</x><y>526</y><w>84</w><h>54</h></coordinates><panel_attributes>Necessary Library
 bg=none
 Multiprocessing
 Multithreading
 Paramiko
 
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1211</x><y>420</y><w>105</w><h>70</h></coordinates><panel_attributes>Necessary Library
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1023</x><y>376</y><w>90</w><h>60</h></coordinates><panel_attributes>Necessary Library
 bg=none
 Georinex
 Pandas
 JSON
 Xarray Dataset
 
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1211</x><y>154</y><w>105</w><h>70</h></coordinates><panel_attributes>Necessary Library
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>1023</x><y>148</y><w>90</w><h>60</h></coordinates><panel_attributes>Necessary Library
 bg=none
 Numpy
 Scipy
@@ -61,7 +61,7 @@ OOP
 Pandas
 JSON
 
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>119</x><y>35</y><w>105</w><h>70</h></coordinates><panel_attributes>CLI Developer 
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLNote</id><coordinates><x>87</x><y>46</y><w>90</w><h>60</h></coordinates><panel_attributes>CLI Developer 
 Click
 tqdm
 

@@ -1,0 +1,23 @@
+<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><help_text>Space for diagram notes</help_text><element><id>UMLClass</id><coordinates><x>450</x><y>90</y><w>390</w><h>380</h></coordinates><panel_attributes>&lt;&lt;Satellite Class&gt;&gt;
+Satellite::Satellite
+{The Satellite Class. (Bridge Abstraction) }
+--
+Attrs:
+
+# Private Attrs
++ IcomputeFactory: callable 
+
+# Optional
++ constellation: str
+
+--
+Methods:
+/+interpolate(ephemeris,  timestamp) -&gt; np.array/
+/+log(data) -&gt; None/
+/+__call__() -&gt; np.array/
+/+__repr__() -&gt; str/
+
+--
+Responsibilities
+-- To compute the satellite position and do ephemeris calculation
+-- Interpolate the path to timestamp using ephemeris data</panel_attributes><additional_attributes></additional_attributes></element></diagram>

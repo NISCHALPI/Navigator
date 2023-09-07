@@ -1,0 +1,40 @@
+<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><element><id>Text</id><coordinates><x>900</x><y>230</y><w>100</w><h>80</h></coordinates><panel_attributes>// Entity Element
+	      Rinex Files
+	      
+_umletcode=
+// Entity Symbol
+drawCircle(50, 50, 20)
+drawLine(30, 70, 70, 70)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>250</x><y>220</y><w>110</w><h>80</h></coordinates><panel_attributes>// Boundary Element
+	  Concret Parser
+	  
+_umletcode=
+// Boundary Symbol
+drawCircle(50, 50, 20)
+drawLine(20, 50, 30, 50)
+drawLine(20, 30, 20, 70)	 
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLClass</id><coordinates><x>0</x><y>260</y><w>100</w><h>30</h></coordinates><panel_attributes>User</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>550</x><y>90</y><w>120</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     IparseModule
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>550</x><y>230</y><w>100</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     Dispatcher
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>560</x><y>350</y><w>100</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     Logger
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>90</x><y>250</y><w>200</w><h>40</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;180;20</additional_attributes></element><element><id>Relation</id><coordinates><x>310</x><y>130</y><w>290</w><h>160</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;140;270;10</additional_attributes></element><element><id>Relation</id><coordinates><x>310</x><y>250</y><w>290</w><h>40</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;270;20</additional_attributes></element><element><id>Relation</id><coordinates><x>310</x><y>260</y><w>300</w><h>160</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;280;140</additional_attributes></element><element><id>Relation</id><coordinates><x>610</x><y>130</y><w>340</w><h>160</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;320;140</additional_attributes></element><element><id>Relation</id><coordinates><x>620</x><y>260</y><w>330</w><h>160</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;140;310;10</additional_attributes></element></diagram>

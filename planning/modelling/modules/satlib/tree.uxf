@@ -1,0 +1,19 @@
+<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><element><id>UMLHierarchy</id><coordinates><x>140</x><y>180</y><w>310</w><h>470</h></coordinates><panel_attributes>type=Package
+satlib
+	Iephm
+		SV
+			GPS
+			Glonass 
+			Galileo
+			Beido
+	Satellite
+	Triangulate
+		Algos
+
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>280</x><y>90</y><w>110</w><h>110</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;import&gt;&gt;</panel_attributes><additional_attributes>10;90;70;10</additional_attributes></element><element><id>UMLPackage</id><coordinates><x>310</x><y>0</y><w>120</w><h>100</h></coordinates><panel_attributes>Additional Modules
+--
+Numpy
+Scipy
+ABC
+</panel_attributes><additional_attributes></additional_attributes></element></diagram>

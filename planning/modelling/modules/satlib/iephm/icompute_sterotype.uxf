@@ -1,0 +1,18 @@
+<diagram program="umletino" version="15.1"><zoom_level>7</zoom_level><element><id>Text</id><coordinates><x>568</x><y>259</y><w>98</w><h>56</h></coordinates><panel_attributes>// Boundary Element
+	 Concrete Ephemeris
+	  
+_umletcode=
+// Boundary Symbol
+drawCircle(50, 50, 20)
+drawLine(20, 50, 30, 50)
+drawLine(20, 30, 20, 70)	 
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>799</x><y>252</y><w>56</w><h>56</h></coordinates><panel_attributes>// Entity Element
+	      Data
+_umletcode=
+// Entity Symbol
+drawCircle(50, 50, 20)
+drawLine(30, 70, 70, 70)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>659</x><y>273</y><w>175</w><h>28</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;230;20</additional_attributes></element><element><id>UMLClass</id><coordinates><x>267</x><y>266</y><w>105</w><h>49</h></coordinates><panel_attributes>EphemerisCompute
+--
+Compute Interface 
+for Satellite Ephemeris</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>365</x><y>273</y><w>217</w><h>28</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;290;20</additional_attributes></element></diagram>

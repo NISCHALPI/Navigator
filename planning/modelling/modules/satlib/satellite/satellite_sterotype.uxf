@@ -1,0 +1,23 @@
+<diagram program="umletino" version="15.1"><zoom_level>8</zoom_level><element><id>UMLClass</id><coordinates><x>144</x><y>192</y><w>128</w><h>56</h></coordinates><panel_attributes>User
+--
+Can be CLI or API Call</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>400</x><y>192</y><w>72</w><h>64</h></coordinates><panel_attributes>// Boundary Element
+	  Satellite
+customelement=
+// Boundary Symbol
+drawCircle(50, 50, 20)
+drawLine(20, 50, 30, 50)
+drawLine(20, 30, 20, 70)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>864</x><y>192</y><w>64</w><h>64</h></coordinates><panel_attributes>// Entity Element
+	      Parse
+customelement=
+// Entity Symbol
+drawCircle(50, 50, 20)
+drawLine(30, 70, 70, 70)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>584</x><y>96</y><w>104</w><h>64</h></coordinates><panel_attributes>// Control Element
+	     Icompute Factory
+customelement=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>264</x><y>208</y><w>152</w><h>32</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;170;20</additional_attributes></element><element><id>Relation</id><coordinates><x>464</x><y>128</y><w>136</w><h>96</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;100;150;10</additional_attributes></element><element><id>Relation</id><coordinates><x>680</x><y>128</y><w>200</w><h>112</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;230;120</additional_attributes></element></diagram>

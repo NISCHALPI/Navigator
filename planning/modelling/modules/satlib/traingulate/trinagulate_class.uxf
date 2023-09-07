@@ -1,0 +1,20 @@
+<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><help_text>Space for diagram notes</help_text><element><id>UMLClass</id><coordinates><x>350</x><y>80</y><w>360</w><h>360</h></coordinates><panel_attributes>&lt;&lt;Abstract Triangulate&gt;&gt;
+Traingulate:Triangulate
+{Some Properties}
+--
+Attrs:
+Dispatcher _dispatch -&gt; Job
+Satellite _sv -&gt; [x,y,z]
+Corrections _corr_stack -&gt; corrections
+logger _logger 
+data _frame_data_from_parsing
+
+--
+#Operation(i: int): int
+/+AbstractOperation()/
+--
+Responsibilities
+-- Selects Appropriate Triangulate Algorathim 
+-- Does logging  and dispatching
+--  Selects Approipriate Corrections Modules
+</panel_attributes><additional_attributes></additional_attributes></element></diagram>

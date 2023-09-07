@@ -1,0 +1,12 @@
+<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><help_text>Space for diagram notes</help_text><element><id>UMLClass</id><coordinates><x>60</x><y>110</y><w>210</w><h>190</h></coordinates><panel_attributes>&lt;&lt;Iparse&gt;&gt;
+Iparse::AbstractIparse
+{Parse Module for Observational and Navigation }
+--
+# NO  ATTRS YET
+--
+-__call__(filepath) -&gt; [pd.Series, pd.Dataframe]
+- _parse(filepath) -&gt;  [pd.Series, pd.Dataframe]
+
+--
+Responsibilities
+-- Return metadata plus the time-sat data as pandas dataframe</panel_attributes><additional_attributes></additional_attributes></element></diagram>

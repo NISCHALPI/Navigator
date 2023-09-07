@@ -1,0 +1,24 @@
+<diagram program="umletino" version="15.1"><zoom_level>9</zoom_level><element><id>UMLClass</id><coordinates><x>18</x><y>117</y><w>360</w><h>360</h></coordinates><panel_attributes>&lt;&lt;Base Parser&gt;&gt;
+parselib::AbstractParser
+{Handels Parsing RINEX Files}
+--
+Attrs:
+Dipatcher
+Logger
+IparseModuleFactory
+--
+
+Methods:
+-_dispatch
+-_parse(filepath)
+-__call__
+-__repr__
+--_check_file_integrity
+
+--
+Responsibilities
+-- Parsing the RINEX files into Pandas Dataframe
+-- Filtering the dataframes
+-- Dispatching Paraller Jobs
+-- Logging metadata
+</panel_attributes><additional_attributes></additional_attributes></element></diagram>

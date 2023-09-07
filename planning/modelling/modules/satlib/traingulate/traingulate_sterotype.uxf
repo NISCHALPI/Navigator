@@ -1,0 +1,49 @@
+<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><element><id>Text</id><coordinates><x>260</x><y>200</y><w>140</w><h>80</h></coordinates><panel_attributes>// Boundary Element
+	  Concrete Trainulate
+	  
+_umletcode=
+// Boundary Symbol
+drawCircle(50, 50, 20)
+drawLine(20, 50, 30, 50)
+drawLine(20, 30, 20, 70)	 
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>670</x><y>10</y><w>150</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     Compute Dispatcher
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>980</x><y>210</y><w>110</w><h>80</h></coordinates><panel_attributes>// Entity Element
+	      Parse Frame
+	      
+_umletcode=
+// Entity Symbol
+drawCircle(50, 50, 20)
+drawLine(30, 70, 70, 70)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>UMLClass</id><coordinates><x>60</x><y>230</y><w>120</w><h>40</h></coordinates><panel_attributes>API Class or CLI </panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>170</x><y>230</y><w>230</w><h>40</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;20;210;20</additional_attributes></element><element><id>UMLNote</id><coordinates><x>830</x><y>10</y><w>130</w><h>60</h></coordinates><panel_attributes>Priority Level 2
+bg=black</panel_attributes><additional_attributes></additional_attributes></element><element><id>Text</id><coordinates><x>660</x><y>400</y><w>90</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     Logger
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>390</x><y>240</y><w>290</w><h>220</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;270;200</additional_attributes></element><element><id>Relation</id><coordinates><x>390</x><y>40</y><w>300</w><h>230</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;210;280;10</additional_attributes></element><element><id>Text</id><coordinates><x>680</x><y>110</y><w>100</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     Satellite 
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>400</x><y>140</y><w>300</w><h>130</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;110;280;10</additional_attributes></element><element><id>Relation</id><coordinates><x>770</x><y>150</y><w>230</w><h>130</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;210;110</additional_attributes></element><element><id>Text</id><coordinates><x>670</x><y>250</y><w>90</w><h>80</h></coordinates><panel_attributes>// Control Element
+	     ICorrections
+	     
+_umletcode=
+// Control Symbol
+drawCircle(50, 50, 20)
+drawLine(44, 31, 54, 21)
+drawLine(44, 31, 54, 41)
+	</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>400</x><y>240</y><w>290</w><h>80</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;10;270;60</additional_attributes></element><element><id>Relation</id><coordinates><x>750</x><y>250</y><w>240</w><h>80</h></coordinates><panel_attributes></panel_attributes><additional_attributes>10;60;220;10</additional_attributes></element></diagram>
