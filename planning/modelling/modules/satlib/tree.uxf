@@ -1,4 +1,4 @@
-<diagram program="umletino" version="15.1"><zoom_level>10</zoom_level><element><id>UMLHierarchy</id><coordinates><x>140</x><y>180</y><w>310</w><h>470</h></coordinates><panel_attributes>type=Package
+<diagram program="umletino" version="15.1"><zoom_level>9</zoom_level><help_text>Space for diagram notes</help_text><element><id>UMLHierarchy</id><coordinates><x>207</x><y>162</y><w>279</w><h>423</h></coordinates><panel_attributes>type=Package
 satlib
 	Iephm
 		SV
@@ -10,8 +10,8 @@ satlib
 	Triangulate
 		Algos
 
-</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>280</x><y>90</y><w>110</w><h>110</h></coordinates><panel_attributes>lt=.&gt;
-&lt;&lt;import&gt;&gt;</panel_attributes><additional_attributes>10;90;70;10</additional_attributes></element><element><id>UMLPackage</id><coordinates><x>310</x><y>0</y><w>120</w><h>100</h></coordinates><panel_attributes>Additional Modules
+</panel_attributes><additional_attributes></additional_attributes></element><element><id>Relation</id><coordinates><x>333</x><y>81</y><w>99</w><h>99</h></coordinates><panel_attributes>lt=.&gt;
+&lt;&lt;import&gt;&gt;</panel_attributes><additional_attributes>10;90;70;10</additional_attributes></element><element><id>UMLPackage</id><coordinates><x>360</x><y>0</y><w>108</w><h>90</h></coordinates><panel_attributes>Additional Modules
 --
 Numpy
 Scipy

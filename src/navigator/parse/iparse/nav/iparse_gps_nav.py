@@ -66,8 +66,7 @@ class IParseGPSNav(IParse):
 
         # Convert the `xarray.Dataset` to a `pandas.DataFrame` and metadata to a `pandas.Series`
         rinex_data = rinex_data.to_dataframe()
-        metadata =  pd.Series(gr.rinexheader(fn=filename))
-        
+        metadata = pd.Series(gr.rinexheader(fn=filename))
 
         # Filter the dataframme to drop all null rows
         rinex_data = rinex_data.dropna(axis=0, thresh=10)

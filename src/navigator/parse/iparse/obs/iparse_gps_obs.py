@@ -27,7 +27,6 @@ Note:
 """
 
 
-
 import typing as tp
 from pathlib import Path
 
@@ -41,6 +40,7 @@ __all__ = ['IParseGPSObs']
 
 class IParseGPSObs(IParse):
     """Interface for GPS observational data parsing from RINEX files."""
+
     def __init__(self) -> None:
         """Initialize the class."""
         super().__init__(features='gps_obs')

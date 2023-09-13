@@ -90,8 +90,8 @@ class AbstractParser(ABC):
 
         """
         # Verify iparser is IParse
-        if not isinstance(iparser, IParse):
-            raise TypeError(f"iparser must be IParse, not {type(iparser)}")
+        if not issubclass(iparser.__class__, IParse):
+            raise TypeError(f"iparser must be subclass IParse, not {type(iparser)}")
         self.iparser = iparser
 
         # Verify logger is Logger
