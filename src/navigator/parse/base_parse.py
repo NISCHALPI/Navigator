@@ -26,6 +26,7 @@ import typing as tp
 from abc import ABC, abstractmethod
 from logging import Logger
 from pathlib import Path
+from ..dispatch.base_dispatch import AbstractDispatcher
 
 import pandas as pd
 
@@ -75,7 +76,10 @@ class AbstractParser(ABC):
     """
 
     def __init__(
-        self, iparser: IParse, logger: Logger | None = None, dispatcher: None = None
+        self,
+        iparser: IParse,
+        logger: Logger | None = None,
+        dispatcher: AbstractDispatcher | None = None,
     ) -> None:  # TODO: add dispatcher
         """Initialize a new AbstractParser instance.
 
@@ -100,6 +104,12 @@ class AbstractParser(ABC):
         self.logger = logger
 
         # TO DO: Verify dispatcher is Dispatcher
+        if dispatcher is not None and not issubclass(
+            dispatcher.__class__, AbstractDispatcher
+        ):
+            raise TypeError(
+                f'dispatcher must be subclass AbstractDispatcher, not {type(dispatcher)}'
+            )
         self.dispatcher = dispatcher
 
         return

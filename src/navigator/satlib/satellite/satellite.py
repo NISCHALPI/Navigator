@@ -34,6 +34,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import pandas as pd
+import numpy as np
 
 from ..iephm import AbstractIephemeris
 
@@ -92,7 +93,10 @@ class AbstractSatellite(ABC):
 
     @abstractmethod
     def _compute(
-        self, Tsv: pd.DataFrame | pd.Timestamp, metadata: pd.Series, data: pd.DataFrame
+        self,
+        Tsv: pd.DataFrame | pd.Timestamp | str,
+        metadata: pd.Series,
+        data: pd.DataFrame,
     ) -> pd.DataFrame:
         """Abstract method to compute satellite position based on ephemeris data.
 
@@ -105,6 +109,10 @@ class AbstractSatellite(ABC):
         Returns:
             pd.DataFrame: A DataFrame representing the calculated satellite positions.
         """
+        # Change to time stamp if string is passed
+        if isinstance(Tsv, str):
+            Tsv = pd.Timestamp(Tsv)
+
         # Instantiate empty dataframe to store satellite position
         position_df = pd.DataFrame(index=data.index, columns=['x', 'y', 'z'])
 
@@ -129,7 +137,10 @@ class AbstractSatellite(ABC):
         return position_df
 
     def __call__(
-        self, t_sv: pd.DataFrame | pd.Timestamp, metadata: pd.Series, data: pd.DataFrame
+        self,
+        t_sv: pd.DataFrame | pd.Timestamp | str,
+        metadata: pd.Series,
+        data: pd.DataFrame,
     ) -> pd.DataFrame:
         """Computes satellite position based on ephemeris data.
 
@@ -168,6 +179,54 @@ class Satellite(AbstractSatellite):
     """
 
     def _compute(
-        self, t_sv: pd.DataFrame | pd.Timestamp, metadata: pd.Series, data: pd.DataFrame
+        self,
+        t_sv: pd.DataFrame | pd.Timestamp | str,
+        metadata: pd.Series,
+        data: pd.DataFrame,
     ) -> pd.DataFrame:
         return super()._compute(t_sv, metadata, data)
+
+    def trajectory(
+        self,
+        t_sv: str | pd.Timestamp,
+        metadata: pd.Series,
+        data: pd.DataFrame,
+        interval: int = 3600,
+        step: int = 10,
+    ) -> np.ndarray:
+        """Computes satellite trajectory based on ephemeris data. The trajectory is computed and returned as a numpy array in the following format, [SV, 3, step] where SV is original satellite index,
+        Coordinates are x,y,z coordinates in ECEF frame and step are the number of points in the trajectory calculated by using interval/step. The final shape of the array is (SV, 3, step).
+
+        Args:
+            t_sv (pd.DataFrame | pd.Timestamp | str): Timestamps for which to start satellite positions interpolation.
+            metadata (pd.Series): Metadata related to the ephemeris data.
+            data (pd.DataFrame): RINEX navigation data and Ephemeris data.
+            interval (int, optional): The time in seconds from t_sv to compute satellite trajectory. Defaults to 3600 seconds.
+            step (int, optional): The number of time divisions in the interval .i.e every n seconds the satellite position is computed. Defaults to every 10 seconds.
+
+        Returns:
+            np.ndarray: A numpy array representing the calculated satellite trajectory in format [SV, 3 , step].
+        """
+        #Convert to timestamp
+        if isinstance(t_sv, str):
+            t_sv = pd.Timestamp(t_sv)
+        
+        # TO DO : Currently only works for GPS satellites
+        # Check if the interface is GPS
+        if not self._iephemeris._feature == 'GPS':
+            raise NotImplementedError(
+                "Currently only GPS interface is supported for trajectory calculation"
+            )
+        # Satellite position stack
+        sat_pos_list = []
+
+        # Loop over interval and compute satellite position
+        for _ in range(0, interval, step):
+            sat_pos_list.append(self(t_sv, metadata, data))
+            t_sv += pd.Timedelta(seconds=step)
+
+        # Convert to array
+        sat_pos_list = [frame.to_numpy() for frame in sat_pos_list]
+
+        # Return the stacked array
+        return np.stack(sat_pos_list, axis=-1)

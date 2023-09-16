@@ -58,7 +58,6 @@ __all__ = ["IGPSEphemeris"]
 # https://ascelibrary.org/doi/pdf/10.1061/9780784411506.ap03
 
 
-
 # Constants
 F = -4.442807633e-10  # Constant for computing relativistic clock correction
 gps_start_time = pd.Timestamp('1980-01-06 00:00:00')  # GPS start time
@@ -77,15 +76,18 @@ class IGPSEphemeris(AbstractIephemeris):
         """Initialize an IGPSEphemeris instance."""
         super().__init__(feature="GPS")
 
-    def _relativistic_clock_correction(self, sqrt_A: float, Ek: float) -> float:
+    def _relativistic_clock_correction(
+        self, sqrt_A: float, Ek: float, e: float
+    ) -> float:
         """Calculate the relativistic clock correction.
 
         Args:
             sqrt_A (pd.Series): Square root of the semi-major axis of the orbit.
             Ek (pd.Series): Keplers eccentric anomaly.
+            e (pd.Series): Eccentricity of the orbit.
         """
         # See : https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf page 98
-        return F * np.exp(sqrt_A) * np.sin(Ek)
+        return F * e * sqrt_A * np.sin(Ek)
 
     def _week_anamoly(self, time_diff: float) -> float:
         """Accounts for week crossovers.
@@ -139,7 +141,7 @@ class IGPSEphemeris(AbstractIephemeris):
 
         # Iteratively solve for eccentric anomaly
         while True:
-            E_k2 = M_k + e * np.sin(E_k1)
+            E_k2 = E_k1 + (M_k - E_k1 + e * np.sin(E_k1)) / (1 - e * np.cos(E_k1))
             if abs(E_k2 - E_k1) < 1e-12:
                 break
             E_k1 = E_k2
@@ -169,24 +171,25 @@ class IGPSEphemeris(AbstractIephemeris):
         t_oc: pd.Timestamp = data['Toc']
 
         # SV time
-        t_sv: pd.Timestamp = metadata['Tsv']
+        t_sv: pd.Timestamp = data['Tsv']
 
         # Toe
         t_oe = self._gps_week_to_datetime(data['GPSWeek'], data['Toe'])
 
         # Compute Ek usinge pre-corrected time
         Ek = self._eccentric_anomaly(
-            t_k=self._week_anamoly((t_sv - t_oe).seconds),
+            t_k=self._week_anamoly(time_diff=(t_sv - t_oe).total_seconds()),
             sqrt_A=data['sqrtA'],
-            deltaN=data['deltaN'],
+            deltaN=data['DeltaN'],
             M_o=data['M0'],
-            e=data['e'],
+            e=data['Eccentricity'],
         )
 
         # Get Relativitic clock correction
         t_r = self._relativistic_clock_correction(
             sqrt_A=data['sqrtA'],
             Ek=Ek,
+            e=data['Eccentricity'],
         )
 
         # Group delay differential
@@ -194,12 +197,14 @@ class IGPSEphemeris(AbstractIephemeris):
 
         # Compute clock correction
         delta_t = self._week_anamoly(
-            t=(t_sv - t_oc).seconds,
+            time_diff=(t_sv - t_oc).total_seconds(),
         )
+
         # Compute clock correction
-        return pd.Timedelta(
-            seconds=a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 - t_gd + t_r
-        )
+        clock_corr = a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 - t_gd + t_r
+
+        # Compute clock correction
+        return pd.Timedelta(seconds=clock_corr)
 
     def _compute(self, metadata: pd.Series, data: pd.Series) -> pd.Series:
         """Calculate the satellite's position based on ephemeris data.
@@ -212,27 +217,74 @@ class IGPSEphemeris(AbstractIephemeris):
             pd.Series: Return a Series containing the calculated position information [x, y , z] in WGS84-ECFC coordinates.
         """
         # Get clock correction for the satellite time i.e. Tsv
-        t : pd.Timestamp = data['Tsv'] - self._clock_correction(metadata=metadata, data=data)
+        t: pd.Timestamp = data['Tsv'] - self._clock_correction(
+            metadata=metadata, data=data
+        )
+
+        # Toe in datetime format
+        t_oe = self._gps_week_to_datetime(data['GPSWeek'], data['Toe'])
 
         # Get the time difference from the ephemeris reference epoch
-        t_k = self._week_anamoly((t - self._gps_week_to_datetime(data['GPSWeek'], data['Toe'])).seconds)
+        t_k = self._week_anamoly(
+            time_diff=(t - t_oe).total_seconds()
+        )  # The total seconds is the difference between the two times in seconds. Do not naicely subtract the two times as this will not account for day differences.
 
         # Get the eccentric anomaly
-        Ek = self._eccentric_anomaly( # noqa
+        Ek = self._eccentric_anomaly(  # noqa
             t_k=t_k,
             sqrt_A=data['sqrtA'],
-            deltaN=data['deltaN'],
+            deltaN=data['DeltaN'],
             M_o=data['M0'],
-            e=data['e'],
+            e=data['Eccentricity'],
         )
 
         # Get the true anomaly
-        vk = np.arctan2(
-            y=np.sqrt(1 - data['e']**2) * np.sin(Ek),
-            x=np.cos(Ek) - data['e'],
+        vk = 2 * np.arctan(
+            np.sqrt((1 + data['Eccentricity']) / (1 - data['Eccentricity']))
+            * np.tan(Ek / 2)
         )
-        
+
         # Get the argument of latitude
         phik = vk + data['omega']
-        # TO DO : Complete the implementation of the _compute method
-        pass
+
+        # Get the second harmonic perturbations
+        delta_uk = data['Cus'] * np.sin(2 * phik) + data['Cuc'] * np.cos(
+            2 * phik
+        )  # Argument of latitude correction
+        delta_rk = data['Crs'] * np.sin(2 * phik) + data['Crc'] * np.cos(
+            2 * phik
+        )  # Radius correction
+        delta_ik = data['Cis'] * np.sin(2 * phik) + data['Cic'] * np.cos(
+            2 * phik
+        )  # Inclination correction
+
+        # Corrected argument of latitude
+        uk = phik + delta_uk
+        # Corrected radius
+        rk = (data['sqrtA'] ** 2) * (1 - data['Eccentricity'] * np.cos(Ek)) + delta_rk
+        # Corrected inclination
+        ik = data['Io'] + delta_ik + data['IDOT'] * t_k
+
+        # Position in orbital plane
+        xk_prime = rk * np.cos(uk)
+        yk_prime = rk * np.sin(uk)
+
+        # Corrected longitude of ascending node
+        omega_k = (
+            data['Omega0']
+            + ((data['OmegaDot'] - omega_e) * t_k)
+            - (omega_e * data['Toe'])
+        )
+
+        # Corrected position in orbital plane
+        xk = xk_prime * np.cos(omega_k) - yk_prime * np.cos(ik) * np.sin(omega_k)
+        yk = xk_prime * np.sin(omega_k) + yk_prime * np.cos(ik) * np.cos(omega_k)
+        zk = yk_prime * np.sin(ik)
+
+        return pd.Series(
+            {
+                "x": xk,
+                "y": yk,
+                "z": zk,
+            }
+        )

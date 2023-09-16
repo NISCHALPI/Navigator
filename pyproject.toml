@@ -18,6 +18,8 @@ black = "^23.9.1"
 ruff = "^0.0.288"
 pytest = "^7.4.2"
 ipykernel = "^6.25.2"
+matplotlib = "^3.8.0"
+pyqt5 = "^5.15.9"
 
 [build-system]
 requires = ["poetry-core"]
