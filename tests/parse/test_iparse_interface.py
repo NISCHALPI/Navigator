@@ -3,26 +3,15 @@ from navigator.parse import Parser, IParseGPSNav, IParseGPSObs
 import os
 import pandas as pd
 
+from tests.common_fixtures import navfilepath, obsfilepath
 
-@pytest.fixture
-def navfile():
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, 'rinexsamples/YELL00CAN_R_20231841500_01H_MN.rnx')
-
-
-@pytest.fixture
-def obsfile():
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, 'rinexsamples/YELL00CAN_R_20231841500_01H_30S_MO.crx')
-
-
-def test_gps_observational_interface(obsfile) -> None:
+def test_gps_observational_interface(obsfilepath) -> None:
     # Instantiate the parser
     parser = Parser(
         iparser=IParseGPSObs(),
     )
 
-    metadata, parsed_data = parser(filepath=obsfile)
+    metadata, parsed_data = parser(filepath=obsfilepath)
 
     assert isinstance(metadata, pd.Series)
     assert isinstance(parsed_data, pd.DataFrame)
@@ -33,13 +22,13 @@ def test_gps_observational_interface(obsfile) -> None:
     return
 
 
-def test_gps_navigation_interface(navfile) -> None:
+def test_gps_navigation_interface(navfilepath) -> None:
     # Instantiate the parser
     parser = Parser(
         iparser=IParseGPSNav(),
     )
 
-    metadata, parsed_data = parser(filepath=navfile)
+    metadata, parsed_data = parser(filepath=navfilepath)
 
     assert isinstance(metadata, pd.Series)
     assert isinstance(parsed_data, pd.DataFrame)
