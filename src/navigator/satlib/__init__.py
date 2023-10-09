@@ -1,3 +1,4 @@
 """Top level imports for satlib."""
-from .satellite import Satellite
 from .iephm import IGPSEphemeris
+from .satellite import Satellite
+from .triangulate import GPSIterativeTriangulationInterface, Triangulate

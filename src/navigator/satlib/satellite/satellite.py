@@ -207,10 +207,10 @@ class Satellite(AbstractSatellite):
         Returns:
             np.ndarray: A numpy array representing the calculated satellite trajectory in format [SV, 3 , step].
         """
-        #Convert to timestamp
+        # Convert to timestamp
         if isinstance(t_sv, str):
             t_sv = pd.Timestamp(t_sv)
-        
+
         # TO DO : Currently only works for GPS satellites
         # Check if the interface is GPS
         if not self._iephemeris._feature == 'GPS':

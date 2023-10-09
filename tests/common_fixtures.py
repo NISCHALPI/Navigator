@@ -1,4 +1,4 @@
-import pytest 
+import pytest
 import os
 
 
@@ -10,6 +10,7 @@ __all__ = [
     'nav_data',
     'obs_data',
 ]
+
 
 @pytest.fixture
 def navfilepath():
@@ -23,10 +24,8 @@ def obsfilepath():
     return os.path.join(cwd, 'rinexsamples/YELL00CAN_R_20231841500_01H_30S_MO.crx')
 
 
-
 @pytest.fixture
 def nav_data(navfilepath) -> tuple:
-
     parser = Parser(
         iparser=IParseGPSNav(),
     )
@@ -38,7 +37,6 @@ def nav_data(navfilepath) -> tuple:
 
 @pytest.fixture
 def obs_data(obsfilepath) -> tuple:
-
     parser = Parser(
         iparser=IParseGPSObs(),
     )
@@ -46,4 +44,3 @@ def obs_data(obsfilepath) -> tuple:
     metadata, parsed_data = parser(filepath=obsfilepath)
 
     return metadata, parsed_data
-

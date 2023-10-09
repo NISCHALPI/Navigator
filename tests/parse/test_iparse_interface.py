@@ -5,6 +5,7 @@ import pandas as pd
 
 from tests.common_fixtures import navfilepath, obsfilepath
 
+
 def test_gps_observational_interface(obsfilepath) -> None:
     # Instantiate the parser
     parser = Parser(

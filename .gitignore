@@ -164,3 +164,4 @@ cython_debug/
 
 # Do not ignore .ipynb under docs directory
 !docs/**/*.ipynb
+docs/resources/*

@@ -26,10 +26,10 @@ import typing as tp
 from abc import ABC, abstractmethod
 from logging import Logger
 from pathlib import Path
-from ..dispatch.base_dispatch import AbstractDispatcher
 
 import pandas as pd
 
+from ..dispatch.base_dispatch import AbstractDispatcher
 from .iparse import IParse  # TODO: add IParse
 
 __all__ = ["AbstractParser", "Parser"]
@@ -94,9 +94,7 @@ class AbstractParser(ABC):
 
         """
         # Verify iparser is IParse
-        if not issubclass(iparser.__class__, IParse):
-            raise TypeError(f"iparser must be subclass IParse, not {type(iparser)}")
-        self.iparser = iparser
+        self._iparser = iparser
 
         # Verify logger is Logger
         if logger is not None and not isinstance(logger, Logger):
@@ -185,6 +183,43 @@ class AbstractParser(ABC):
 
         """
         return f"{self.__class__.__name__}(iparser={self.iparser}, logger={self.logger}, dispatcher={self.dispatcher})"
+
+    @property
+    def iparser(self) -> IParse:
+        """Returns the IParse object associated with this BaseParse object.
+
+        Returns:
+        IParse -- The IParse object associated with this BaseParse object.
+        """
+        return self._iparser
+
+    @iparser.setter
+    def iparser(self, iparser: IParse) -> None:
+        """Sets the internal IParse instance to the provided IParse object.
+
+        Args:
+            iparser (IParse): The IParse object to set as the internal IParse instance.
+
+        Raises:
+            TypeError: If the provided iparser object is not a subclass of IParse.
+        """
+        # Verify iparser is IParse
+        if not issubclass(iparser.__class__, IParse):
+            raise TypeError(f"iparser must be subclass IParse, not {type(iparser)}")
+
+        self._iparser = iparser
+
+    def swap(self, iparse: IParse) -> None:
+        """Swaps the internal IParse instance with the provided IParse object.
+
+        Args:
+            iparse (IParse): The IParse object to swap with the internal IParse instance.
+
+
+        Returns:
+            None
+        """
+        self.iparser = iparse
 
 
 class Parser(AbstractParser):

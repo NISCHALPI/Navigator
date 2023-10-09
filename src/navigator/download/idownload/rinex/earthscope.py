@@ -6,6 +6,8 @@ from ..idownload import IDownload
 
 __all__ = ['IEarthScope']
 
+
 class IEarthScope(IDownload):
     """Class to download EarthScope data from UNAVCO."""
+
     pass
