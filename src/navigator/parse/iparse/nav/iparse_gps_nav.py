@@ -34,7 +34,7 @@ import pandas as pd
 
 from ..base_iparse import IParse
 
-__all__ = ['IParseGPSNav']
+__all__ = ["IParseGPSNav"]
 
 
 class IParseGPSNav(IParse):
@@ -46,7 +46,7 @@ class IParseGPSNav(IParse):
         This constructor initializes the IParseGPSNav class and sets the 'features' attribute to 'gps_nav' to indicate
         that it is designed for parsing GPS navigation data.
         """
-        super().__init__(features='gps_nav')
+        super().__init__(features="gps_nav")
 
     def _parse(self, filename: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse GPS navigation data from a RINEX file.
@@ -62,7 +62,7 @@ class IParseGPSNav(IParse):
         """
         # Open the RINEX navigation file using the `georinex` library
         # Returns as a `xarray.Dataset`
-        rinex_data = gr.rinexnav(filename, use='G')
+        rinex_data = gr.rinexnav(filename, use="G")
 
         # Convert the `xarray.Dataset` to a `pandas.DataFrame` and metadata to a `pandas.Series`
         rinex_data = rinex_data.to_dataframe()

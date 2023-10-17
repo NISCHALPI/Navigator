@@ -33,7 +33,7 @@ You should provide more detailed descriptions for the methods, explaining their 
 
 import pandas as pd  # type: ignore
 
-__all__ = ['Epoch']
+__all__ = ["Epoch"]
 
 
 class Epoch:
@@ -79,7 +79,21 @@ class Epoch:
         # Timestamp of the epoch
         self._timestamp = timestamp
         # Observational data of the epoch
-        self._data = data
+        self._data = self.purify(data)
+
+    def purify(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Remove observations with missing data."""
+        # Drop NA rows values for observations ["C1C", "C2C", "C2W" , "C1W"] if present
+        if "C1C" in data.columns:
+            data = data.dropna(subset=["C1C"])
+        if "C2C" in data.columns:
+            data = data.dropna(subset=["C2C"])
+        if "C2W" in data.columns:
+            data = data.dropna(subset=["C2W"])
+        if "C1W" in data.columns:
+            data = data.dropna(subset=["C1W"])
+            
+        return data
 
     @property
     def timestamp(self) -> pd.Timestamp:
@@ -150,8 +164,17 @@ class Epoch:
         """
         return self.data.loc[sv]
 
+    def __len__(self) -> int:
+        """Return the number of satellite vehicles (SVs) in the epoch.
+
+        Returns:
+            int: The number of satellite vehicles (SVs) in the epoch.
+
+        """
+        return len(self.data)
+
     @staticmethod
-    def epochify(obs: pd.DataFrame) -> list['Epoch']:
+    def epochify(obs: pd.DataFrame) -> list["Epoch"]:
         """Convert a pandas DataFrame of observations into a list of 'Epoch' objects.
 
         Parameters:
@@ -168,16 +191,16 @@ class Epoch:
         timestamps.
         """
         # Get the unique timestamps in the DataFrame
-        timestamps = obs.index.get_level_values('time').unique()
+        timestamps = obs.index.get_level_values("time").unique()
 
         # Create a list of Epochs
         epoches = []
 
         for timestamp in timestamps:
             # Get the data for the current timestamp
-            data = obs.xs(key=timestamp, level=1, drop_level=True)
+            data = obs.xs(key=timestamp, level='time', drop_level=True)
 
-            # Create an Epoch and add it to the list
+            # Create an Epoch object and add it to the list
             epoches.append(Epoch(timestamp, data))
 
         return epoches

@@ -30,6 +30,7 @@ Note:
     This module is part of a triangulation library and includes an abstract base class (AbstractTriangulate) for implementing specific triangulation algorithms. Subclasses of AbstractTriangulate must implement the _compute method to provide triangulation functionality.
 """
 
+import webbrowser
 from abc import ABC, abstractmethod
 
 import pandas as pd
@@ -37,8 +38,9 @@ import pandas as pd
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...utility import Epoch
 from .itriangulate.itriangulate import Itriangulate
+import numpy as np
 
-__all__ = ['AbstractTriangulate', 'Triangulate']
+__all__ = ["AbstractTriangulate", "Triangulate"]
 
 
 class AbstractTriangulate(ABC):
@@ -66,7 +68,7 @@ class AbstractTriangulate(ABC):
         self.itriangulate = interface
 
         if dispatcher is not None and not isinstance(dispatcher, AbstractDispatcher):
-            raise TypeError('dispatcher must be an instance of AbstractDispatcher')
+            raise TypeError("dispatcher must be an instance of AbstractDispatcher")
         self.dispatcher = dispatcher
 
     @abstractmethod
@@ -130,7 +132,7 @@ class AbstractTriangulate(ABC):
         Returns:
             str: A string representation of the instance.
         """
-        return f'{self.__class__.__name__}(itraingulate={self.itriangulate}, dispatcher={self.dispatcher})'
+        return f"{self.__class__.__name__}(itraingulate={self.itriangulate}, dispatcher={self.dispatcher})"
 
     @property
     def itriangulate(self) -> Itriangulate:
@@ -152,7 +154,7 @@ class AbstractTriangulate(ABC):
             TypeError: If the provided interface is not an instance of Itriangulate.
         """
         if not isinstance(interface, Itriangulate):
-            raise TypeError('itraingulate must be an instance of Itriangulate')
+            raise TypeError("itraingulate must be an instance of Itriangulate")
 
         self._interface = interface
 
@@ -190,3 +192,51 @@ class Triangulate(AbstractTriangulate):
     ) -> pd.Series | pd.DataFrame:
         """Computes triangulated locations using a specific algorithm."""
         return super()._compute(obs, obs_metadata, nav, nav_metadata, *args, **kwargs)
+
+    @staticmethod
+    def google_earth_view(lat: float, lon: float) -> None:
+        """Open Google Earth in a web browser centered at the specified coordinates.
+
+        Args:
+            lat (float): The latitude of the location.
+            lon (float): The longitude of the location.
+
+        Returns:
+            None
+        """
+        try:
+            # Construct the Google Earth URL with the specified coordinates
+            url = f"https://earth.google.com/web/search/{lat},{lon}"
+
+            # Open the URL in the default web browser
+            webbrowser.open(url)
+
+            print("Google Earth opened successfully.")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+
+        return
+
+    @staticmethod
+    def google_maps_view(lat: float, lon: float) -> None:
+        """Open Google Maps in a web browser centered at the specified coordinates.
+
+        Args:
+            lat (float): The latitude of the location.
+            lon (float): The longitude of the location.
+
+        Returns:
+            None
+        """
+        try:
+            # Construct the Google Maps URL with the specified coordinates
+            url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
+
+            # Open the URL in the default web browser
+            webbrowser.open(url)
+
+            print("Google Maps opened successfully.")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+
+        return

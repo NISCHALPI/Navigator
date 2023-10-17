@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any
 
-__all__ = ['Download']
+__all__ = ["Download"]
 
 from ..dispatch.base_dispatch import AbstractDispatcher
 from .idownload import IDownload
@@ -66,7 +66,7 @@ class AbstractDownload(ABC):
             dispatcher.__class__, AbstractDispatcher
         ):
             raise TypeError(
-                f'dispatcher must be subclass AbstractDispatcher, not {type(dispatcher)}'
+                f"dispatcher must be subclass AbstractDispatcher, not {type(dispatcher)}"
             )
         self.dispatcher = dispatcher
 
@@ -82,7 +82,7 @@ class AbstractDownload(ABC):
         """
         # Execute the download method of the idownload object
 
-        kwargs['save_path'] = self.save_path
+        kwargs["save_path"] = self.save_path
         return self.idownload(*args, **kwargs)
 
     def __call__(self, *args, **kwds) -> Any:  # noqa

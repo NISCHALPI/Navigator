@@ -106,7 +106,7 @@ class AbstractParser(ABC):
             dispatcher.__class__, AbstractDispatcher
         ):
             raise TypeError(
-                f'dispatcher must be subclass AbstractDispatcher, not {type(dispatcher)}'
+                f"dispatcher must be subclass AbstractDispatcher, not {type(dispatcher)}"
             )
         self.dispatcher = dispatcher
 
@@ -209,17 +209,17 @@ class AbstractParser(ABC):
 
         self._iparser = iparser
 
-    def swap(self, iparse: IParse) -> None:
+    def swap(self, iparser: IParse) -> None:
         """Swaps the internal IParse instance with the provided IParse object.
 
         Args:
-            iparse (IParse): The IParse object to swap with the internal IParse instance.
+            iparser (IParse): The IParse object to swap with the internal IParse instance.
 
 
         Returns:
             None
         """
-        self.iparser = iparse
+        self.iparser = iparser
 
 
 class Parser(AbstractParser):

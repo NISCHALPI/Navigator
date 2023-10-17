@@ -4,7 +4,7 @@
 # TO DO: Add API to download data from UNAVCO
 from ..idownload import IDownload
 
-__all__ = ['IEarthScope']
+__all__ = ["IEarthScope"]
 
 
 class IEarthScope(IDownload):

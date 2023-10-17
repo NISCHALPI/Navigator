@@ -11,6 +11,8 @@ python =  ">=3.10,<3.13"
 georinex = "^1.16.1"
 scipy = "^1.11.2"
 numpy = "^1.25.2"
+pyproj = "^3.6.1"
+seaborn = "^0.13.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -19,7 +21,9 @@ ruff = "^0.0.288"
 pytest = "^7.4.2"
 ipykernel = "^6.25.2"
 matplotlib = "^3.8.0"
-pyqt5 = "^5.15.9"
+lxml = "^4.9.3"
+html5lib = "^1.1"
+beautifulsoup4 = "^4.12.2"
 
 [build-system]
 requires = ["poetry-core"]

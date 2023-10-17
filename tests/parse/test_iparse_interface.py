@@ -16,9 +16,9 @@ def test_gps_observational_interface(obsfilepath) -> None:
 
     assert isinstance(metadata, pd.Series)
     assert isinstance(parsed_data, pd.DataFrame)
-    assert 'C1C' in parsed_data.columns
-    assert 'L1C' in parsed_data.columns
-    assert metadata['rinextype'] == 'obs'
+    assert "C1C" in parsed_data.columns
+    assert "L1C" in parsed_data.columns
+    assert metadata["rinextype"] == "obs"
 
     return
 
@@ -33,8 +33,8 @@ def test_gps_navigation_interface(navfilepath) -> None:
 
     assert isinstance(metadata, pd.Series)
     assert isinstance(parsed_data, pd.DataFrame)
-    assert 'SVclockBias' in parsed_data.columns
-    assert 'SVclockDrift' in parsed_data.columns
-    assert metadata['rinextype'] == 'nav'
+    assert "SVclockBias" in parsed_data.columns
+    assert "SVclockDrift" in parsed_data.columns
+    assert metadata["rinextype"] == "nav"
 
     return

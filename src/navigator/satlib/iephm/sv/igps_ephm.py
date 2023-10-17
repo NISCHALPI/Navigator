@@ -60,7 +60,7 @@ __all__ = ["IGPSEphemeris"]
 
 # Constants
 F = -4.442807633e-10  # Constant for computing relativistic clock correction
-gps_start_time = pd.Timestamp('1980-01-06 00:00:00')  # GPS start time
+gps_start_time = pd.Timestamp("1980-01-06 00:00:00")  # GPS start time
 gps_week_seconds = 604800  # Number of seconds in a GPS week
 GM = 3.986005e14  # Earth's universal gravitational parameter
 omega_e = 7.2921151467e-5  # Earth's rotation rate
@@ -142,7 +142,7 @@ class IGPSEphemeris(AbstractIephemeris):
         # Iteratively solve for eccentric anomaly
         while True:
             E_k2 = E_k1 + (M_k - E_k1 + e * np.sin(E_k1)) / (1 - e * np.cos(E_k1))
-            if abs(E_k2 - E_k1) < 1e-12:
+            if abs(E_k2 - E_k1) < 1e-10:
                 break
             E_k1 = E_k2
 
@@ -163,37 +163,37 @@ class IGPSEphemeris(AbstractIephemeris):
             pd.Series: _description_
         """
         # Sv clock correction rates
-        a_f0 = data['SVclockBias']
-        a_f1 = data['SVclockDrift']
-        a_f2 = data['SVclockDriftRate']
+        a_f0 = data["SVclockBias"]
+        a_f1 = data["SVclockDrift"]
+        a_f2 = data["SVclockDriftRate"]
 
         # Time from ephemeris reference epoch
-        t_oc: pd.Timestamp = data['Toc']
+        t_oc: pd.Timestamp = data["Toc"]
 
         # SV time
-        t_sv: pd.Timestamp = data['Tsv']
+        t_sv: pd.Timestamp = data["Tsv"]
 
         # Toe
-        t_oe = self._gps_week_to_datetime(data['GPSWeek'], data['Toe'])
+        t_oe = self._gps_week_to_datetime(data["GPSWeek"], data["Toe"])
 
         # Compute Ek usinge pre-corrected time
         Ek = self._eccentric_anomaly(
             t_k=self._week_anamoly(time_diff=(t_sv - t_oe).total_seconds()),
-            sqrt_A=data['sqrtA'],
-            deltaN=data['DeltaN'],
-            M_o=data['M0'],
-            e=data['Eccentricity'],
+            sqrt_A=data["sqrtA"],
+            deltaN=data["DeltaN"],
+            M_o=data["M0"],
+            e=data["Eccentricity"],
         )
 
         # Get Relativitic clock correction
         t_r = self._relativistic_clock_correction(
-            sqrt_A=data['sqrtA'],
+            sqrt_A=data["sqrtA"],
             Ek=Ek,
-            e=data['Eccentricity'],
+            e=data["Eccentricity"],
         )
 
         # Group delay differential
-        t_gd = data['TGD']
+        t_gd = data["TGD"]
 
         # Compute clock correction
         delta_t = self._week_anamoly(
@@ -201,7 +201,7 @@ class IGPSEphemeris(AbstractIephemeris):
         )
 
         # Compute clock correction
-        clock_corr = a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 - t_gd + t_r
+        clock_corr = a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 + t_r - t_gd
 
         # Compute clock correction
         return pd.Timedelta(seconds=clock_corr)
@@ -217,12 +217,12 @@ class IGPSEphemeris(AbstractIephemeris):
             pd.Series: Return a Series containing the calculated position information [x, y , z] in WGS84-ECFC coordinates.
         """
         # Get clock correction for the satellite time i.e. Tsv
-        t: pd.Timestamp = data['Tsv'] - self._clock_correction(
-            metadata=metadata, data=data
-        )
+        dt = self._clock_correction(metadata=metadata, data=data)
+        # Get clock correction for the satellite time i.e. Tsv
+        t: pd.Timestamp = data["Tsv"] - dt
 
         # Toe in datetime format
-        t_oe = self._gps_week_to_datetime(data['GPSWeek'], data['Toe'])
+        t_oe = self._gps_week_to_datetime(data["GPSWeek"], data["Toe"])
 
         # Get the time difference from the ephemeris reference epoch
         t_k = self._week_anamoly(
@@ -232,38 +232,38 @@ class IGPSEphemeris(AbstractIephemeris):
         # Get the eccentric anomaly
         Ek = self._eccentric_anomaly(  # noqa
             t_k=t_k,
-            sqrt_A=data['sqrtA'],
-            deltaN=data['DeltaN'],
-            M_o=data['M0'],
-            e=data['Eccentricity'],
+            sqrt_A=data["sqrtA"],
+            deltaN=data["DeltaN"],
+            M_o=data["M0"],
+            e=data["Eccentricity"],
         )
 
         # Get the true anomaly
         vk = 2 * np.arctan(
-            np.sqrt((1 + data['Eccentricity']) / (1 - data['Eccentricity']))
+            np.sqrt((1 + data["Eccentricity"]) / (1 - data["Eccentricity"]))
             * np.tan(Ek / 2)
         )
 
         # Get the argument of latitude
-        phik = vk + data['omega']
+        phik = vk + data["omega"]
 
         # Get the second harmonic perturbations
-        delta_uk = data['Cus'] * np.sin(2 * phik) + data['Cuc'] * np.cos(
+        delta_uk = data["Cus"] * np.sin(2 * phik) + data["Cuc"] * np.cos(
             2 * phik
         )  # Argument of latitude correction
-        delta_rk = data['Crs'] * np.sin(2 * phik) + data['Crc'] * np.cos(
+        delta_rk = data["Crs"] * np.sin(2 * phik) + data["Crc"] * np.cos(
             2 * phik
         )  # Radius correction
-        delta_ik = data['Cis'] * np.sin(2 * phik) + data['Cic'] * np.cos(
+        delta_ik = data["Cis"] * np.sin(2 * phik) + data["Cic"] * np.cos(
             2 * phik
         )  # Inclination correction
 
         # Corrected argument of latitude
         uk = phik + delta_uk
         # Corrected radius
-        rk = (data['sqrtA'] ** 2) * (1 - data['Eccentricity'] * np.cos(Ek)) + delta_rk
+        rk = (data["sqrtA"] ** 2) * (1 - data["Eccentricity"] * np.cos(Ek)) + delta_rk
         # Corrected inclination
-        ik = data['Io'] + delta_ik + data['IDOT'] * t_k
+        ik = data["Io"] + delta_ik + data["IDOT"] * t_k
 
         # Position in orbital plane
         xk_prime = rk * np.cos(uk)
@@ -271,9 +271,9 @@ class IGPSEphemeris(AbstractIephemeris):
 
         # Corrected longitude of ascending node
         omega_k = (
-            data['Omega0']
-            + ((data['OmegaDot'] - omega_e) * t_k)
-            - (omega_e * data['Toe'])
+            data["Omega0"]
+            + ((data["OmegaDot"] - omega_e) * t_k)
+            - (omega_e * data["Toe"])
         )
 
         # Corrected position in orbital plane
@@ -286,5 +286,6 @@ class IGPSEphemeris(AbstractIephemeris):
                 "x": xk,
                 "y": yk,
                 "z": zk,
+                "dt": dt.total_seconds(),
             }
         )

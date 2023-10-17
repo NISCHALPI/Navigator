@@ -5,23 +5,23 @@ import os
 from navigator.parse import Parser, IParseGPSNav, IParseGPSObs
 
 __all__ = [
-    'navfilepath',
-    'obsfilepath',
-    'nav_data',
-    'obs_data',
+    "navfilepath",
+    "obsfilepath",
+    "nav_data",
+    "obs_data",
 ]
 
 
 @pytest.fixture
 def navfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, 'rinexsamples/YELL00CAN_R_20231841500_01H_MN.rnx')
+    return os.path.join(cwd, "rinexsamples/YELL00CAN_R_20231841500_01H_MN.rnx")
 
 
 @pytest.fixture
 def obsfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, 'rinexsamples/YELL00CAN_R_20231841500_01H_30S_MO.crx')
+    return os.path.join(cwd, "rinexsamples/YELL00CAN_R_20231841500_01H_30S_MO.crx")
 
 
 @pytest.fixture

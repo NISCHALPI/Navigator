@@ -28,7 +28,7 @@ import pandas as pd
 
 from ....utility import Epoch
 
-__all__ = ['Itriangulate']
+__all__ = ["Itriangulate"]
 
 
 class Itriangulate(ABC):
@@ -116,4 +116,4 @@ class Itriangulate(ABC):
         Summary:
             This method returns a string that represents the instance of the `Itriangulate` class, including its feature name.
         """
-        return f'{self.__class__.__name__}({self.feature})'
+        return f"{self.__class__.__name__}({self.feature})"

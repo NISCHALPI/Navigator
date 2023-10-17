@@ -35,7 +35,7 @@ import pandas as pd
 
 from ..base_iparse import IParse
 
-__all__ = ['IParseGPSObs']
+__all__ = ["IParseGPSObs"]
 
 
 class IParseGPSObs(IParse):
@@ -43,7 +43,7 @@ class IParseGPSObs(IParse):
 
     def __init__(self) -> None:
         """Initialize the class."""
-        super().__init__(features='gps_obs')
+        super().__init__(features="gps_obs")
 
     def _parse(self, filename: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse GPS observational data from a RINEX file.
@@ -59,7 +59,7 @@ class IParseGPSObs(IParse):
         """
         # Open the RINEX navigation file using the `georinex` library
         # Returns as a `xarray.Dataset`
-        rinex_data = gr.rinexobs3(fn=filename, use='G')
+        rinex_data = gr.rinexobs3(fn=filename, use="G")
 
         # Convert the `xarray.Dataset` to a `pandas.DataFrame` and metadata to a `pandas.Series`
         rinex_data = rinex_data.to_dataframe()

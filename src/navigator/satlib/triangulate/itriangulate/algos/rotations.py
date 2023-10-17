@@ -65,9 +65,6 @@ def earth_rotation_correction(
         sv_position.shape[0],
     ), "Input must be a (num_sv) numpy array"
 
-    # Compute the rotation angle
-    OMEGA_EARTH * delta_t
-
     # Apply the rotation matrix to each satellite position
     for sv in range(sv_position.shape[0]):
         earth_rotation = _rotation_matrix(OMEGA_EARTH * delta_t[sv])
