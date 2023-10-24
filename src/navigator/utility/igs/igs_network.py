@@ -13,7 +13,7 @@ import os
 import numpy as np
 import pandas as pd
 
-__all__ = ['IGSNetwork']
+__all__ = ["IGSNetwork"]
 
 
 class IGSNetwork:
@@ -39,7 +39,7 @@ class IGSNetwork:
 
     """
 
-    _igs_file_path = os.path.join(os.path.dirname(__file__), 'IGSNetwork.csv')
+    _igs_file_path = os.path.join(os.path.dirname(__file__), "IGSNetwork.csv")
 
     def __init__(self) -> None:
         """Constructor method for initializing the IGSNetwork object and loading the network data from a CSV file."""
@@ -52,18 +52,18 @@ class IGSNetwork:
         """Retrieve the XYZ coordinates of a specific station in the IGS network."""
         # Check if the station is in the IGS network
         if station not in self._igs_network.index:
-            raise ValueError(f'The station {station} is not in the IGS network.')
+            raise ValueError(f"The station {station} is not in the IGS network.")
 
-        return self._igs_network.loc[station, ['X', 'Y', 'Z']].values
+        return self._igs_network.loc[station, ["X", "Y", "Z"]].values
 
     def get_ellipsoid(self, station: str) -> str:
         """Retrieve the ellipsoid details (Latitude, Longitude, Height) for a specific station."""
         # Check if the station is in the IGS network
         if station not in self._igs_network.index:
-            raise ValueError(f'The station {station} is not in the IGS network.')
+            raise ValueError(f"The station {station} is not in the IGS network.")
 
         return self._igs_network.loc[
-            station, ['Latitude', 'Longitude', 'Height']
+            station, ["Latitude", "Longitude", "Height"]
         ].values
 
     def get_igs_station(self, station: str) -> pd.Series:

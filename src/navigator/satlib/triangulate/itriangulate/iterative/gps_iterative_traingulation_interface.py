@@ -315,8 +315,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         # Extract the
         Range, Coords = (
-            stats['Pseudorange'].to_numpy().reshape(-1, 1),
-            stats[['x', 'y', 'z']].to_numpy(),
+            stats["Pseudorange"].to_numpy().reshape(-1, 1),
+            stats[["x", "y", "z"]].to_numpy(),
         )
 
         # Send to the least squares solver to compute the solution and DOPs
@@ -335,8 +335,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
                 "lat": lat,
                 "lon": lon,
                 "height": height,
-                "GDOP": dops['GDOP'],
-                "PDOP": dops['PDOP'],
-                "TDOP": dops['TDOP'],
+                "GDOP": dops["GDOP"],
+                "PDOP": dops["PDOP"],
+                "TDOP": dops["TDOP"],
             }
         )

@@ -17,8 +17,8 @@ def geocentric_to_ellipsoidal(x: float, y: float, z: float) -> tuple:
     """
     # Create a transformer for the conversion
     transformer = pyproj.Transformer.from_crs(
-        {"proj": 'geocent', "ellps": 'WGS84', "datum": 'WGS84'},
-        {"proj": 'latlong', "ellps": 'WGS84', "datum": 'WGS84'},
+        {"proj": "geocent", "ellps": "WGS84", "datum": "WGS84"},
+        {"proj": "latlong", "ellps": "WGS84", "datum": "WGS84"},
     )
 
     # Perform the transformation
@@ -41,8 +41,8 @@ def ellipsoidal_to_geocentric(lat: float, lon: float, height: float) -> tuple:
     """
     # Create a transformer for the conversion
     transformer = pyproj.Transformer.from_crs(
-        {"proj": 'latlong', "ellps": 'WGS84', "datum": 'WGS84'},
-        {"proj": 'geocent', "ellps": 'WGS84', "datum": 'WGS84'},
+        {"proj": "latlong", "ellps": "WGS84", "datum": "WGS84"},
+        {"proj": "geocent", "ellps": "WGS84", "datum": "WGS84"},
     )
 
     # Perform the transformation

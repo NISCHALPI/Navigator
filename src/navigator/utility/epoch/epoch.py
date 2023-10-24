@@ -92,7 +92,7 @@ class Epoch:
             data = data.dropna(subset=["C2W"])
         if "C1W" in data.columns:
             data = data.dropna(subset=["C1W"])
-            
+
         return data
 
     @property
@@ -198,7 +198,7 @@ class Epoch:
 
         for timestamp in timestamps:
             # Get the data for the current timestamp
-            data = obs.xs(key=timestamp, level='time', drop_level=True)
+            data = obs.xs(key=timestamp, level="time", drop_level=True)
 
             # Create an Epoch object and add it to the list
             epoches.append(Epoch(timestamp, data))
