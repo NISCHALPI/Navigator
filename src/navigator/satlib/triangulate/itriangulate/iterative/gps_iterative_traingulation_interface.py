@@ -161,11 +161,12 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         return intersected_obs, ephm
 
-    def _ionospehric_correction(self, obs: Epoch) -> Epoch:
+    def _ionospehric_correction(self, obs: Epoch, no_warn :bool = True) -> Epoch:
         """Compute the Ionospheric correction for GPS observations.
 
         Args:
             obs (Epoch): GPS observations.
+            no_warn (bool, optional): If True, then no warning is raised. Defaults to True.
 
         Returns:
             Epoch: GPS observations with ionospheric correction.
@@ -178,16 +179,18 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             )
         # If C1W and C2W are both present, then compute the ionospheric correction wrt C1W and C2W
         elif "C1W" in obs.data.columns and "C2W" in obs.data.columns:
-            warn(
-                message="C1W and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
-            )
+            if not no_warn:
+                warn(
+                    message="C1W and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
+                )
             corrected_obs["Pseudorange"] = dual_channel_correction(
                 obs.data["C1W"], obs.data["C2W"]
             )
         elif "C1C" in obs.data.columns and "C2W" in obs.data.columns:
-            warn(
-                message="C1C and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
-            )
+            if not no_warn:
+                warn(
+                    message="C1C and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
+                )
             corrected_obs["Pseudorange"] = dual_channel_correction(
                 obs.data["C1C"], obs.data["C2W"]
             )

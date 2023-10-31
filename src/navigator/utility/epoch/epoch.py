@@ -31,6 +31,9 @@ You should provide more detailed descriptions for the methods, explaining their 
 
 """
 
+import pickle
+from pathlib import Path  # type: ignore
+
 import pandas as pd  # type: ignore
 
 __all__ = ["Epoch"]
@@ -204,3 +207,41 @@ class Epoch:
             epoches.append(Epoch(timestamp, data))
 
         return epoches
+    
+    def save(self, path: str | Path) -> None:
+        """Save the epoch to a file.
+
+        Args:
+            path (str): The path to save the epoch to.
+
+        Returns:
+            None
+
+        """
+        # Pickle the epoch object
+        with open(path, "wb") as file:
+            pickle.dump(self, file)
+        
+        return
+        
+    @staticmethod
+    def load(path: str | Path) -> "Epoch":
+        """Load an epoch from a file.
+
+        Args:
+            path (str): The path to load the epoch from.
+
+        Returns:
+            Epoch: The epoch loaded from the file.
+
+        """
+        # Unpickle the epoch object
+        with open(path, "rb") as file:
+            epoch = pickle.load(file)
+        
+        # Check if the loaded object is an Epoch
+        if not isinstance(epoch, Epoch):
+            raise TypeError(f"Loaded object is not an Epoch. Got {type(epoch)} instead.")
+        
+        return epoch
+        
