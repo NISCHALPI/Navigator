@@ -100,67 +100,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             None
         """
         super().__init__(feature="GPS(Iterative)")
-
-    def _choose_nav_message_for_interpolation(
-        self,
-        obs: Epoch,
-        nav: pd.DataFrame,
-        ephemeris: str = "maxsv",
-    ) -> tuple[Epoch, pd.DataFrame]:
-        """Choose the best navigation message based on the specified method.
-
-        Args:
-            obs (Epoch): GPS observations.
-            nav (pd.DataFrame): Navigation data.
-            ephemeris (str, optional): Method to choose the best navigation message. Defaults to 'maxsv'.
-
-        Returns:
-            tuple[Epoch,  pd.DataFrame]: The chosen navigation message and the observations with the intersected ephemeris.
-        """
-        # Get the epoch time
-        epoch_time = obs.timestamp
-        navtimes = nav.index.get_level_values("time").unique()
-
-        # If the max time difference is greater that 4hours between epoch time and nav time,
-        # then raise an error since ephemeris is not valid for that time
-        if all(abs(navtimes - epoch_time) > pd.Timedelta("4h")):
-            raise ValueError(
-                f"No valid ephemeris for {epoch_time}. All ephemeris are more than 4 hours away from the epoch time."
-            )
-
-        if ephemeris.lower() == "nearest":
-            # Get the nearest timestamp from epoch_time
-            nearest_time = min(navtimes, key=lambda x: abs(x - epoch_time))
-            ephm = nav.loc[[nearest_time]]
-
-        elif ephemeris.lower() == "maxsv":
-            # Get the timestamp with maximum number of sv
-            maxsv_time = max(navtimes, key=lambda x: nav.loc[x].shape[0])
-            ephm = nav.loc[[maxsv_time]]
-
-        else:
-            raise ValueError(
-                'Invalid ephemeris method. Method must be "nearest" or "maxsv".'
-            )
-
-        # Intersect the ephemeris with the observations
-        intersection = obs.data.index.intersection(ephm.index.get_level_values("sv"))
-        ephm = ephm.loc[(slice(None), intersection), :]
-
-        # Create a new obs epoch with the intersected ephemeris
-        intersected_obs = Epoch(
-            timestamp=obs.timestamp,
-            data=obs.data.loc[intersection, :],
-        )
-
-        # If the intersection is empty, then raise an error
-        if ephm.empty:
-            raise ValueError(
-                "Use maxsv ephemeris mode. No common sv between observations and nav ephemeris data."
-            )
-
-        return intersected_obs, ephm
-
+    
     def _ionospehric_correction(self, obs: Epoch, no_warn :bool = True) -> Epoch:
         """Compute the Ionospheric correction for GPS observations.
 
@@ -171,28 +111,28 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         Returns:
             Epoch: GPS observations with ionospheric correction.
         """
-        corrected_obs = obs.data.copy()
+        corrected_obs = obs.obs_data.copy()
         # If C1C and C2C are both present, then compute the ionospheric correction wrt C1C and C2C
-        if "C1C" in obs.data.columns and "C2C" in obs.data.columns:
+        if "C1C" in obs.obs_data.columns and "C2C" in obs.obs_data.columns:
             corrected_obs["Pseudorange"] = dual_channel_correction(
-                obs.data["C1C"], obs.data["C2C"]
+                obs.obs_data["C1C"], obs.obs_data["C2C"]
             )
         # If C1W and C2W are both present, then compute the ionospheric correction wrt C1W and C2W
-        elif "C1W" in obs.data.columns and "C2W" in obs.data.columns:
+        elif "C1W" in obs.obs_data.columns and "C2W" in obs.obs_data.columns:
             if not no_warn:
                 warn(
                     message="C1W and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
                 )
             corrected_obs["Pseudorange"] = dual_channel_correction(
-                obs.data["C1W"], obs.data["C2W"]
+                obs.obs_data["C1W"], obs.obs_data["C2W"]
             )
-        elif "C1C" in obs.data.columns and "C2W" in obs.data.columns:
+        elif "C1C" in obs.obs_data.columns and "C2W" in obs.obs_data.columns:
             if not no_warn:
                 warn(
                     message="C1C and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
                 )
             corrected_obs["Pseudorange"] = dual_channel_correction(
-                obs.data["C1C"], obs.data["C2W"]
+                obs.obs_data["C1C"], obs.obs_data["C2W"]
             )
 
         else:
@@ -201,7 +141,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             )
 
         # Replace the Pseudorange column in obs.data with the corrected Pseudorange
-        obs._data = corrected_obs
+        obs._obs_data = corrected_obs
 
         return obs
 
@@ -217,11 +157,11 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             Epoch: Computed satellite coordinates at the emission epoch.
         """
         # Compute the emission epoch
-        obs.data["dt"] = obs.data["Pseudorange"] / 299792458
+        obs.obs_data["dt"] = obs.obs_data["Pseudorange"] / 299792458
 
         # Compute the emission epoch
-        obs.data["EmissionEpoch"] = obs.timestamp - pd.to_timedelta(
-            obs.data["dt"], unit="s"
+        obs.obs_data["EmissionEpoch"] = obs.timestamp - pd.to_timedelta(
+            obs.obs_data["dt"], unit="s"
         )
 
         return obs
@@ -251,12 +191,12 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         # t_sv must have same indexed dataframes as nav. Compatibility check!!
         t_sv = (
-            obs.data["EmissionEpoch"]
+            obs.obs_data["EmissionEpoch"]
             .to_frame()
             .join(nav)[["EmissionEpoch"]]
             .rename({"EmissionEpoch": "Tsv"}, axis=1)
         )
-
+        
         # Compute the satellite coordinate at the emission epoch
         return satellite(t_sv=t_sv, metadata=nav_metadata, data=nav).droplevel("time")
 
@@ -264,28 +204,24 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         self,
         obs: Epoch,
         obs_metadata: pd.Series,  # noqa: ARG002
-        nav: pd.DataFrame,
         nav_metadata: pd.Series,
-        **kwargs,
+        **kwargs, # noqa: ARG002
     ) -> pd.Series | pd.DataFrame:
         """Compute the iterative triangulation using GPS observations and navigation data.
 
         Args:
-            obs (Epoch): GPS observations epoch.
-            obs_metadata (pd.Series): Metadata for GPS observations.
-            nav (pd.DataFrame): Navigation data.
-            nav_metadata (pd.Series): Metadata for navigation data.
-            **kwargs: Arbitrary keyword arguments (ephemeris = "nearest" | "maxsv").
+            obs (Epoch): Epoch containing observation data and navigation data.
+            obs_metadata (pd.Series): Metadata for the observation data.
+            nav_metadata (pd.Series): Metadata for the navigation data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
 
         Returns:
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """
-        # Get timestamps from the navigation file that are common with the observations
-        obs, nav = self._choose_nav_message_for_interpolation(
-            obs,
-            nav,
-            ephemeris="maxsv" if "ephemeris" not in kwargs else kwargs["ephemeris"],
-        )
+        # Use Epoch to get the navigation message for the observation epoch. Held at "Epoch.nav_data" attribute
+        obs, nav = obs , obs.nav_data 
 
         # Compute the ionospheric free combination
         obs = self._ionospehric_correction(obs)
@@ -299,12 +235,12 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         # Since the coordinates are computed at the emission epoch, the delta_t is the time
         # difference between the emission epoch and the current time
         coords[["x", "y", "z"]] = earth_rotation_correction(
-            coords[["x", "y", "z"]].to_numpy(), obs.data["dt"].to_numpy().ravel()
+            coords[["x", "y", "z"]].to_numpy(), obs.obs_data["dt"].to_numpy().ravel()
         )
 
         # Attach the relevant statistics to a new frame that contains
         # pseudorange and sv coordinates
-        stats = obs.data[["Pseudorange"]].join(coords)
+        stats = obs.obs_data[["Pseudorange"]].join(coords)
 
         # Correct the pseudorange for the satellite clock offset.
         # This crossponds to the satellite clock correction. P(j) + c * dt(j)

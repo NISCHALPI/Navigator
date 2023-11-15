@@ -38,7 +38,6 @@ import pandas as pd
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...utility import Epoch
 from .itriangulate.itriangulate import Itriangulate
-import numpy as np
 
 __all__ = ["AbstractTriangulate", "Triangulate"]
 
@@ -76,55 +75,49 @@ class AbstractTriangulate(ABC):
         self,
         obs: Epoch,
         obs_metadata: pd.Series,
-        nav: pd.DataFrame,
         nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
-        """Abstract method to compute triangulated locations.
-
-        Subclasses must implement this method to perform the actual triangulation computation.
+        """Abstract method for computing triangulated locations.
 
         Args:
-            obs (pd.DataFrame): DataFrame containing observation data.
+            obs (Epoch): Epoch containing observation data and navigation data.
             obs_metadata (pd.Series): Metadata for the observation data.
-            nav (pd.DataFrame): DataFrame containing navigation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
+        
 
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
         """
         return self.itriangulate._compute(
-            obs, obs_metadata, nav, nav_metadata, *args, **kwargs
+            obs, obs_metadata, nav_metadata, *args, **kwargs
         )
 
     def __call__(
         self,
         obs: Epoch,
         obs_metadata: pd.Series,
-        nav: pd.DataFrame,
         nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
-        """Callable method to perform triangulation.
-
-        This method delegates the triangulation computation to the _compute method.
+        """Abstract method for computing triangulated locations.
 
         Args:
-            obs (pd.DataFrame): DataFrame containing observation data.
+            obs (Epoch): Epoch containing observation data and navigation data.
             obs_metadata (pd.Series): Metadata for the observation data.
-            nav (pd.DataFrame): DataFrame containing navigation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
+        
 
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
         """
-        return self._compute(obs, obs_metadata, nav, nav_metadata, *args, **kwargs)
+        return self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
 
     def __repr__(self) -> str:
         """Return a string representation of the AbstractTraingulate instance.
@@ -185,13 +178,12 @@ class Triangulate(AbstractTriangulate):
         self,
         obs: Epoch,
         obs_metadata: pd.Series,
-        nav: pd.DataFrame,
         nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
         """Computes triangulated locations using a specific algorithm."""
-        return super()._compute(obs, obs_metadata, nav, nav_metadata, *args, **kwargs)
+        return super()._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
 
     @staticmethod
     def google_earth_view(lat: float, lon: float) -> None:

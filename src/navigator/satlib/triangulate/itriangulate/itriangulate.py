@@ -53,26 +53,23 @@ class Itriangulate(ABC):
         self,
         obs: Epoch,
         obs_metadata: pd.Series,
-        nav: pd.DataFrame,
         nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
-        """Abstract method to compute the triangulated location.
-
-        This method should be implemented by subclasses to perform the actual triangulation computation.
+        """Abstract method for computing triangulated locations.
 
         Args:
-            obs (Epoch): A DataFrame containing observation data.
+            obs (Epoch): Epoch containing observation data and navigation data.
             obs_metadata (pd.Series): Metadata for the observation data.
-            nav (pd.DataFrame): A DataFrame containing navigation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
+        
 
         Returns:
-            pd.Series or pd.DataFrame: The computed triangulated location.
-
+            pd.Series | pd.DataFrame: The computed triangulated location.
+        
         Summary:
             This is an abstract method that must be implemented by subclasses. It performs the triangulation calculation using observation and navigation data.
         """
@@ -82,31 +79,29 @@ class Itriangulate(ABC):
         self,
         obs: Epoch,
         obs_metadata: pd.Series,
-        nav: pd.DataFrame,
         nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
         """Callable method to perform triangulation.
 
-        This method delegates the triangulation computation to the `_compute` method.
-
         Args:
-            obs (pd.DataFrame): A DataFrame containing observation data.
+            obs (Epoch): Epoch containing observation data and navigation data.
             obs_metadata (pd.Series): Metadata for the observation data.
-            nav (pd.DataFrame): A DataFrame containing navigation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
+        
 
         Returns:
-            pd.Series or pd.DataFrame: The computed triangulated location.
+            pd.Series | pd.DataFrame: The computed triangulated location.
+        
 
         Summary:
             This method allows the instance of the `Itriangulate` class to be called like a function, and it delegates the triangulation calculation to the `_compute` method.
         """
-        return self._compute(obs, obs_metadata, nav, nav_metadata * args, **kwargs)
-
+        return self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
+    
     def __repr__(self) -> str:
         """Returns a string representation of the triangulation algorithm instance.
 

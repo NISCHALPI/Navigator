@@ -14,6 +14,7 @@ import re
 import shutil
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from typing import Iterator
 
 import pandas as pd
 
@@ -24,7 +25,7 @@ from ..igs.igs_network import IGSNetwork
 from .directory import AbstractDirectory
 from .igs_daily_data_directory import IgsDailyDataDirectory
 
-__all__ = ["DailyEpochDirectory"]
+__all__ = ["DailyEpochDirectory" , "ProcessedEpochDirectory"]
 
 
 
@@ -156,7 +157,6 @@ class DailyEpochDirectory(AbstractDirectory):
             if self._nav_regex.match(files.name):
                 nav_file = files
                 break
-            
         
         
         # If there is no obs file or nav file, remove the directory
@@ -188,19 +188,17 @@ class DailyEpochDirectory(AbstractDirectory):
             return
     
         # Epochify the obs file
-        epoches = Epoch.epochify(obs_data)
-        
+        epoches = Epoch.epochify(obs=obs_data, nav=nav_data, mode='maxsv')
             
         # Process each epoch
         for epoch in epoches:
             self._process_epoch(
                 epoch=epoch,
                 obs_metadata=metadata,
-                nav_file=nav_data,
                 nav_metadata=nav_metadata,
                 save_dir=date_dir
             )
-            
+
         # Remove the obs file
         obs_file.unlink()
         # Remove the nav file
@@ -208,13 +206,12 @@ class DailyEpochDirectory(AbstractDirectory):
         
         return
     
-    def _process_epoch(self, epoch : Epoch, obs_metadata : pd.Series, nav_file : pd.DataFrame , nav_metadata : pd.Series, save_dir: Path) -> None:
+    def _process_epoch(self, epoch : Epoch, obs_metadata : pd.Series, nav_metadata : pd.Series, save_dir: Path) -> None:
             """Process a single epoch of data by triangulating the observations and saving the resulting position.
 
             Args:
                 epoch (Epoch): The epoch of data to process.
                 obs_metadata (pd.Series): Metadata for the observations.
-                nav_file (pd.DataFrame): The navigation data.
                 nav_metadata (pd.Series): Metadata for the navigation data.
                 save_dir (Path): The path to the directory where the epoch file will be saved.
 
@@ -230,7 +227,6 @@ class DailyEpochDirectory(AbstractDirectory):
                 position = self._traingulator(
                     obs=epoch,
                     obs_metadata=obs_metadata,
-                    nav=nav_file,
                     nav_metadata=nav_metadata
                 )
             except: # noqa
@@ -247,7 +243,7 @@ class DailyEpochDirectory(AbstractDirectory):
             
             try:
                 # Set the station id
-                position["realPosition"] = self._igs_network.get_xyz(marker_name)
+                position["realPosition"] = self._igs_network.get_xyz_from_matching_name(marker_name)
             except ValueError:
                 # If the station id is not found, set the station id to None
                 position["realPosition"] = None
@@ -257,18 +253,94 @@ class DailyEpochDirectory(AbstractDirectory):
             
             # Save the epoch
             epoch.save(save_dir / f"{marker_name}_EPOCH_{epoch.timestamp.strftime('%Y%m%d_%H%M%S')}.epoch")
-            
+
             return
     
     def clean(self) -> None:
         """Override the clean method of the parent class to remove empty directories."""
         pass        
         
-    
-    
 
+
+
+
+    
+class ProcessedEpochDirectory(AbstractDirectory):
+    """A directory containing processed epoch data.
+
+    This class inherits from the AbstractDirectory class and provides methods to clean the directory by removing empty
+    subdirectories and to retrieve an Epoch object from the directory.
+
+    Args:
+        directory_path (str | Path): The path to the directory where processed epoch data will be stored.
+    """
+    
+    def __init__(self, directory_path: str | Path) -> None:
+        """Initializes a ProcessedEpochDirectory object.
+
+        Args:
+            directory_path (str | Path): The path to the directory where processed epoch data will be stored.
+        """
+        # If path doesn't exist or is not a directory, raise an exception
+        if not Path(directory_path).exists() or not Path(directory_path).is_dir():
+            raise Exception("The path provided is not a directory.")
         
+        # Call the parent class constructor        
+        super().__init__(directory_path)
+    
+    
+    @staticmethod
+    def _remove_empty_directories(path : Path) -> None:
+            """Recursively removes empty directories in the given path.
+
+            Args:
+                path (Path): The path to remove empty directories from.
+            """
+            if path.is_dir():
+                if len(list(path.iterdir())) == 0:
+                    path.rmdir()
+                else:
+                    for files in path.iterdir():
+                        ProcessedEpochDirectory._remove_empty_directories(files)
+                        
+            return
+    
+    def clean(self) -> None:
+        """Removes empty directories in the directory."""
+        return ProcessedEpochDirectory._remove_empty_directories(self.directory_path)
+    
+    
+    def __getitem__(self, key : str) -> Epoch:
+        """Returns an Epoch object from the directory.
+
+        Args:
+            key (str): The name of the epoch file to return.
+
+        Returns:
+            Epoch: The Epoch object.
+        """
+        # Get the path to the epoch file
+        path_to_epoch = self.directory_path / key
         
+        # If the path doesn't exist, raise an exception
+        if not path_to_epoch.exists():
+            raise Exception("The epoch file does not exist.")
+        
+        # Load the epoch file
+        return Epoch.load(path_to_epoch)
+    
+    def _iterate_epochs(self) -> Iterator[Epoch]:
+            """Iterate over the epoch files in the directory."""
+            # Use glob to find all .epoch files in the directory
+            epoch_files = self.directory_path.glob("**/*.epoch")
+            
+            # Use a generator expression to yield each epoch file
+            return (Epoch.load(epoch_file) for epoch_file in epoch_files)
+    
+    
+    def __iter__(self) -> Iterator[Epoch]:
+        """Iterate over the epoch files in the directory."""
+        return self._iterate_epochs()
     
     
     
