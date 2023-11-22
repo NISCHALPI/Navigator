@@ -74,7 +74,13 @@ class Epoch:
 
     """
 
-    def __init__(self, timestamp: pd.Timestamp, obs_data: pd.DataFrame, nav_data : pd.DataFrame, trim : bool = False) -> None:
+    def __init__(
+        self,
+        timestamp: pd.Timestamp,
+        obs_data: pd.DataFrame,
+        nav_data: pd.DataFrame,
+        trim: bool = False,
+    ) -> None:
         """Initialize an Epoch instance with a timestamp and observational data.
 
         Args:
@@ -86,32 +92,33 @@ class Epoch:
         """
         # Timestamp of the epoch
         self._timestamp = timestamp
-        
+
         # Observational data of the epoch
         self._obs_data = self.purify(obs_data)
-        
+
         # Navigation data of the epoch
         self._nav_data = nav_data
-        
+
         # Trim the data
         if trim:
             self.trim()
-            
-    
+
     def trim(self) -> None:
         """Intersect the satellite vehicles in the observation data and navigation data."""
         # Get the common satellite vehicles
         common_sv = self.obs_data.index.get_level_values("sv").intersection(
             self.nav_data.index.get_level_values("sv")
         )
-        
+
         # Trim the data
-        self._obs_data = self.obs_data.loc[self.obs_data.index.get_level_values("sv").isin(common_sv)]
-        self._nav_data = self.nav_data.loc[self.nav_data.index.get_level_values("sv").isin(common_sv)]
-        
+        self._obs_data = self.obs_data.loc[
+            self.obs_data.index.get_level_values("sv").isin(common_sv)
+        ]
+        self._nav_data = self.nav_data.loc[
+            self.nav_data.index.get_level_values("sv").isin(common_sv)
+        ]
+
         return
-    
-    
 
     def purify(self, data: pd.DataFrame) -> pd.DataFrame:
         """Remove observations with missing data."""
@@ -174,7 +181,7 @@ class Epoch:
 
         """
         raise AttributeError("Cannot set data directly. Use the constructor instead.")
-    
+
     @property
     def nav_data(self) -> pd.DataFrame:
         """Get the navigation data of the epoch.
@@ -184,19 +191,21 @@ class Epoch:
 
         """
         return self._nav_data
-    
+
     @nav_data.setter
     def nav_data(self, nav_data: pd.DataFrame) -> None:  # noqa: ARG002
         """Prevent direct modification of the nav_data. Use the constructor instead.
 
         Args:
             nav_data (pd.DataFrame): The nav_data to set.
-        
+
 
         Raises:
             AttributeError: If you try to set the nav_data directly.
         """
-        raise AttributeError("Cannot set nav_data directly. Use the constructor instead.")
+        raise AttributeError(
+            "Cannot set nav_data directly. Use the constructor instead."
+        )
 
     @property
     def common_sv(self) -> pd.Index:
@@ -204,7 +213,7 @@ class Epoch:
         return self.obs_data.index.get_level_values("sv").intersection(
             self.nav_data.index.get_level_values("sv")
         )
-        
+
     def __repr__(self) -> str:
         """Return a string representation of the Epoch.
 
@@ -236,7 +245,9 @@ class Epoch:
         return len(self.obs_data)
 
     @staticmethod
-    def epochify(obs: pd.DataFrame, nav : pd.DataFrame,  mode : str ="maxsv" ) -> list["Epoch"]:
+    def epochify(
+        obs: pd.DataFrame, nav: pd.DataFrame, mode: str = "maxsv"
+    ) -> list["Epoch"]:
         """Convert a pandas DataFrame of observations into a list of 'Epoch' objects.
 
         Parameters:
@@ -260,13 +271,13 @@ class Epoch:
             raise TypeError(f"obs must be a pandas DataFrame. Got {type(obs)} instead.")
         if not isinstance(nav, pd.DataFrame):
             raise TypeError(f"nav must be a pandas DataFrame. Got {type(nav)} instead.")
-        
+
         # Check that mode is one of 'nearest' or 'maxsv'
         if mode.lower() not in ["nearest", "maxsv"]:
             raise ValueError(
                 'Invalid ephemeris method. Method must be "nearest" or "maxsv".'
             )
-        
+
         # If any of the DataFrames are empty, then return an empty list
         if obs.empty or nav.empty:
             return []
@@ -280,12 +291,16 @@ class Epoch:
         for timestamp in timestamps:
             # Get the data for the current timestamp
             data = obs.xs(key=timestamp, level="time", drop_level=True)
-            
+
             # Create an Epoch object and add it to the list
-            epoches.append(Epoch._choose_nav_and_pack_obs_data(time_stamp=timestamp, obs_data=data, nav=nav, ephemeris=mode))
-            
+            epoches.append(
+                Epoch._choose_nav_and_pack_obs_data(
+                    time_stamp=timestamp, obs_data=data, nav=nav, ephemeris=mode
+                )
+            )
+
         return epoches
-    
+
     def save(self, path: str | Path) -> None:
         """Save the epoch to a file.
 
@@ -299,9 +314,9 @@ class Epoch:
         # Pickle the epoch object
         with open(path, "wb") as file:
             pickle.dump(self, file)
-        
+
         return
-        
+
     @staticmethod
     def load(path: str | Path) -> "Epoch":
         """Load an epoch from a file.
@@ -316,18 +331,19 @@ class Epoch:
         # Unpickle the epoch object
         with open(path, "rb") as file:
             epoch = pickle.load(file)
-        
+
         # Check if the loaded object is an Epoch
         if not isinstance(epoch, Epoch):
-            raise TypeError(f"Loaded object is not an Epoch. Got {type(epoch)} instead.")
-        
+            raise TypeError(
+                f"Loaded object is not an Epoch. Got {type(epoch)} instead."
+            )
+
         return epoch
-    
-    
+
     @staticmethod
     def _choose_nav_and_pack_obs_data(
         time_stamp: pd.Timestamp,
-        obs_data : pd.DataFrame , 
+        obs_data: pd.DataFrame,
         nav: pd.DataFrame,
         ephemeris: str = "maxsv",
     ) -> "Epoch":
@@ -369,18 +385,13 @@ class Epoch:
                 'Invalid ephemeris method. Method must be "nearest" or "maxsv".'
             )
 
-     
-         # If the intersection is empty, then raise an error
+        # If the intersection is empty, then raise an error
         if ephm.empty:
             raise ValueError(
                 "Use maxsv ephemeris mode. No common sv between observations and nav ephemeris data."
             )
-        
+
         # Create a new obs epoch with the intersected ephemeris
         return Epoch(
-            timestamp=epoch_time,
-            obs_data=epoch_data,
-            nav_data=ephm,
-            trim=True
+            timestamp=epoch_time, obs_data=epoch_data, nav_data=ephm, trim=True
         )
-        

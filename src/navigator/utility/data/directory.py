@@ -26,14 +26,15 @@ from pathlib import Path
 
 __all__ = ["AbstractDirectory"]
 
+
 class AbstractDirectory(ABC):
     """Abstract Class to Read Data Directory. Define the interface to read data directory.
 
     Args:
         ABC (_type_): The ABC class.
     """
-    
-    def __init__(self, directory_path : str | Path) -> None:
+
+    def __init__(self, directory_path: str | Path) -> None:
         """Constructor of AbstractDirectory.
 
         Args:
@@ -42,7 +43,7 @@ class AbstractDirectory(ABC):
         # Convert to Path object
         if isinstance(directory_path, str):
             directory_path = Path(directory_path)
-            
+
         # Check if directory_path exists and is a directory and is readable
         if not directory_path.exists():
             raise FileNotFoundError(f"Directory {directory_path} does not exist.")
@@ -50,17 +51,14 @@ class AbstractDirectory(ABC):
             raise NotADirectoryError(f"{directory_path} is not a directory.")
         if not os.access(directory_path, os.R_OK):
             raise PermissionError(f"{directory_path} is not readable.")
-        
+
         self.directory_path = directory_path
-        
-        
-        
+
     @abstractmethod
     def clean(self) -> None:
         """Clean the directory according to the rules of the subclass."""
         pass
-    
-    
+
     def _print_directory_tree(
         self, root_path: str, indent: str = "", last: bool = True
     ) -> None:
@@ -81,29 +79,23 @@ class AbstractDirectory(ABC):
                 self._print_directory_tree(
                     entry_path, indent + ("   " if last else "│  "), last=is_last
                 )
-    
-    
-    
+
     def print(self) -> None:
         """Print the directory tree structure."""
         self._print_directory_tree(self.directory_path)
-    
+
     def __repr__(self) -> str:
         """Return a string representation of the AbstractDirectory object."""
         return f"{self.__class__.__name__}({self.directory_path})"
-    
-    
-    
+
     def __str__(self) -> str:
         """Return a string representation of the AbstractDirectory object."""
         return self.__repr__()
 
-
-    def __iter__(self): # noqa: ANN204
+    def __iter__(self):  # noqa: ANN204
         """Return an iterator over the directory."""
         return iter(self.directory_path.iterdir())
-    
-    
+
     def __len__(self) -> int:
         """Return the number of entries in the directory."""
         return len(list(self.directory_path.iterdir()))

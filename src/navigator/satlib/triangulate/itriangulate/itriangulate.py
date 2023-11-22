@@ -65,11 +65,11 @@ class Itriangulate(ABC):
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
 
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
-        
+
         Summary:
             This is an abstract method that must be implemented by subclasses. It performs the triangulation calculation using observation and navigation data.
         """
@@ -91,17 +91,17 @@ class Itriangulate(ABC):
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
 
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
-        
+
 
         Summary:
             This method allows the instance of the `Itriangulate` class to be called like a function, and it delegates the triangulation calculation to the `_compute` method.
         """
         return self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
-    
+
     def __repr__(self) -> str:
         """Returns a string representation of the triangulation algorithm instance.
 

@@ -6,6 +6,10 @@ authors = ["NischalBhattarai <nbhattarai@crimson.ua.edu>"]
 license = "MIT"
 readme = "README.md"
 
+[tool.poetry.scripts]
+rinex-download-nasa = "navigator.utility.scripts.cddis_download:main"
+
+
 [tool.poetry.dependencies]
 python =  ">=3.10,<3.13"
 georinex = "^1.16.1"
@@ -14,6 +18,8 @@ numpy = "^1.25.2"
 pyproj = "^3.6.1"
 seaborn = "^0.13.0"
 requests = "^2.31.0"
+click = "^8.1.7"
+tqdm = "^4.66.1"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -87,7 +87,7 @@ class AbstractTriangulate(ABC):
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
 
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
@@ -112,7 +112,7 @@ class AbstractTriangulate(ABC):
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
 
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.

@@ -11,7 +11,7 @@ Dipatch will be done using Idispatch interface.
 
 ## TODO: Implement dispatcher
 
-from abc import ABC, abstractmethod
+from abc import ABC
 
 __all__ = ["AbstractDispatcher"]
 

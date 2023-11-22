@@ -100,8 +100,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             None
         """
         super().__init__(feature="GPS(Iterative)")
-    
-    def _ionospehric_correction(self, obs: Epoch, no_warn :bool = True) -> Epoch:
+
+    def _ionospehric_correction(self, obs: Epoch, no_warn: bool = True) -> Epoch:
         """Compute the Ionospheric correction for GPS observations.
 
         Args:
@@ -196,7 +196,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             .join(nav)[["EmissionEpoch"]]
             .rename({"EmissionEpoch": "Tsv"}, axis=1)
         )
-        
+
         # Compute the satellite coordinate at the emission epoch
         return satellite(t_sv=t_sv, metadata=nav_metadata, data=nav).droplevel("time")
 
@@ -205,7 +205,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         obs: Epoch,
         obs_metadata: pd.Series,  # noqa: ARG002
         nav_metadata: pd.Series,
-        **kwargs, # noqa: ARG002
+        **kwargs,  # noqa: ARG002
     ) -> pd.Series | pd.DataFrame:
         """Compute the iterative triangulation using GPS observations and navigation data.
 
@@ -215,13 +215,13 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
 
         Returns:
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """
         # Use Epoch to get the navigation message for the observation epoch. Held at "Epoch.nav_data" attribute
-        obs, nav = obs , obs.nav_data 
+        obs, nav = obs, obs.nav_data
 
         # Compute the ionospheric free combination
         obs = self._ionospehric_correction(obs)

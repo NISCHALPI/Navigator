@@ -6,9 +6,11 @@ import os
 
 from navigator.download.idownload.rinex import AusGovDownload
 
+
 @pytest.fixture
 def aus_gov_downloader():
     return AusGovDownload(max_workers=2)
+
 
 def test_api_url(aus_gov_downloader):
     # Define test parameters
@@ -37,6 +39,7 @@ def test_api_url(aus_gov_downloader):
     # Assert that the generated API URL matches the expected URL
     assert api_url == expected_url
 
+
 @pytest.mark.skipif(
     "RUN_DOWNLOAD_TESTS" in os.environ,
     reason="Run this test only when explicitly requested.",
@@ -59,6 +62,7 @@ def test_download(aus_gov_downloader, tmp_path):
     assert len(result) == 4  # Two stations are queried
     for file in result:
         assert file["fileLocation"] != "unavailable"
+
 
 def test_save(aus_gov_downloader, tmp_path):
     file_info = {
