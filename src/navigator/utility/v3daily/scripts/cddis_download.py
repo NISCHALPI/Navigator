@@ -13,22 +13,15 @@ from pathlib import Path
 import click
 import tqdm
 
-from ..ftpserver.mount_server import CDDISMountServer
+from ...ftpserver.mount_server import CDDISMountServer
+from .logger import get_logger
 
 # ------------------------------------------ Set the logging level ------------------------------
 
-# Get level from environment variable named LOGLEVEL
-# If not set, default to INFO
-if "LOGLEVEL" in os.environ and os.environ["LOGLEVEL"] in logging._nameToLevel:
-    loglevel = logging._nameToLevel[os.environ["LOGLEVEL"]]
-else:
-    loglevel = logging.INFO
+logger = get_logger(__name__)
+logger.info(f"Staring the logging for {__name__}... ")
 
-# Logging configuration
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-# Setting up logging with formatter
-logging.basicConfig(level=loglevel, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+# ------------------------------------------ END ------------------------------
 
 # ------------------------------------------ END ------------------------------
 

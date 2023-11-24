@@ -280,6 +280,7 @@ class AusGovDownload(IDownload):
             decompress (bool, optional): Whether to decompress RINEX files. Defaults to False.
             metadataStatus (str, optional): Metadata validation status. Defaults to 'valid'.
             save (bool, optional): Whether to save the downloaded files. Defaults to False.
+            save_path (Path, optional): The directory to save the files to. Defaults to Path.cwd().
 
         Returns:
             List[dict]: A list of downloaded RINEX file information.

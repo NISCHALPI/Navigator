@@ -7,8 +7,8 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.scripts]
-rinex-download-nasa = "navigator.utility.scripts.cddis_download:main"
-
+rinex3-download-nasa = "navigator.utility.v3daily.scripts.cddis_download:main"
+rinex3-dir-ops = "navigator.utility.v3daily.scripts.dir_ops:main"
 
 [tool.poetry.dependencies]
 python =  ">=3.10,<3.13"
