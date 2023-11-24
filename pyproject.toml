@@ -7,6 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.scripts]
+rinex3-download-nasa-mounted = "navigator.utility.v3daily.scripts.cddis_download_mounted:main"
 rinex3-download-nasa = "navigator.utility.v3daily.scripts.cddis_download:main"
 rinex3-dir-ops = "navigator.utility.v3daily.scripts.dir_ops:main"
 
@@ -20,6 +21,7 @@ seaborn = "^0.13.0"
 requests = "^2.31.0"
 click = "^8.1.7"
 tqdm = "^4.66.1"
+fs = "^2.4.16"
 
 
 [tool.poetry.group.dev.dependencies]

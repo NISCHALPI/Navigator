@@ -4,22 +4,39 @@ from pathlib import Path
 
 import click
 
+from ...logger.logger import get_logger
 from ..data.epoch_directory import EpochDirectory
 from ..data.standerd_directory import StanderdDirectory
-from .logger import get_logger
-
-# Define the logger.
-logger = get_logger(__name__)
-logger.info(f"Started logging for {__name__}...")
 
 
 @click.group(invoke_without_command=True, no_args_is_help=True)
-def main() -> None:
+@click.pass_context
+@click.option(
+    "-v",
+    "--verbose",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Enable verbose logging",
+)
+def main(ctx: click.Context, verbose: bool) -> None:
     """Epochify RINEX Directory .i.e convert RINEX files direcotry to Epoch Directory."""
+    # Ensure the context object is dict
+    ctx.ensure_object(dict)
+    # Create a logger
+    logger = get_logger(name=__name__, dummy=not verbose)
+
+    # Add the logger to the context object
+    ctx.obj["logger"] = logger
+
+    # Log the start of the program
+    logger.info("Starting Directory Operations process...")
+
     pass
 
 
 @main.command()
+@click.pass_context
 @click.option(
     '-dp',
     '--data-path',
@@ -29,8 +46,10 @@ def main() -> None:
     ),
     help="Path to RINEX directory containing RINEX files.",
 )
-def standerize(data_path: Path) -> None:
+def standerize(ctx: click.Context, data_path: Path) -> None:
     """Standerize RINEX V3 files in RINEX directory. Delete all non-essential data."""
+    # Get the logger.
+    logger = ctx.obj["logger"]
     # Log the start of the standerization process.
     logger.info(f"Standerizing RINEX files in {data_path}...")
 
@@ -47,6 +66,7 @@ def standerize(data_path: Path) -> None:
 
 
 @main.command()
+@click.pass_context
 @click.option(
     '-dp',
     '--data-path',
@@ -82,9 +102,15 @@ def standerize(data_path: Path) -> None:
     help="Number of processes to use for epochification.",
 )
 def epochify(
-    data_path: Path, epoch_dir_path: Path, triangulate: bool, process: int
+    ctx: click.Context,
+    data_path: Path,
+    epoch_dir_path: Path,
+    triangulate: bool,
+    process: int,
 ) -> None:
     """Epochify data contained in RINEX directory."""
+    # Get the logger.
+    logger = ctx.obj["logger"]
     # Log the start of the epochification process.
     logger.info(f"Epochifying RINEX files in {data_path}...")
     logger.info(f"Target epoch directory: {epoch_dir_path}")

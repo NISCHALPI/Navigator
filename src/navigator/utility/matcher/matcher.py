@@ -103,6 +103,7 @@ class MixedObs3DailyMatcher(Matcher):
                 "hour": match.group(8),
                 "minute": match.group(9),
                 "file_extension": match.group(10),
+                "station_name": f"{match.group(1)}{match.group(2)}{match.group(3)}{match.group(4)}",
             }
         return {}
 
@@ -142,7 +143,9 @@ class GpsNav3DailyMatcher(Matcher):
                 "hour": match.group(8),
                 "minute": match.group(9),
                 "file_extension": match.group(10),
+                "station_name": f"{match.group(1)}{match.group(2)}{match.group(3)}{match.group(4)}",
             }
+
         return {}
 
 
