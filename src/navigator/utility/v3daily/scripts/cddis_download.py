@@ -1,16 +1,16 @@
 """Download rinex files from CCIDS using curlftpfs."""
-import os
-import socket
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
 import click
+import tqdm
 
 from ....download import NasaCddisV3
 
 # ------------------------------------------ Global Variables ------------------------------
 # USER EMAIL
-USER_EMAIL = f"{os.getlogin()}@{socket.gethostname()}"
+USER_EMAIL = "navigator@navigator.github.com"
 
 
 # ------------------------------------------ Click Commands ------------------------------------------------
@@ -108,7 +108,16 @@ def daily(ctx: click.Context, path: Path, year: int, day: int, samples: int) -> 
     default=-1,
     help="Number of samples to download",
 )
-def yearly(ctx: click.Context, path: Path, year: int, samples: int) -> None:
+@click.option(
+    "--process",
+    required=False,
+    type=click.INT,
+    default=1,
+    help="Number of processes to use for downloading",
+)
+def yearly(
+    ctx: click.Context, path: Path, year: int, samples: int, process: int
+) -> None:
     """Download RINEX files for the given year."""
     # Get the range of days
     start_day, end_day = 1, 366
@@ -121,9 +130,27 @@ def yearly(ctx: click.Context, path: Path, year: int, samples: int) -> None:
     # Get the downloader
     downloader: NasaCddisV3 = ctx.obj["downloader"]
 
-    for day in range(start_day, end_day + 1):
-        # Download the files for the given year and day
-        downloader._download(year=year, day=day, save_path=path, num_files=samples)
+    # Disable the logging in multiprocessing
+    downloader.logger.disabled = True
+
+    # Download the files for the given year and day using multiprocessing
+    with tqdm.tqdm(total=end_day - start_day + 1, desc="Downloading Files!") as pbar:
+        with ProcessPoolExecutor(max_workers=process) as executor:
+            for day in range(start_day, end_day + 1):
+                future = executor.submit(
+                    downloader._download,
+                    year=year,
+                    day=day,
+                    save_path=path,
+                    num_files=samples,
+                    no_pbar=True,
+                )
+
+                # Add the callback to update the progress bar
+                future.add_done_callback(lambda p: pbar.update(1))
+
+        # Wait for all the processes to finish
+        executor.shutdown(wait=True)
 
     return
 

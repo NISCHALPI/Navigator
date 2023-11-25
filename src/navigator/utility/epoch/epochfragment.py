@@ -1,0 +1,220 @@
+"""Module to handle fragments of an epoch - observation and navigation data.
+
+Useful for handling large files with many epochs, and for saving and loading space.
+"""
+
+import pickle
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+import pandas as pd
+
+from ..matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+
+__all__ = ["Fragment", "FragObs", "FragNav"]
+
+
+class Fragment(ABC):
+    """Abstract base class for epoch fragments.
+
+    Attributes:
+        parent (str): Parent file name.
+    """
+
+    def __init__(self, parent: str) -> None:
+        """Initialize a Fragment object.
+
+        Args:
+            parent (str): Parent file name.
+        """
+        self.parent = parent
+
+    @abstractmethod
+    def get_name(self) -> str:
+        """Get the name of the fragment.
+
+        Returns:
+            str: Fragment name.
+        """
+        pass
+
+    def save(self, save_path: Path) -> None:
+        """Save the fragment to a file.
+
+        Args:
+            save_path (Path): Path to save the fragment.
+        """
+        with open(save_path / self.get_name(), "wb") as file:
+            pickle.dump(self, file)
+
+    @staticmethod
+    def load(load_path: Path) -> "Fragment":
+        """Load the fragment from a file.
+
+        Args:
+            load_path (Path): Path to load the fragment.
+
+        Returns:
+            Fragment: Loaded fragment object.
+        """
+        with open(load_path, "rb") as file:
+            fragment = pickle.load(file)
+
+        if not isinstance(fragment, Fragment):
+            raise TypeError("Loaded object is not a Fragment.")
+
+        return fragment
+
+    def __repr__(self) -> str:
+        """Get the representation of the Fragment object.
+
+        Returns:
+            str: Representation of the Fragment object.
+        """
+        return f"{self.__class__.__name__}(parent='{self.parent}')"
+
+
+class FragObs(Fragment):
+    """Represents a fragment of an epoch containing observation data.
+
+    Attributes:
+        epoch_time (pd.Timestamp): Fragment epoch time.
+        obs_data (pd.DataFrame): Fragment observation data.
+        parent (str): Parent file name.
+    """
+
+    def __init__(
+        self, epoch_time: pd.Timestamp, obs_data: pd.DataFrame, parent: str
+    ) -> None:
+        """Initialize a FragObs object.
+
+        Args:
+            epoch_time (pd.Timestamp): Fragment epoch time.
+            obs_data (pd.DataFrame): Fragment observation data.
+            parent (str): Parent file name.
+        """
+        super().__init__(parent)
+        self.obs_data = obs_data
+        self.epoch_time = epoch_time
+
+    def get_name(self) -> str:
+        """Get the name of the fragment.
+
+        Returns:
+            str: Fragment name.
+        """
+        # Get the matcher
+        matcher = MixedObs3DailyMatcher()
+
+        if not matcher(self.parent):
+            raise ValueError(
+                "Parent file is not an observation file format defined by nasa cddis."
+            )
+        # Get the metadata from the parent file name.
+        met = matcher.extract_metadata(self.parent)
+
+        # Return the fragment name.
+        return f"OBSFRAG_{met['station_name']}_{self.epoch_time.strftime('%Y%m%d_%H%M%S')}.pkl"
+
+    def fragmentify(obs_data: pd.DataFrame, parent: str) -> list["FragObs"]:
+        """Fragmentify the observation data.
+
+        Args:
+            obs_data (pd.DataFrame): Observation data.
+            parent (str): Parent file name.
+            fragment_size (int, optional): Size of each fragment. Defaults to 1000.
+
+        Returns:
+            list[FragObs]: List of fragments.
+        """
+        # Get the timestamps of the observations.
+        timestamps = obs_data.index.get_level_values("time").unique()
+
+        # For each timestamp, create a fragment.
+        fragments = []
+
+        for timestamp in timestamps:
+            # Get the data for the current timestamp
+            data = obs_data.xs(key=timestamp, level="time", drop_level=True)
+
+            # Create the fragment.
+            fragment = FragObs(timestamp, data, parent)
+
+            # Append the fragment to the list.
+            fragments.append(fragment)
+
+        return fragments
+
+
+class FragNav(Fragment):
+    """Represents a fragment of an epoch containing navigation data.
+
+    Attributes:
+        timestamp (pd.Timestamp): Fragment timestamp.
+        nav_data (pd.DataFrame): Fragment navigation data.
+        parent (str): Parent file name.
+    """
+
+    def __init__(
+        self, timestamp: pd.Timestamp, nav_data: pd.DataFrame, parent: str
+    ) -> None:
+        """Initialize a FragNav object.
+
+        Args:
+            timestamp (pd.Timestamp): Fragment timestamp.
+            nav_data (pd.DataFrame): Fragment navigation data.
+            parent (str): Parent file name.
+        """
+        super().__init__(parent)
+        self.timestamp = timestamp
+        self.nav_data = nav_data
+
+    def get_name(self) -> str:
+        """Get the name of the fragment.
+
+        Returns:
+            str: Fragment name.
+        """
+        # Get the matcher
+        matcher = GpsNav3DailyMatcher()
+
+        # Check if the parent file is a navigation file.
+        if not matcher(self.parent):
+            raise ValueError(
+                "Parent file is not a navigation file format defined by nasa cddis."
+            )
+
+        # Get the metadata from the parent file name.
+        met = matcher.extract_metadata(self.parent)
+
+        # Return the fragment name.
+        return f"NAVFRAG_{met['station_name']}_{self.timestamp.strftime('%Y%m%d_%H%M%S')}.pkl"
+
+    @staticmethod
+    def fragmentify(nav_data: pd.DataFrame, parent: str) -> list["FragNav"]:
+        """Fragmentify the navigation data.
+
+        Args:
+            nav_data (pd.DataFrame): Navigation data.
+            parent (str): Parent file name.
+
+        Returns:
+            list[FragNav]: List of fragments.
+        """
+        # Get the timestamps of the observations.
+        timestamps = nav_data.index.get_level_values("time").unique()
+
+        # For each timestamp, create a fragment.
+        fragments = []
+
+        for timestamp in timestamps:
+            # Get the data for the current timestamp
+            data = nav_data.xs(key=timestamp, level="time", drop_level=False)
+
+            # Create the fragment.
+            fragment = FragNav(timestamp, data, parent)
+
+            # Append the fragment to the list.
+            fragments.append(fragment)
+
+        return fragments

@@ -38,6 +38,8 @@ from pathlib import Path  # type: ignore
 
 import pandas as pd  # type: ignore
 
+from .epochfragment import FragNav, FragObs
+
 __all__ = ["Epoch"]
 
 
@@ -394,4 +396,37 @@ class Epoch:
         # Create a new obs epoch with the intersected ephemeris
         return Epoch(
             timestamp=epoch_time, obs_data=epoch_data, nav_data=ephm, trim=True
+        )
+
+    @staticmethod
+    def load_from_fragment(obs_frag: FragObs, nav_frag: FragNav) -> "Epoch":
+        """Load an epoch from fragments.
+
+        Args:
+            obs_frag (list[FragObs]): Observation data fragments.
+            nav_frag (pd.DataFrame): Navigation data fragments.
+
+        Returns:
+            None
+        """
+        return Epoch(
+            timestamp=obs_frag.epoch_time,
+            obs_data=obs_frag.obs_data,
+            nav_data=nav_frag.nav_data,
+            trim=True,
+        )
+
+    @staticmethod
+    def load_from_fragment_path(obs_frag_path: Path, nav_frag_path: Path) -> "Epoch":
+        """Load an epoch from fragments.
+
+        Args:
+            obs_frag_path (Path): Path to the observation fragment.
+            nav_frag_path (Path): Path to the navigation fragment.
+
+        Returns:
+            Epoch: The epoch loaded from the fragments.
+        """
+        return Epoch.load_from_fragment(
+            obs_frag=FragObs.load(obs_frag_path), nav_frag=FragNav.load(nav_frag_path)
         )

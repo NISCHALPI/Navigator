@@ -22,6 +22,7 @@ requests = "^2.31.0"
 click = "^8.1.7"
 tqdm = "^4.66.1"
 fs = "^2.4.16"
+h5py = "^3.10.0"
 
 
 [tool.poetry.group.dev.dependencies]

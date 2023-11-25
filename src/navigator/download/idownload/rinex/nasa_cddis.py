@@ -218,6 +218,7 @@ class NasaCddisV3(IDownload):
 
         Optional kwargs:
             num_files (int): The number of files to download (default is -1).
+            no_pbar (bool): If True, disables the progress bar (default is False).
 
 
         Raises:
@@ -318,7 +319,15 @@ class NasaCddisV3(IDownload):
             file_pairs = random.sample(file_pairs, num_files)
 
         self.logger.info(f"Downloading Files with {self.threads} Threads!")
-        with tqdm.tqdm(total=len(file_pairs) * 2, desc="Downloading") as pbar:
+
+        # Pbar disabled if no_pbar is True
+        pbar = True
+        if "no_pbar" in kwargs and kwargs["no_pbar"]:
+            pbar = False
+
+        with tqdm.tqdm(
+            total=len(file_pairs) * 2, desc="Downloading", disable=not pbar
+        ) as pbar:
             with ThreadPoolExecutor(max_workers=self.threads) as executor:
                 futures = []
 

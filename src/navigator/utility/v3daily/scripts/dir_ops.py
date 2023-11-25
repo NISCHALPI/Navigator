@@ -88,8 +88,8 @@ def standerize(ctx: click.Context, data_path: Path) -> None:
 @click.option(
     '-t',
     '--triangulate',
+    is_flag=True,
     required=False,
-    type=click.BOOL,
     default=True,
     help="Whether to triangulate the epoch and set results to epoch.position attribute.",
 )
