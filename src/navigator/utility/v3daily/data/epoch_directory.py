@@ -12,7 +12,6 @@ Pattern : {root}/{year}/{day_of_year}/{station}/(OBS|NAV)FRAG_{station}_{%Y%M%D}
 
 import shutil
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
@@ -222,6 +221,21 @@ class EpochDirectory(AbstractDirectory):
         obs_fragments = FragObs.fragmentify(obs_data=obs_data, parent=obs_file.name)
         nav_fragments = FragNav.fragmentify(nav_data=nav_data, parent=nav_file.name)
 
+        self._logger.info(f"Number of OBS Fragments: {len(obs_fragments)}.")
+        self._logger.info(f"Number of NAV Fragments: {len(nav_fragments)}.")
+        # Filter the obs fragments so that any fragment that has less than 4 satellites is removed
+        obs_fragments = [
+            obs_fragment for obs_fragment in obs_fragments if len(obs_fragment) >= 4
+        ]
+
+        # Filter the nav fragments so that any fragment that has less than 4 satellites is removed
+        nav_fragments = [
+            nav_fragment for nav_fragment in nav_fragments if len(nav_fragment) >= 4
+        ]
+
+        self._logger.info(f"Number of OBS Fragments >4 SV: {len(obs_fragments)}.")
+        self._logger.info(f"Number of NAV Fragments >4 SV: {len(nav_fragments)}.")
+
         # Display the number of fragments
         self._logger.info(f"Number of OBS Fragments: {len(obs_fragments)}.")
         self._logger.info(f"Number of NAV Fragments: {len(nav_fragments)}.")
@@ -229,29 +243,33 @@ class EpochDirectory(AbstractDirectory):
         self._logger.info(f"Dumping the fragments in {station_dir.name}.")
         # Dump the obs fragments in the station directory
         for obs_fragment in obs_fragments:
-            if (
-                len(obs_fragment.obs_data) >= 4
-            ):  # Only dump the fragments with more than 4 satellites
-                obs_fragment.save(
-                    self.directory_path
-                    / file_met["year"]
-                    / file_met["day_of_year"]
-                    / station_dir.name
-                )
+            nearest_nav_fragment = obs_fragment.nearest_nav_fragment(
+                nav_fragments, mode="max_sv"
+            )
+
+            # Do not continue if there is no nearest nav fragment
+            if nearest_nav_fragment is None:
+                continue
+
+            # Set the nav fragment path in the obs fragment
+            setattr(obs_fragment, "nav_frag_file_name", nearest_nav_fragment.get_name())
+
+            obs_fragment.save(
+                self.directory_path
+                / file_met["year"]
+                / file_met["day_of_year"]
+                / station_dir.name
+            )
 
         self._logger.info(f"Dumping the fragments in {station_dir.name}.")
         # Dump the nav fragments in the station directory
         for nav_fragment in nav_fragments:
-            if (
-                len(nav_fragment.nav_data)
-                >= 4  # Save the nav fragment if it has more than 4 satellites
-            ):
-                nav_fragment.save(
-                    self.directory_path
-                    / file_met["year"]
-                    / file_met["day_of_year"]
-                    / station_dir.name
-                )
+            nav_fragment.save(
+                self.directory_path
+                / file_met["year"]
+                / file_met["day_of_year"]
+                / station_dir.name
+            )
 
     def clean(self) -> None:
         """Deletes all the files in the directory."""
@@ -262,105 +280,75 @@ class EpochDirectory(AbstractDirectory):
         self.directory_path.mkdir(parents=True, exist_ok=True)
         return
 
-    def _metadata_to_timefromgps(self, fname: str) -> float:
-        """Converts the filename to timefromgps.
-
-        Args:
-            fname (str): The name of the file.
-
-        Returns:
-            float: The timefromgps.
-        """
-        matcher = (
-            self._frag_obs_matcher
-            if self._frag_obs_matcher.match(fname)
-            else self._frag_nav_matcher
-        )
-
-        metadata = matcher.extract_metadata(fname)
-
-        # GPS Time
-        gps = datetime(1980, 1, 6, 0, 0, 0)
-
-        year = int(metadata["year"])
-        month = int(metadata["month"])
-        day = int(metadata["day"])
-        hour = int(metadata["hour"])
-        minute = int(metadata["minute"])
-        second = int(metadata["second"])
-
-        return (datetime(year, month, day, hour, minute, second) - gps).total_seconds()
-
-    def _previos_nav_file(self, index: int, all_file: list[Path]) -> Path:
-        """Get the previous nav file from current index.
-
-        Args:
-            index (int): Index of the current obs fragment.
-            all_file (_type_): list of all the files in the directory.
-
-        Returns:
-            Path: The previous nav fragment.
-        """
-        for i in range(index, -1, -1):
-            if self._frag_nav_matcher.match(all_file[i].name):
-                return all_file[i]
-        return None
-
-    def _next_nav_file(self, index: int, all_file: list[Path]) -> Path:
-        """Get the next nav file from current index.
-
-        Args:
-            index (int): Index of the current obs fragment.
-            all_file (_type_): list of all the files in the
-            directory.
-
-        Returns:
-            Path: The next nav fragment.
-        """
-        for i in range(index, len(all_file)):
-            if self._frag_nav_matcher.match(all_file[i].name):
-                return all_file[i]
-        return None
-
     def __iter__(self) -> Iterator["Epoch"]:
-        """Iterate over the epoch files in the directory."""
-        # Use glob to find all .epoch files in the directory
-        all_files = self.directory_path.rglob("*.pkl")
+        """Iterate over the epoch files in the directory.
 
-        # Sort the file by timefromgps
-        all_files = sorted(
-            all_files, key=lambda x: self._metadata_to_timefromgps(x.name)
-        )
+        Yields:
+            Epoch: An Epoch object loaded from the epoch files in the directory.
+        """
+        # Iterate over the year directories
+        for year_dir in self.directory_path.iterdir():
+            # Iterate over the day directories
+            for day_dir in year_dir.iterdir():
+                # Iterate over the station directories
+                for station_dir in day_dir.iterdir():
+                    # Glob all the obs fragments
+                    obs_frag_files = station_dir.glob("OBSFRAG*.pkl")
 
-        # Get the nearest nav file for each obs file
-        for i, file in enumerate(all_files):
-            # If the file is a obs file, yield the nav file
-            if self._frag_obs_matcher.match(file.name):
-                # Get the previous nav file
-                prev_nav_file = self._previos_nav_file(i, all_files)
+                    # Yield the epoch
+                    for obsfragpath in obs_frag_files:
+                        obs_frag = FragObs.load(obsfragpath)
 
-                # Get the next nav file
-                next_nav_file = self._next_nav_file(i, all_files)
+                        if hasattr(obs_frag, "nav_frag_file_name"):
+                            nav_frag = FragNav.load(
+                                station_dir / obs_frag.nav_frag_file_name
+                            )
+                        else:
+                            continue
 
-                # Get the nearest between the previous and next nav file
-                nearest = None
-                if prev_nav_file is None and next_nav_file is None:
-                    raise Exception("No nav file found for the obs file.")
-                if prev_nav_file is None:
-                    nearest = next_nav_file
-                elif next_nav_file is None:
-                    nearest = prev_nav_file
+                        yield Epoch.load_from_fragment(obs_frag, nav_frag)
+
+    def __getitem__(self, index: int | slice) -> Epoch | list[Epoch]:
+        """Get the epoch file at the given index.
+
+        Args:
+            index (int | slice): The index of the epoch file.
+
+        Returns:
+            Epoch | list[Epoch]: The epoch file at the given index.
+        """
+        if isinstance(index, int):
+            # Index cannot be negative
+            if index < 0:
+                raise IndexError("Index cannot be negative.")
+
+            for i, epoch in enumerate(self):
+                if i == index:
+                    return epoch
+            raise IndexError("Index out of range.")
+
+        if isinstance(index, slice):
+            ret = []
+
+            # Index cannot be negative
+            if index.start is not None and index.start < 0:
+                raise IndexError("Index cannot be negative.")
+
+            if index.stop is not None and index.stop < 0:
+                raise IndexError("Index cannot be negative.")
+
+            # Get the iterator
+            iterator = self.__iter__()
+
+            step = index.step if index.step is not None else 1
+            for i in range(index.start):
+                next(iterator)
+
+            for i in range(index.start, index.stop):
+                if i % step == 0:
+                    ret.append(next(iterator))
                 else:
-                    prev_time = self._metadata_to_timefromgps(prev_nav_file.name)
-                    next_time = self._metadata_to_timefromgps(next_nav_file.name)
-                    curr_time = self._metadata_to_timefromgps(file.name)
-                    nearest = (
-                        prev_nav_file
-                        if abs(curr_time - prev_time) < abs(curr_time - next_time)
-                        else next_nav_file
-                    )
+                    next(iterator)
+            return ret
 
-                # Yield the epoch
-                yield Epoch.load_from_fragment_path(
-                    obs_frag_path=file, nav_frag_path=nearest
-                )
+        raise TypeError("Index must be int or slice.")

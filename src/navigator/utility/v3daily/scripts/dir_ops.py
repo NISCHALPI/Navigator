@@ -86,14 +86,6 @@ def standerize(ctx: click.Context, data_path: Path) -> None:
     help="Path to directory to save epochified RINEX files.",
 )
 @click.option(
-    '-t',
-    '--triangulate',
-    is_flag=True,
-    required=False,
-    default=True,
-    help="Whether to triangulate the epoch and set results to epoch.position attribute.",
-)
-@click.option(
     '-p',
     '--process',
     required=False,
@@ -105,7 +97,6 @@ def epochify(
     ctx: click.Context,
     data_path: Path,
     epoch_dir_path: Path,
-    triangulate: bool,
     process: int,
 ) -> None:
     """Epochify data contained in RINEX directory."""
@@ -117,9 +108,7 @@ def epochify(
 
     # Epochify the RINEX files in the data directory.
     try:
-        epoch_dir = EpochDirectory(
-            directory_path=epoch_dir_path, triangulate=triangulate
-        )
+        epoch_dir = EpochDirectory(directory_path=epoch_dir_path, logging=True)
     except ValueError as e:
         logger.info(
             "Epoch directory might not be empty. Please empty it and try again."

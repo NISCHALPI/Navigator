@@ -145,6 +145,55 @@ class FragObs(Fragment):
 
         return fragments
 
+    def nearest_nav_fragment(
+        self, sorted_fragments: list["FragNav"], mode: str = "max_sv"
+    ) -> "FragNav":
+        """Get the nearest navigation fragment to the observation.
+
+        Args:
+            sorted_fragments (list[FragNav]): List of sorted navigation fragments.
+            mode (str, optional): Mode to get the nearest navigation fragment (max_sv | nearest). Defaults to "max_sv".
+
+        Returns:
+            FragNav: Nearest navigation fragment.
+        """
+        # Mode must be either max_sv or nearest.
+        if mode not in ["max_sv", "nearest"]:
+            raise ValueError("Mode must be either max_sv or nearest.")
+
+        # Filter to +- 3 hours of the observation time.
+        sorted_fragments = [
+            fragment
+            for fragment in sorted_fragments
+            if abs(fragment.timestamp - self.epoch_time) <= pd.Timedelta(hours=3)
+        ]
+
+        # If no fragments are found, return None.
+        if len(sorted_fragments) == 0:
+            return None
+
+        if mode == "max_sv":
+            # Return the fragment with the maximum number of satellites in common.
+            return max(
+                sorted_fragments,
+                key=lambda fragment: len(fragment.intersect_sv(self)),
+            )
+        if mode == "nearest":
+            # Return the fragment with the nearest timestamp.
+            return min(
+                sorted_fragments,
+                key=lambda fragment: abs(fragment.timestamp - self.epoch_time),
+            )
+        return None
+
+    def __len__(self) -> int:
+        """Get the length of the fragment.
+
+        Returns:
+            int: Length of the fragment.
+        """
+        return len(self.obs_data.index.get_level_values("sv").unique())
+
 
 class FragNav(Fragment):
     """Represents a fragment of an epoch containing navigation data.
@@ -218,3 +267,24 @@ class FragNav(Fragment):
             fragments.append(fragment)
 
         return fragments
+
+    def __len__(self) -> int:
+        """Get the length of the fragment.
+
+        Returns:
+            int: Length of the fragment.
+        """
+        return len(self.nav_data.index.get_level_values("sv").unique())
+
+    def intersect_sv(self, obs: "FragObs") -> pd.Index:
+        """Get the intersection of satellites between the navigation and observation fragments.
+
+        Args:
+            obs (FragObs): Observation fragment.
+
+        Returns:
+            pd.Index: Intersection of satellites.
+        """
+        return self.nav_data.index.get_level_values("sv").intersection(
+            obs.obs_data.index.get_level_values("sv")
+        )
