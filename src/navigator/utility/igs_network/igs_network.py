@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
+from ..transforms.coordinate_transforms import geocentric_to_ellipsoidal
 
 
 class IGSNetwork:
@@ -67,11 +68,14 @@ class IGSNetwork:
             raise ValueError(f"The station {station} is not in the IGS network.")
         return self._igs_network.loc[station, ["X", "Y", "Z"]].values.astype(np.float64)
 
-    def get_ellipsoid(self, station: str) -> np.ndarray:
+    def get_ellipsoid(
+        self, station: str, convert_from_cartisian: bool = False
+    ) -> np.ndarray:
         """Retrieve the ellipsoid details (Latitude, Longitude, Height) for a specific station.
 
         Args:
             station (str): The name of the station.
+            convert_from_cartisian (bool): If True, convert the XYZ coordinates to ellipsoid coordinates.
 
         Returns:
             np.ndarray: The ellipsoid details of the station as a numpy array.
@@ -82,9 +86,13 @@ class IGSNetwork:
         """
         if station not in self._igs_network.index:
             raise ValueError(f"The station {station} is not in the IGS network.")
-        return self._igs_network.loc[
-            station, ["Latitude", "Longitude", "Height"]
-        ].values.astype(np.float64)
+        if not convert_from_cartisian:
+            return self._igs_network.loc[
+                station, ["Latitude", "Longitude", "Height"]
+            ].values.astype(np.float64)
+
+        # Convert from cartisian to ellipsoid
+        return geocentric_to_ellipsoidal(*self.get_xyz(station))
 
     def get_igs_station(self, station: str) -> pd.Series:
         """Retrieve detailed information for a specific IGS station.

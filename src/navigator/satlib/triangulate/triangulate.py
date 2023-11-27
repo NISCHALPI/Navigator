@@ -33,10 +33,12 @@ Note:
 import webbrowser
 from abc import ABC, abstractmethod
 
+import numpy as np
 import pandas as pd
 
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...utility import Epoch
+from ...utility.igs_network import IGSNetwork
 from .itriangulate.itriangulate import Itriangulate
 
 __all__ = ["AbstractTriangulate", "Triangulate"]
@@ -185,6 +187,77 @@ class Triangulate(AbstractTriangulate):
         """Computes triangulated locations using a specific algorithm."""
         return super()._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
 
+    def igs_diff(
+        self,
+        obs: Epoch,
+        obs_metadata: pd.Series = None,
+        nav_metadata: pd.Series = None,
+        *args,
+        **kwargs,
+    ) -> float:
+        """Computes the error between the computed location and the actual location for only IGS stations.
+
+        Args:
+            obs (Epoch): Epoch containing observation data and navigation data.
+            obs_metadata (pd.Series): Metadata for the observation data.
+            nav_metadata (pd.Series): Metadata for the navigation data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            float: The error between the computed location and the actual location.
+
+        Note:
+            This method is only for IGS stations.
+        """
+        # Get the actual location from the IGS network
+        actual = self.igs_real_coords(obs)
+
+        # Get the computed location
+        computed = self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
+
+        # Calculate the difference between the computed and actual locations
+        return np.linalg.norm(computed[['x', 'y', 'z']] - actual)
+
+    def igs_real_coords(
+        self,
+        obs: Epoch,
+    ) -> np.ndarray:
+        """Computes the actual location for only IGS stations.
+
+        Args:
+            obs (Epoch): Epoch containing observation data and navigation data.
+
+        Returns:
+            np.ndarray: The actual location.
+        """
+        # Get the actual location from the IGS network
+        return IGSNetwork().get_xyz(obs.station)
+
+    def coords(
+        self,
+        obs: Epoch,
+        obs_metadata: pd.Series = None,
+        nav_metadata: pd.Series = None,
+        *args,
+        **kwargs,
+    ) -> np.ndarray:
+        """Computes the triangulated location.
+
+        Args:
+            obs (Epoch): Epoch containing observation data and navigation data.
+            obs_metadata (pd.Series): Metadata for the observation data.
+            nav_metadata (pd.Series): Metadata for the navigation data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            np.ndarray: The computed triangulated location.
+        """
+        return self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)[
+            ['x', 'y', 'z']
+        ].to_numpy()
+
     @staticmethod
     def google_earth_view(lat: float, lon: float) -> None:
         """Open Google Earth in a web browser centered at the specified coordinates.
@@ -228,6 +301,33 @@ class Triangulate(AbstractTriangulate):
             webbrowser.open(url)
 
             print("Google Maps opened successfully.")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+
+        return
+
+    @staticmethod
+    def google_earth_view_cartisian(x: float, y: float, z: float) -> None:
+        """Open Google Earth in a web browser centered at the specified coordinates with a marker.
+
+        Args:
+            x (float): The x coordinate of the location.
+            y (float): The y coordinate of the location.
+            z (float): The z coordinate of the location.
+
+        Returns:
+            None
+        """
+        try:
+            # Construct the Google Earth URL with the specified coordinates and a marker
+            url = (
+                f"https://earth.google.com/web/search/?q={x},{y},{z}&place={x},{y},{z}"
+            )
+
+            # Open the URL in the default web browser
+            webbrowser.open(url)
+
+            print("Google Earth opened successfully.")
         except Exception as e:
             print(f"An error occurred: {str(e)}")
 

@@ -1,140 +1,73 @@
-"""Represents an Epoch of Observational Data.
-
-An Epoch is a time segment of observational data that includes a timestamp and associated observables in the form of a pandas DataFrame.
-Moreover, it also contains the navigation data for the epoch which is used for triangulation.
-
-Attributes:
-    timestamp (pd.Timestamp): The timestamp of the epoch.
-    data (pd.DataFrame): The observational data of the epoch.
-    nav_data (pd.DataFrame): The navigation data of the epoch.
-
-Methods:
-    __init__(timestamp, data): Initialize an Epoch instance with a timestamp and observational data.
-    timestamp (property): Get the timestamp of the epoch.
-    data (property): Get the observational data of the epoch.
-    __getitem__(sv): Retrieve observables for a specific satellite vehicle (SV) by index.
-    __repr__(): Return a string representation of the Epoch.
-
-Args:
-    timestamp (pd.Timestamp): The timestamp associated with the epoch.
-    data (pd.DataFrame): A DataFrame containing observational data.
-
-Raises:
-    AttributeError: If you try to set the timestamp or data directly.
-
-Example:
-    >>> timestamp = pd.Timestamp('2023-10-12 12:00:00')
-    >>> data = pd.DataFrame(...)
-    >>> epoch = Epoch(timestamp, data)
-    >>> print(epoch)
-    Epoch(timestamp=2023-10-12 12:00:00, sv=...)
-
-You should provide more detailed descriptions for the methods, explaining their purpose, accepted arguments, and return values. This will make the documentation more informative and help users understand how to use the class and its methods.
-
-"""
-
 import pickle
 from pathlib import Path  # type: ignore
+from typing import Iterator
 
 import pandas as pd  # type: ignore
 
+from ...parse.base_parse import Parser
+from ...parse.iparse import IParseGPSNav, IParseGPSObs
 from .epochfragment import FragNav, FragObs
 
 __all__ = ["Epoch"]
 
 
 class Epoch:
-    """Represents an Epoch of Observational Data.
+    """Represents an Epoch instance with observational and navigation data fragments.
 
-    An Epoch is a time segment of observational data that includes a timestamp and associated observables in the form of a pandas DataFrame.
+    This class provides functionalities to handle and process data related to a single epoch,
+    including observational and navigation data, trimming, purifying, saving, loading, and more.
 
     Attributes:
-        timestamp (pd.Timestamp): The timestamp of the epoch.
-        data (pd.DataFrame): The observational data of the epoch.
-        nav_data (pd.DataFrame): The navigation data of the epoch.
+        _obs_frag (FragObs): Observational data fragment for a single epoch.
+        _nav_frag (FragNav): Navigation data fragment for the corresponding epoch.
 
     Methods:
-        __init__(timestamp, data): Initialize an Epoch instance with a timestamp and observational data.
-        timestamp (property): Get the timestamp of the epoch.
-        data (property): Get the observational data of the epoch.
-        __getitem__(sv): Retrieve observables for a specific satellite vehicle (SV) by index.
-        __repr__(): Return a string representation of the Epoch.
-
-    Args:
-        timestamp (pd.Timestamp): The timestamp associated with the epoch.
-        data (pd.DataFrame): A DataFrame containing observational data.
-
-    Raises:
-        AttributeError: If you try to set the timestamp or data directly.
-
-    Example:
-        >>> timestamp = pd.Timestamp('2023-10-12 12:00:00')
-        >>> data = pd.DataFrame(...)  # Replace '...' with actual data.
-        >>> epoch = Epoch(timestamp, data)
-        >>> print(epoch)
-        Epoch(timestamp=2023-10-12 12:00:00, sv=...)
-
+        __init__: Initialize an Epoch instance.
+        timestamp: Get the timestamp of the epoch.
+        obs_data: Get the observational data of the epoch.
+        obs_data.setter: Set the observational data of the epoch.
+        nav_data: Get the navigation data of the epoch.
+        nav_data.setter: Set the navigation data of the epoch.
+        trim: Intersect satellite vehicles in observation and navigation data.
+        purify: Remove observations with missing data.
+        common_sv: Get common satellite vehicles between observation and navigation data.
+        __repr__: Return a string representation of the Epoch.
+        __getitem__: Retrieve observables for a specific satellite vehicle by index.
+        __len__: Return the number of satellite vehicles in the epoch.
+        epochify: Generate Epoch instances from observation and navigation data files.
+        save: Save the epoch to a file.
+        load: Load an epoch from a file.
+        load_from_fragment: Load an epoch from fragments.
+        load_from_fragment_path: Load an epoch from fragment paths.
     """
 
     def __init__(
         self,
-        timestamp: pd.Timestamp,
-        obs_data: pd.DataFrame,
-        nav_data: pd.DataFrame,
+        obs_frag: FragObs,
+        nav_frag: FragNav,
         trim: bool = False,
+        purify: bool = False,
     ) -> None:
-        """Initialize an Epoch instance with a timestamp and observational data.
+        """Initialize an Epoch instance with a timestamp and observational data and navigation data.
 
         Args:
-            timestamp (pd.Timestamp): The timestamp of the epoch.
-            obs_data (pd.DataFrame): A DataFrame containing observational data.
-            nav_data (pd.DataFrame): A DataFrame containing navigation data.
-            trim (bool): Intersect the satellite vehicles in the observation data and navigation data. Defaults to False.
-
+            timestamp (pd.Timestamp): The timestamp associated with the epoch.
+            obs_frag (FragObs): A Observational data fragment i.e observational data for a single epoch.
+            nav_frag (FragNav): A Navigation data fragment i.e navigation data for crossponding epoch.
+            trim (bool, optional): Whether to trim the data. Defaults to False.
+            purify (bool, optional): Whether to purify the data. Defaults to False.
         """
-        # Timestamp of the epoch
-        self._timestamp = timestamp
+        # Store FragObs and FragNav
+        self._obs_frag = obs_frag
+        self._nav_frag = nav_frag
 
-        # Observational data of the epoch
-        self._obs_data = self.purify(obs_data)
-
-        # Navigation data of the epoch
-        self._nav_data = nav_data
+        # Purify the data
+        if purify:
+            self.obs_data = self.purify(self.obs_data)
 
         # Trim the data
         if trim:
             self.trim()
-
-    def trim(self) -> None:
-        """Intersect the satellite vehicles in the observation data and navigation data."""
-        # Get the common satellite vehicles
-        common_sv = self.obs_data.index.get_level_values("sv").intersection(
-            self.nav_data.index.get_level_values("sv")
-        )
-
-        # Trim the data
-        self._obs_data = self.obs_data.loc[
-            self.obs_data.index.get_level_values("sv").isin(common_sv)
-        ]
-        self._nav_data = self.nav_data.loc[
-            self.nav_data.index.get_level_values("sv").isin(common_sv)
-        ]
-
-        return
-
-    def purify(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Remove observations with missing data."""
-        # Drop NA rows values for observations ["C1C", "C2C", "C2W" , "C1W"] if present
-        if "C1C" in data.columns:
-            data = data.dropna(subset=["C1C"])
-        if "C2C" in data.columns:
-            data = data.dropna(subset=["C2C"])
-        if "C2W" in data.columns:
-            data = data.dropna(subset=["C2W"])
-        if "C1W" in data.columns:
-            data = data.dropna(subset=["C1W"])
-
-        return data
 
     @property
     def timestamp(self) -> pd.Timestamp:
@@ -144,22 +77,7 @@ class Epoch:
             pd.Timestamp: The timestamp associated with the epoch.
 
         """
-        return self._timestamp
-
-    @timestamp.setter
-    def timestamp(self, timestamp: pd.Timestamp) -> None:  # noqa: ARG002
-        """Prevent direct modification of the timestamp. Use the constructor instead.
-
-        Args:
-            timestamp (pd.Timestamp): The timestamp to set.
-
-        Raises:
-            AttributeError: If you try to set the timestamp directly.
-
-        """
-        raise AttributeError(
-            "Cannot set timestamp directly. Use the constructor instead."
-        )
+        return self._obs_frag.epoch_time
 
     @property
     def obs_data(self) -> pd.DataFrame:
@@ -169,20 +87,17 @@ class Epoch:
             pd.DataFrame: A DataFrame containing observational data.
 
         """
-        return self._obs_data
+        return self._obs_frag.obs_data
 
     @obs_data.setter
     def obs_data(self, data: pd.DataFrame) -> None:  # noqa: ARG002
-        """Prevent direct modification of the data. Use the constructor instead.
+        """Set the observational data of the epoch.
 
         Args:
             data (pd.DataFrame): The data to set.
 
-        Raises:
-            AttributeError: If you try to set the data directly.
-
         """
-        raise AttributeError("Cannot set data directly. Use the constructor instead.")
+        self._obs_frag.obs_data = data
 
     @property
     def nav_data(self) -> pd.DataFrame:
@@ -192,26 +107,72 @@ class Epoch:
             pd.DataFrame: A DataFrame containing navigation data.
 
         """
-        return self._nav_data
+        return self._nav_frag.nav_data
 
     @nav_data.setter
     def nav_data(self, nav_data: pd.DataFrame) -> None:  # noqa: ARG002
-        """Prevent direct modification of the nav_data. Use the constructor instead.
+        """Set the navigation data of the epoch.
 
         Args:
             nav_data (pd.DataFrame): The nav_data to set.
 
-
-        Raises:
-            AttributeError: If you try to set the nav_data directly.
         """
-        raise AttributeError(
-            "Cannot set nav_data directly. Use the constructor instead."
+        self._nav_frag.nav_data = nav_data
+
+    @property
+    def station(self) -> str:
+        """Get the station name.
+
+        Returns:
+            str: The station name.
+
+        """
+        return self._obs_frag.station
+
+    def trim(self) -> None:
+        """Intersect the satellite vehicles in the observation data and navigation data.
+
+        Trims the data to contain only satellite vehicles present in both observations and navigation.
+        """
+        # Get the common satellite vehicles
+        common_sv = self.obs_data.index.get_level_values("sv").intersection(
+            self.nav_data.index.get_level_values("sv")
         )
+
+        # Trim the data
+        self.obs_data = self.obs_data.loc[
+            self.obs_data.index.get_level_values("sv").isin(common_sv)
+        ]
+        self.nav_data = self.nav_data.loc[
+            self.nav_data.index.get_level_values("sv").isin(common_sv)
+        ]
+
+        return
+
+    def purify(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Remove observations with missing data.
+
+        Args:
+            data (pd.DataFrame): DataFrame containing observational or navigation data.
+
+        Returns:
+            pd.DataFrame: DataFrame with missing data observations removed.
+        """
+        # Drop NA rows values for observations ["C1C", "C2C", "C2W" , "C1W"] if present
+        if "C1C" in data.columns and "C2C" in data.columns:
+            data = data.dropna(subset=["C1C", "C2C"], axis=0)
+        elif "C1W" in data.columns and "C2W" in data.columns:
+            data = data.dropna(subset=["C1W", "C2W"], axis=0)
+
+        return data
 
     @property
     def common_sv(self) -> pd.Index:
-        """Get the common satellite vehicles between the observation data and navigation data."""
+        """Get the common satellite vehicles between the observation data and navigation data.
+
+        Returns:
+            pd.Index: Common satellite vehicles present in both observational and navigation data.
+        """
         return self.obs_data.index.get_level_values("sv").intersection(
             self.nav_data.index.get_level_values("sv")
         )
@@ -247,61 +208,58 @@ class Epoch:
         return len(self.obs_data)
 
     @staticmethod
-    def epochify(
-        obs: pd.DataFrame, nav: pd.DataFrame, mode: str = "maxsv"
-    ) -> list["Epoch"]:
-        """Convert a pandas DataFrame of observations into a list of 'Epoch' objects.
+    def epochify(obs: Path, nav: Path, mode: str = "maxsv") -> Iterator["Epoch"]:
+        """Generate Epoch instances from observation and navigation data files.
 
-        Parameters:
-        obs (pd.DataFrame): A DataFrame containing timestamped observations.
-        nav (pd.DataFrame): A DataFrame containing navigation data.
-        mode (str): Method to choose the best navigation message. Defaults to 'maxsv'.
+        Args:
+            obs (Path): Path to the observation data file.
+            nav (Path): Path to the navigation data file.
+            mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
 
-        Returns:
-        list['Epoch']: A list of 'Epoch' objects, where each 'Epoch' represents
-        a unique timestamp with its associated data.
-
-        This method takes a pandas DataFrame with timestamped data and processes it
-        to create a list of 'Epoch' objects, where each 'Epoch' represents a unique
-        timestamp along with the corresponding data for that timestamp. The input
-        DataFrame should have a multi-index, with the second level indicating
-        timestamps. The navigation data is chosen based on the specified method. The navigation
-        message is then intersected with the observations to create the Epoch object.
+        Yields:
+            Iterator[Epoch]: Epoch instances generated from the provided data files.
         """
-        # assert that the obs and nav data are pandas DataFrames
-        if not isinstance(obs, pd.DataFrame):
-            raise TypeError(f"obs must be a pandas DataFrame. Got {type(obs)} instead.")
-        if not isinstance(nav, pd.DataFrame):
-            raise TypeError(f"nav must be a pandas DataFrame. Got {type(nav)} instead.")
+        # Parse the observation and navigation data
+        parser = Parser(iparser=IParseGPSNav())
 
-        # Check that mode is one of 'nearest' or 'maxsv'
-        if mode.lower() not in ["nearest", "maxsv"]:
-            raise ValueError(
-                'Invalid ephemeris method. Method must be "nearest" or "maxsv".'
+        # Parse the navigation data
+        metadata, nav_data = parser(nav)
+
+        if nav_data.empty:
+            raise ValueError("No navigation data found.")
+
+        # Parse the observation data
+        parser.swap(iparser=IParseGPSObs())
+
+        # Parse the observation data
+        metadata, data = parser(obs)
+
+        if data.empty:
+            raise ValueError("No observation data found.")
+
+        # Get the observational fragments
+        obs_frags = FragObs.fragmentify(obs_data=data, parent=obs.name)
+
+        # Get the navigation fragments
+        nav_frags = FragNav.fragmentify(nav_data=nav_data, parent=nav.name)
+
+        # Filter at least 4 satellites
+        obs_frags = [frag for frag in obs_frags if len(frag) >= 4]
+        nav_frags = [frag for frag in nav_frags if len(frag) >= 4]
+
+        # Iterate over the fragments
+        for observational_fragments in obs_frags:
+            nearest_nav = observational_fragments.nearest_nav_fragment(
+                nav_fragments=nav_frags, mode=mode
             )
 
-        # If any of the DataFrames are empty, then return an empty list
-        if obs.empty or nav.empty:
-            return []
+            if nearest_nav is None:
+                continue
 
-        # Get the unique timestamps in the DataFrame
-        timestamps = obs.index.get_level_values("time").unique()
-
-        # Create a list of Epochs
-        epoches = []
-
-        for timestamp in timestamps:
-            # Get the data for the current timestamp
-            data = obs.xs(key=timestamp, level="time", drop_level=True)
-
-            # Create an Epoch object and add it to the list
-            epoches.append(
-                Epoch._choose_nav_and_pack_obs_data(
-                    time_stamp=timestamp, obs_data=data, nav=nav, ephemeris=mode
-                )
+            yield Epoch.load_from_fragment(
+                obs_frag=observational_fragments,
+                nav_frag=nearest_nav,
             )
-
-        return epoches
 
     def save(self, path: str | Path) -> None:
         """Save the epoch to a file.
@@ -343,62 +301,6 @@ class Epoch:
         return epoch
 
     @staticmethod
-    def _choose_nav_and_pack_obs_data(
-        time_stamp: pd.Timestamp,
-        obs_data: pd.DataFrame,
-        nav: pd.DataFrame,
-        ephemeris: str = "maxsv",
-    ) -> "Epoch":
-        """Choose the best navigation message based on the specified method.
-
-        Args:
-            time_stamp (pd.Timestamp): The timestamp of the epoch.
-            obs_data (pd.DataFrame): The observational data of the epoch.
-            nav (pd.DataFrame): Navigation data.
-            ephemeris (str, optional): Method to choose the best navigation message. Defaults to 'maxsv'.
-
-        Returns:
-            tuple[Epoch,  pd.DataFrame]: The chosen navigation message and the observations with the intersected ephemeris.
-        """
-        # Get the epoch time
-        epoch_time = time_stamp
-        epoch_data = obs_data
-        navtimes = nav.index.get_level_values("time").unique()
-
-        # If the max time difference is greater that 4hours between epoch time and nav time,
-        # then raise an error since ephemeris is not valid for that time
-        if all(abs(navtimes - epoch_time) > pd.Timedelta("4h")):
-            raise ValueError(
-                f"No valid ephemeris for {epoch_time}. All ephemeris are more than 4 hours away from the epoch time."
-            )
-
-        if ephemeris.lower() == "nearest":
-            # Get the nearest timestamp from epoch_time
-            nearest_time = min(navtimes, key=lambda x: abs(x - epoch_time))
-            ephm = nav.loc[[nearest_time]]
-
-        elif ephemeris.lower() == "maxsv":
-            # Get the timestamp with maximum number of sv
-            maxsv_time = max(navtimes, key=lambda x: nav.loc[x].shape[0])
-            ephm = nav.loc[[maxsv_time]]
-
-        else:
-            raise ValueError(
-                'Invalid ephemeris method. Method must be "nearest" or "maxsv".'
-            )
-
-        # If the intersection is empty, then raise an error
-        if ephm.empty:
-            raise ValueError(
-                "Use maxsv ephemeris mode. No common sv between observations and nav ephemeris data."
-            )
-
-        # Create a new obs epoch with the intersected ephemeris
-        return Epoch(
-            timestamp=epoch_time, obs_data=epoch_data, nav_data=ephm, trim=True
-        )
-
-    @staticmethod
     def load_from_fragment(obs_frag: FragObs, nav_frag: FragNav) -> "Epoch":
         """Load an epoch from fragments.
 
@@ -409,12 +311,7 @@ class Epoch:
         Returns:
             None
         """
-        return Epoch(
-            timestamp=obs_frag.epoch_time,
-            obs_data=obs_frag.obs_data,
-            nav_data=nav_frag.nav_data,
-            trim=True,
-        )
+        return Epoch(obs_frag=obs_frag, nav_frag=nav_frag, trim=True, purify=True)
 
     @staticmethod
     def load_from_fragment_path(obs_frag_path: Path, nav_frag_path: Path) -> "Epoch":

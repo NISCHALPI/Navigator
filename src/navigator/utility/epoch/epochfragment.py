@@ -146,45 +146,57 @@ class FragObs(Fragment):
         return fragments
 
     def nearest_nav_fragment(
-        self, sorted_fragments: list["FragNav"], mode: str = "max_sv"
+        self, nav_fragments: list["FragNav"], mode: str = "maxsv"
     ) -> "FragNav":
         """Get the nearest navigation fragment to the observation.
 
         Args:
-            sorted_fragments (list[FragNav]): List of sorted navigation fragments.
-            mode (str, optional): Mode to get the nearest navigation fragment (max_sv | nearest). Defaults to "max_sv".
+            nav_fragments (list[FragNav]): List of navigation fragments.
+            mode (str, optional): Mode to get the nearest navigation fragment (maxsv | nearest). Defaults to "max_sv".
 
         Returns:
             FragNav: Nearest navigation fragment.
+
+        Raises:
+            ValueError: Mode must be either maxsv or nearest.
         """
         # Mode must be either max_sv or nearest.
-        if mode not in ["max_sv", "nearest"]:
-            raise ValueError("Mode must be either max_sv or nearest.")
+        if mode not in ["maxsv", "nearest"]:
+            raise ValueError("Mode must be either maxsv or nearest.")
 
         # Filter to +- 3 hours of the observation time.
-        sorted_fragments = [
+        nav_fragments = [
             fragment
-            for fragment in sorted_fragments
+            for fragment in nav_fragments
             if abs(fragment.timestamp - self.epoch_time) <= pd.Timedelta(hours=3)
         ]
 
         # If no fragments are found, return None.
-        if len(sorted_fragments) == 0:
+        if len(nav_fragments) == 0:
             return None
 
-        if mode == "max_sv":
+        if mode == "maxsv":
             # Return the fragment with the maximum number of satellites in common.
             return max(
-                sorted_fragments,
+                nav_fragments,
                 key=lambda fragment: len(fragment.intersect_sv(self)),
             )
         if mode == "nearest":
             # Return the fragment with the nearest timestamp.
             return min(
-                sorted_fragments,
+                nav_fragments,
                 key=lambda fragment: abs(fragment.timestamp - self.epoch_time),
             )
         return None
+
+    @property
+    def station(self) -> str:
+        """Get the station name.
+
+        Returns:
+            str: Station name.
+        """
+        return self.get_name().split("_")[1]
 
     def __len__(self) -> int:
         """Get the length of the fragment.

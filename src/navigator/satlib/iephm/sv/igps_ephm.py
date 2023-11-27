@@ -142,7 +142,7 @@ class IGPSEphemeris(AbstractIephemeris):
         # Iteratively solve for eccentric anomaly
         while True:
             E_k2 = E_k1 + (M_k - E_k1 + e * np.sin(E_k1)) / (1 - e * np.cos(E_k1))
-            if abs(E_k2 - E_k1) < 1e-10:
+            if abs(E_k2 - E_k1) < 1e-7:
                 break
             E_k1 = E_k2
 

@@ -141,7 +141,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             )
 
         # Replace the Pseudorange column in obs.data with the corrected Pseudorange
-        obs._obs_data = corrected_obs
+        obs.obs_data = corrected_obs
 
         return obs
 
