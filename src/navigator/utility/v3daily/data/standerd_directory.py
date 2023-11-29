@@ -1,4 +1,5 @@
 """Standard Directory Structure for RINEX v3 Daily Data."""
+import shutil
 from itertools import chain
 from pathlib import Path
 from typing import Iterator
@@ -162,6 +163,62 @@ class StanderdDirectory(AbstractDirectory):
             file_path.replace(
                 self.directory_path / year / day_of_year / station_name / file_path.name
             )
+
+        # Remove invalid directories
+        self.remove_invalid_dirs(self.directory_path)
+
+        return
+    
+    def _is_leaf(self, path: Path) -> bool:
+        """Returns True if the path is a leaf directory i.e dirctory containing files only."""
+        if any([child.is_file() for child in path.iterdir()]):
+            return True
+        return False
+
+    def remove_invalid_dirs(self, root: Path) -> None:
+        """Recursively removes invalid directories based on specific criteria.
+
+        Criteria:
+            1. If the directory is empty.
+            2. If the leaf directory does not contain one nav file and one obs file.
+
+        Args:
+            root (Path): The root directory to start the removal process.
+
+        Returns:
+            None
+        """
+        # If the directory is empty
+        if len(list(root.iterdir())) == 0:
+            # Remove the directory
+            root.rmdir()
+            return
+        
+        if not self._is_leaf(root):
+            # Recurse on the children
+            for child in root.iterdir():
+                self.remove_invalid_dirs(child)
+
+            # Recheck if the directory is empty
+            if len(list(root.iterdir())) == 0:
+                # Remove the directory
+                root.rmdir()
+                return
+        else:
+            # Check that the leaf directory contains one nav file and one obs file
+            nav_files = [child for child in root.iterdir() if self.gps_nav_matcher.match(child.name)]
+            obs_files = [child for child in root.iterdir() if self.mixed_obs_matcher.match(child.name)]
+
+            if len(nav_files) != 1 or len(obs_files) != 1:
+                # Remove the directory
+                shutil.rmtree(root)
+                return
+
+            
+                
+                
+
+            
 
     def __iter__(self) -> Iterator[Path]:
         """Iterate over the files in the directory."""

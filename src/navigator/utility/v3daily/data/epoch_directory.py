@@ -244,7 +244,7 @@ class EpochDirectory(AbstractDirectory):
         # Dump the obs fragments in the station directory
         for obs_fragment in obs_fragments:
             nearest_nav_fragment = obs_fragment.nearest_nav_fragment(
-                nav_fragments, mode="max_sv"
+                nav_fragments, mode="maxsv" # Use maxsv mode to get the nearest nav fragment
             )
 
             # Do not continue if there is no nearest nav fragment
