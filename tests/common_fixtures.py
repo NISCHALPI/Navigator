@@ -4,6 +4,7 @@ import os
 
 from navigator.parse import Parser, IParseGPSNav, IParseGPSObs
 
+
 __all__ = [
     "navfilepath",
     "obsfilepath",

@@ -194,7 +194,7 @@ class Triangulate(AbstractTriangulate):
         nav_metadata: pd.Series = None,
         *args,
         **kwargs,
-    ) -> float:
+    ) -> pd.Series:
         """Computes the error between the computed location and the actual location for only IGS stations.
 
         Args:
@@ -205,7 +205,7 @@ class Triangulate(AbstractTriangulate):
             **kwargs: Additional keyword arguments.
 
         Returns:
-            float: The error between the computed location and the actual location.
+            pd.Series: The computed error with the actual location.
 
         Note:
             This method is only for IGS stations.
@@ -217,7 +217,8 @@ class Triangulate(AbstractTriangulate):
         computed = self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
 
         # Calculate the difference between the computed and actual locations
-        return np.linalg.norm(computed[['x', 'y', 'z']] - actual)
+        computed['diff'] = np.linalg.norm(computed[['x', 'y', 'z']] - actual)
+        return computed
 
     def igs_real_coords(
         self,

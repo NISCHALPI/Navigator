@@ -48,26 +48,24 @@ def _rotation_matrix(theta: float) -> np.ndarray:
 
 def earth_rotation_correction(
     sv_position: np.ndarray,
-    delta_t: np.ndarray,
+    dt: np.ndarray,
 ) -> np.ndarray:
     """Calculate the corrected satellite position accounting for Earth's rotation.
 
     Args:
        sv_position (np.ndarray): Must be (num_sv, 3) numpy array representing the satellite's ECEF position(s
-       delta_t (float): Must be of shape  (num_sv) numpy array representing the time interval in seconds between the past position and the current time. (num_sv, 1
+       dt (float): Must be of shape  (num_sv) numpy array representing the time interval in seconds between the past position and the current time. (num_sv, 1
 
     Returns:
        np.ndarray: A (3,1) numpy array representing the corrected satellite position after Earth's rotation adjustment.
     """
     # Check that the input is a numpy array
     assert sv_position.shape[-1] == 3, "Input must be a (num_sv, 3) numpy array"
-    assert delta_t.shape == (
-        sv_position.shape[0],
-    ), "Input must be a (num_sv) numpy array"
+    assert dt.shape == (sv_position.shape[0],), "Input must be a (num_sv) numpy array"
 
     # Apply the rotation matrix to each satellite position
     for sv in range(sv_position.shape[0]):
-        earth_rotation = _rotation_matrix(OMEGA_EARTH * delta_t[sv])
+        earth_rotation = _rotation_matrix(OMEGA_EARTH * dt[sv])
         sv_position[sv] = earth_rotation @ sv_position[sv]
 
     return sv_position

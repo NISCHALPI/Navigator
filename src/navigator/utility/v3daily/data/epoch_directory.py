@@ -244,7 +244,8 @@ class EpochDirectory(AbstractDirectory):
         # Dump the obs fragments in the station directory
         for obs_fragment in obs_fragments:
             nearest_nav_fragment = obs_fragment.nearest_nav_fragment(
-                nav_fragments, mode="maxsv" # Use maxsv mode to get the nearest nav fragment
+                nav_fragments,
+                mode="maxsv",  # Use maxsv mode to get the nearest nav fragment
             )
 
             # Do not continue if there is no nearest nav fragment
@@ -280,6 +281,26 @@ class EpochDirectory(AbstractDirectory):
         self.directory_path.mkdir(parents=True, exist_ok=True)
         return
 
+    def _load_epoch_from_obs(self, obs_frag: Path) -> Epoch:
+        """Load the epoch from the obs fragment.
+
+        Args:
+            obs_frag (Path): The path to the obs fragment.
+
+        Returns:
+            Epoch: The epoch loaded from the obs fragment.
+        """
+        # Load the obs_frag
+        frag = FragObs.load(obs_frag)
+
+        # If the obs_frag doesn't have a nav_frag_file_name attribute, return None
+        if hasattr(frag, "nav_frag_file_name"):
+            nav_frag = FragNav.load(obs_frag.parent / frag.nav_frag_file_name)
+
+            return Epoch.load_from_fragment(frag, nav_frag)
+
+        return None
+
     def __iter__(self) -> Iterator["Epoch"]:
         """Iterate over the epoch files in the directory.
 
@@ -294,19 +315,13 @@ class EpochDirectory(AbstractDirectory):
                 for station_dir in day_dir.iterdir():
                     # Glob all the obs fragments
                     obs_frag_files = station_dir.glob("OBSFRAG*.pkl")
-
                     # Yield the epoch
                     for obsfragpath in obs_frag_files:
-                        obs_frag = FragObs.load(obsfragpath)
-
-                        if hasattr(obs_frag, "nav_frag_file_name"):
-                            nav_frag = FragNav.load(
-                                station_dir / obs_frag.nav_frag_file_name
-                            )
-                        else:
-                            continue
-
-                        yield Epoch.load_from_fragment(obs_frag, nav_frag)
+                        # Get the epoch
+                        epoch = self._load_epoch_from_obs(obsfragpath)
+                        # Yield the epoch if it is not None
+                        if epoch is not None:
+                            yield epoch
 
     def __getitem__(self, index: int | slice) -> Epoch | list[Epoch]:
         """Get the epoch file at the given index.
@@ -352,8 +367,7 @@ class EpochDirectory(AbstractDirectory):
             return ret
 
         raise TypeError("Index must be int or slice.")
-    
-    
+
     def __len__(self) -> int:
         """Return the number of epoch observational fragments in the directory.
 
@@ -361,3 +375,41 @@ class EpochDirectory(AbstractDirectory):
             int: The number of epoch files in the directory.
         """
         return len(list(self.directory_path.glob("**/OBSFRAG*.pkl")))
+
+    @property
+    def stations(self) -> list[str]:
+        """Returns the list of stations in the directory.
+
+        Returns:
+            list[str]: The list of stations in the directory.
+        """
+        stations = []
+
+        for year_dir in self.directory_path.iterdir():
+            for day_dir in year_dir.iterdir():
+                for station_dir in day_dir.iterdir():
+                    stations.append(station_dir.name)
+
+        return list(set(stations))
+
+    def get_by_station(self, station: str) -> Iterator[Epoch]:
+        """Returns the list of epochs for the given station.
+
+        Args:
+            station (str): The station name.
+
+        Returns:
+            Iterator[Epoch]: The list of epochs for the given station.
+        """
+        for year_dir in self.directory_path.iterdir():
+            for day_dir in year_dir.iterdir():
+                for station_dir in day_dir.iterdir():
+                    if station_dir.name == station:
+                        # Glob all the obs fragments
+                        obs_frag_files = station_dir.glob("OBSFRAG*.pkl")
+
+                        # Yield the epoch
+                        for obsfragpath in obs_frag_files:
+                            epoch = self._load_epoch_from_obs(obsfragpath)
+                            if epoch is not None:
+                                yield epoch

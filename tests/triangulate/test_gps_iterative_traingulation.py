@@ -4,17 +4,16 @@ from navigator.utility.epoch import Epoch
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
 from navigator.satlib.triangulate import Triangulate, GPSIterativeTriangulationInterface
 import numpy as np
+from pathlib import Path
 
 
 @pytest.fixture
-def epoch(
-    nav_data, obs_data, navfilepath, obsfilepath
-) -> tuple[list[Epoch], pd.Series, pd.Series]:
-    return Epoch.epochify(obs=obs_data[1], nav=nav_data[1]), nav_data[0], obs_data[0]
+def epoch(navfilepath, obsfilepath) -> list[Epoch]:
+    return Epoch.epochify(Path(obsfilepath), Path(navfilepath))
 
 
-def test_traingulation_gps(epoch) -> tuple[pd.DataFrame, pd.DataFrame]:
-    epoches, nav, obs = epoch
+def test_traingulation_gps(epoch):
+    epoches = epoch
 
     # Triangulate the epoch``
     triangulator = Triangulate(
@@ -26,7 +25,7 @@ def test_traingulation_gps(epoch) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     # Trianguate all the epochs
     for eph in epoches:
-        series = triangulator(obs=eph, obs_metadata=obs, nav_metadata=nav)
+        series = triangulator(obs=eph, obs_metadata=None, nav_metadata=None)
         coords.append(np.array([series["x"], series["y"], series["z"]]))
 
     # Take the average of the coords

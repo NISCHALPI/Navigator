@@ -1,46 +1,18 @@
-"""Triangulate using GPS observations and navigation data.
+"""The `GPSIterativeTriangulationInterface` module provides classes and methods for GPS iterative triangulation.
 
-This module provides a class, GPSIterativeTriangulationInterface, which implements iterative triangulation using GPS observations and navigation data. It offers methods to choose the best navigation message, compute ionospheric corrections, emission epochs, and satellite coordinates at the emission epoch, and perform least-squares triangulation to estimate the user's position.
+It implements functionality for estimating a user's position using GPS observations and navigation data using the least-squares triangulation method.
+
+Author:
+    - Nischal Bhattarai (nbhattrai@crimson.ua.edu)
 
 Classes:
-    - GPSIterativeTriangulationInterface: A class for GPS iterative triangulation.
+    - `GPSIterativeTriangulationInterface`:
+        Implements iterative triangulation using GPS observations and navigation data.
+        Methods include computing ionospheric corrections, emission epochs,
+        satellite coordinates, and performing least-squares triangulation to estimate user position.
 
-Functions:
-    - None
-
-Attributes:
-    - __all__: A list of names that are exported when using 'from module import *'.
-
-Dependencies:
-    - pandas: Used for handling data in DataFrame format.
-    - epoch: Imported from a utility module to handle timestamped data.
-    - iephm.igps_ephm: Importing IGPSEphemeris class for satellite ephemeris data.
-    - satellite.satellite: Importing Satellite class for satellite position calculations.
-    - algos.dual_frequency_corrections: Provides dual-channel ionospheric corrections.
-    - algos.linear_iterative_method: Provides the least-squares solver for triangulation.
-    - algos.rotations: Includes functions for Earth rotation corrections.
-    - itriangulate: An interface for triangulation.
-
-Public Classes:
-    - GPSIterativeTriangulationInterface: A class for GPS iterative triangulation that implements Itriangulate.
-
-Public Methods (GPSIterativeTriangulationInterface):
-    - __init__(self) -> None: Initializes the GPSIterativeTriangulationInterface.
-
-    - _choose_nav_message_for_interpolation(self, obs: Epoch, nav: pd.DataFrame, ephemeris: str = "maxsv") -> pd.DataFrame:
-        Choose the best navigation message based on method. Method can be "nearest" or "maxsv," which chooses the "nearest" nav timestamp or timestamp containing the maximum number of satellites.
-
-    - _ionospheric_correction(self, obs: Epoch) -> Epoch:
-        Compute the Ionospheric correction for the GPS observations.
-
-    - _compute_emission_epoch(self, obs: Epoch) -> Epoch:
-        Compute the emission epoch for the GPS observations.
-
-    - _compute_sv_coordinates_at_emission_epoch(self, obs: Epoch, nav: pd.DataFrame, nav_metadata: pd.Series) -> Epoch:
-        Compute satellite coordinates at the emission epoch.
-
-    - _compute(self, obs: Epoch, obs_metadata: pd.Series, nav: pd.DataFrame, nav_metadata: pd.Series, **kwargs) -> pd.Series | pd.DataFrame:
-        Compute the iterative triangulation using GPS observations and navigation data.
+Usage:
+    Import this module to access the `GPSIterativeTriangulationInterface` class for GPS-based iterative triangulation.
 """
 
 from warnings import warn
@@ -67,27 +39,21 @@ class GPSIterativeTriangulationInterface(Itriangulate):
     emission epochs, satellite coordinates at the emission epoch, and performing least-squares triangulation
     to estimate the user's position.
 
-    Args:
-        Itriangulate (type): The base class for triangulation.
-
-    Public Methods:
-        - __init__(self) -> None:
-            Initializes the GPSIterativeTriangulationInterface.
-
-        - _choose_nav_message_for_interpolation(self, obs: Epoch, nav: pd.DataFrame, ephemeris: str = "maxsv") -> pd.DataFrame:
-            Choose the best navigation message based on the specified method.
-
-        - _ionospheric_correction(self, obs: Epoch) -> Epoch:
-            Compute the Ionospheric correction for GPS observations.
-
-        - _compute_emission_epoch(self, obs: Epoch) -> Epoch:
-            Compute the emission epoch for GPS observations.
-
-        - _compute_sv_coordinates_at_emission_epoch(self, obs: Epoch, nav: pd.DataFrame, nav_metadata: pd.Series) -> Epoch:
-            Compute satellite coordinates at the emission epoch.
-
-        - _compute(self, obs: Epoch, obs_metadata: pd.Series, nav: pd.DataFrame, nav_metadata: pd.Series, **kwargs) -> pd.Series | pd.DataFrame:
+    Methods:
+        __init__:
+            Initialize the GPSIterativeTriangulationInterface.
+        _ionospehric_free_combination:
+            Compute the Ionospheric free combination for GPS observations.
+        _compute_sv_coordinates_at_emission_epoch:
+            Computes the satellite coordinates at the emission epoch.
+        _rotate_satellite_coordinates_to_reception_epoch:
+            Rotate the satellite coordinates to the reception epoch.
+        _compute:
             Compute the iterative triangulation using GPS observations and navigation data.
+
+    Attributes:
+        None
+
     """
 
     def __init__(self) -> None:
@@ -101,8 +67,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         """
         super().__init__(feature="GPS(Iterative)")
 
-    def _ionospehric_correction(self, obs: Epoch, no_warn: bool = True) -> Epoch:
-        """Compute the Ionospheric correction for GPS observations.
+    def _ionospehric_free_combination(self, obs: Epoch, no_warn: bool = True) -> Epoch:
+        """Compute the Ionospheric free combination for GPS observations.
 
         Args:
             obs (Epoch): GPS observations.
@@ -145,27 +111,6 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         return obs
 
-    def _compute_emission_epoch(self, obs: Epoch) -> Epoch:
-        """Compute satellite coordinates at the emission epoch.
-
-        Args:
-            obs (Epoch): GPS observations.
-            nav (pd.DataFrame): Navigation data.
-            nav_metadata (pd.Series): Metadata for navigation data.
-
-        Returns:
-            Epoch: Computed satellite coordinates at the emission epoch.
-        """
-        # Compute the emission epoch
-        obs.obs_data["dt"] = obs.obs_data["Pseudorange"] / 299792458
-
-        # Compute the emission epoch
-        obs.obs_data["EmissionEpoch"] = obs.timestamp - pd.to_timedelta(
-            obs.obs_data["dt"], unit="s"
-        )
-
-        return obs
-
     def _compute_sv_coordinates_at_emission_epoch(
         self,
         obs: Epoch,
@@ -186,19 +131,72 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         Returns:
             Epoch: The computed satellite coordinates at the emission epoch.
         """
+        # Compute the emission epoch
+        dt = obs.obs_data["Pseudorange"] / 299792458
+
+        # Compute the emission epoch
+        emission_epoch = obs.timestamp - pd.to_timedelta(dt, unit="s")
+        emission_epoch.name = "EmissionEpoch"
+
         # Instantiate the Satellite class
         satellite = Satellite(iephemeris=IGPSEphemeris())
 
         # t_sv must have same indexed dataframes as nav. Compatibility check!!
         t_sv = (
-            obs.obs_data["EmissionEpoch"]
-            .to_frame()
+            emission_epoch.to_frame()
             .join(nav)[["EmissionEpoch"]]
             .rename({"EmissionEpoch": "Tsv"}, axis=1)
         )
 
         # Compute the satellite coordinate at the emission epoch
         return satellite(t_sv=t_sv, metadata=nav_metadata, data=nav).droplevel("time")
+
+    def _rotate_satellite_coordinates_to_reception_epoch(
+        self,
+        sv_coords: pd.DataFrame,
+        obs_data: pd.DataFrame,
+        approx_coords: pd.Series = None,
+    ) -> pd.DataFrame:
+        """Rotate the satellite coordinates to the reception epoch.
+
+        This method rotates the satellite coordinates to the reception epoch using the Earth rotation correction.
+
+        Methods:
+            - Rotate by following angule for each satellite using the omega_e * (pseudorange / speed of light). (Not Preffered)
+            - If the user provides approximate coordinates of receiver, then rotation is done by omega_e * (|approx - satellite_coord| / speed of light).
+
+        Args:
+            sv_coords (pd.DataFrame): Satellite coordinates at the emission epoch.
+            obs_data (pd.DataFrame): Observation data containing the pseudorange.
+            approx_coords (pd.Series, optional): Approximate coordinates of the receiver. Defaults to None.
+
+        Returns:
+            Epoch: The rotated satellite coordinates at the reception epoch.
+        """
+        # Rotation by dt time for each satellite
+        dt = 0
+
+        if approx_coords is not None:
+            if not all([coord in approx_coords.index for coord in ["x", "y", "z"]]):
+                raise ValueError(
+                    "Approximate coordinates must contain x, y, and z coordinates."
+                )
+
+            # Compute the dt for each satellite
+            dt = (
+                (sv_coords[['x', 'y', 'z']] - approx_coords[['x', 'y', 'z']]) ** 2
+            ).sum(axis=1) ** 0.5 / 299792458
+
+        else:
+            # Compute the dt for each satellite naively
+            dt = obs_data['Pseudorange'] / 299792458
+
+        # Rotate the satellite coordinates to the reception epoch
+        sv_coords[['x', 'y', 'z']] = earth_rotation_correction(
+            sv_position=sv_coords[['x', 'y', 'z']].to_numpy(), dt=dt.to_numpy().ravel()
+        )
+
+        return sv_coords
 
     def _compute(
         self,
@@ -224,18 +222,23 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         obs, nav = obs, obs.nav_data
 
         # Compute the ionospheric free combination
-        obs = self._ionospehric_correction(obs)
-        # Compute the emission epoch
-        obs = self._compute_emission_epoch(obs)
+        # Populates the 'Pseudorange' column in obs.obs_data
+        obs = self._ionospehric_free_combination(obs)
 
         # Compute the satellite coordinates at the emission epoch
+        # This also computes satellite clock correction which is stored in the 'dt' column.
         coords = self._compute_sv_coordinates_at_emission_epoch(obs, nav, nav_metadata)
 
-        # Compute the earth rotation correction since SV coordinates are in ECEF
-        # Since the coordinates are computed at the emission epoch, the delta_t is the time
-        # difference between the emission epoch and the current time
-        coords[["x", "y", "z"]] = earth_rotation_correction(
-            coords[["x", "y", "z"]].to_numpy(), obs.obs_data["dt"].to_numpy().ravel()
+        # Need to apply the earth rotation correction since SV coordinates are in ECEF in emission epoch
+        # Need to rotate each satellite coordinate to the reception epoch since it is common epoch for all satellites
+        # This is delegated to a separate method because there are two ways to rotate which depends on if the reciever location is known or not!
+        # See self._rotate_satellite_coordinates_to_reception_epoch for more details.
+        coords = self._rotate_satellite_coordinates_to_reception_epoch(
+            sv_coords=coords,
+            obs_data=obs.obs_data,
+            approx_coords=pd.Series(kwargs["approx_position"])
+            if 'approx_position' in kwargs
+            else None,
         )
 
         # Attach the relevant statistics to a new frame that contains

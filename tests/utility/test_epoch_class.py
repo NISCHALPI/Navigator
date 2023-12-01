@@ -18,7 +18,7 @@ def test_epochify(obsfilepath, navfilepath):
 
     # Assert the length of individual epochs is either 9, 10, or 11
     for epoch in epochified:
-        assert len(epoch) in range(4, 11)
+        assert len(epoch) in range(4, 12)
 
     # Assert that the epoch has both obs and nav data
     for epoch in epochified:

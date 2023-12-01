@@ -1,4 +1,5 @@
 import pickle
+from copy import deepcopy
 from pathlib import Path  # type: ignore
 from typing import Iterator
 
@@ -58,14 +59,17 @@ class Epoch:
             purify (bool, optional): Whether to purify the data. Defaults to False.
         """
         # Store FragObs and FragNav
-        self._obs_frag = obs_frag
-        self._nav_frag = nav_frag
+        self._obs_frag = deepcopy(
+            obs_frag
+        )  # Need to deepcopy to avoid modifying the original object
+        self._nav_frag = deepcopy(
+            nav_frag
+        )  # Need to deepcopy to avoid modifying the original object
 
         # Purify the data
         if purify:
             self.obs_data = self.purify(self.obs_data)
 
-        # Trim the data
         if trim:
             self.trim()
 
@@ -327,3 +331,51 @@ class Epoch:
         return Epoch.load_from_fragment(
             obs_frag=FragObs.load(obs_frag_path), nav_frag=FragNav.load(nav_frag_path)
         )
+
+    def __gt__(self, other: "Epoch") -> bool:
+        """Check if the epoch is greater than another epoch.
+
+        Args:
+            other (Epoch): The other epoch to compare to.
+
+        Returns:
+            bool: True if the epoch is greater than the other epoch, False otherwise.
+        """
+        # If not same station, raise error
+        if self.station != other.station:
+            raise ValueError(
+                f"Cannot compare epochs with different stations. Got {self.station} and {other.station}."
+            )
+        return self.timestamp > other.timestamp
+
+    def __lt__(self, other: "Epoch") -> bool:
+        """Check if the epoch is less than another epoch.
+
+        Args:
+            other (Epoch): The other epoch to compare to.
+
+        Returns:
+            bool: True if the epoch is less than the other epoch, False otherwise.
+        """
+        # If not same station, raise error
+        if self.station != other.station:
+            raise ValueError(
+                f"Cannot compare epochs with different stations. Got {self.station} and {other.station}."
+            )
+        return self.timestamp < other.timestamp
+
+    def __eq__(self, other: "Epoch") -> bool:
+        """Check if the epoch is equal to another epoch (same timestamp and station).
+
+        Args:
+            other (Epoch): The other epoch to compare to.
+
+        Returns:
+            bool: True if the epoch is equal to the other epoch, False otherwise.
+        """
+        # If not same station, raise error
+        if self.station != other.station:
+            raise ValueError(
+                f"Cannot compare epochs with different stations. Got {self.station} and {other.station}."
+            )
+        return self.timestamp == other.timestamp and self.station == other.station
