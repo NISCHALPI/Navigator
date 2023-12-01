@@ -352,3 +352,12 @@ class EpochDirectory(AbstractDirectory):
             return ret
 
         raise TypeError("Index must be int or slice.")
+    
+    
+    def __len__(self) -> int:
+        """Return the number of epoch observational fragments in the directory.
+
+        Returns:
+            int: The number of epoch files in the directory.
+        """
+        return len(list(self.directory_path.glob("**/OBSFRAG*.pkl")))
