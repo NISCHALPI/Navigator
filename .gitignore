@@ -165,3 +165,23 @@ cython_debug/
 # Do not ignore .ipynb under docs directory
 !docs/**/*.ipynb
 docs/resources/*
+
+# Virtual Environment
+venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python tooling
+.vscode/
+.idea/
+
+# Environment variables
+.env
+
+# Other generated files
+*.log
+*.sqlite3
