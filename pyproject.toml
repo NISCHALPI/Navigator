@@ -23,7 +23,6 @@ requests = "^2.31.0"
 click = "^8.1.7"
 tqdm = "^4.66.1"
 fs = "^2.4.16"
-h5py = "^3.10.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -34,7 +33,6 @@ ipykernel = "^6.25.2"
 matplotlib = "^3.8.0"
 lxml = "^4.9.3"
 html5lib = "^1.1"
-beautifulsoup4 = "^4.12.2"
 plotly = "^5.18.0"
 nbformat = "^5.9.2"
 
