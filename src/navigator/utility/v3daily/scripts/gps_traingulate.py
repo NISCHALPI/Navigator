@@ -3,8 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import click
-import pandas as pd
 import georinex as gr
+import pandas as pd
 
 from ....parse import IParseGPSNav, IParseGPSObs, Parser
 from ....satlib.triangulate import GPSIterativeTriangulationInterface, Triangulate
