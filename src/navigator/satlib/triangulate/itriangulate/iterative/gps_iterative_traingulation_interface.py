@@ -21,7 +21,7 @@ import pandas as pd
 
 from .....utility.epoch import Epoch
 from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
-from ....iephm.sv.igps_ephm import IGPSEphemeris
+from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
 from ....satellite.satellite import Satellite
 from ..algos.dual_frequency_corrections import dual_channel_correction
 from ..algos.linear_iterative_method import least_squares
@@ -145,7 +145,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         t_sv = (
             emission_epoch.to_frame()
             .join(nav)[["EmissionEpoch"]]
-            .rename({"EmissionEpoch": "Tsv"}, axis=1)
+            .rename({"EmissionEpoch": "Tsv"}, axis=1) # Rename the column to Tsv(Transmission epoch without sv clock correction)
         )
 
         # Compute the satellite coordinate at the emission epoch
@@ -155,47 +155,30 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         self,
         sv_coords: pd.DataFrame,
         obs_data: pd.DataFrame,
-        approx_coords: pd.Series = None,
     ) -> pd.DataFrame:
         """Rotate the satellite coordinates to the reception epoch.
 
         This method rotates the satellite coordinates to the reception epoch using the Earth rotation correction.
 
         Methods:
-            - Rotate by following angule for each satellite using the omega_e * (pseudorange / speed of light). (Not Preffered)
-            - If the user provides approximate coordinates of receiver, then rotation is done by omega_e * (|approx - satellite_coord| / speed of light).
+            - Rotate by following angule for each satellite using the omega_e * (pseudorange / speed of light).
 
         Args:
             sv_coords (pd.DataFrame): Satellite coordinates at the emission epoch.
             obs_data (pd.DataFrame): Observation data containing the pseudorange.
-            approx_coords (pd.Series, optional): Approximate coordinates of the receiver. Defaults to None.
 
         Returns:
             Epoch: The rotated satellite coordinates at the reception epoch.
         """
-        # Rotation by dt time for each satellite
-        dt = 0
-
-        if approx_coords is not None:
-            if not all([coord in approx_coords.index for coord in ["x", "y", "z"]]):
-                raise ValueError(
-                    "Approximate coordinates must contain x, y, and z coordinates."
-                )
-
-            # Compute the dt for each satellite
-            dt = (
-                (sv_coords[['x', 'y', 'z']] - approx_coords[['x', 'y', 'z']]) ** 2
-            ).sum(axis=1) ** 0.5 / 299792458
-
-        else:
-            # Compute the dt for each satellite naively
-            dt = obs_data['Pseudorange'] / 299792458
+        
+        # Compute the dt for each satellite naively
+        dt = obs_data['Pseudorange'] / 299792458
 
         # Rotate the satellite coordinates to the reception epoch
         sv_coords[['x', 'y', 'z']] = earth_rotation_correction(
             sv_position=sv_coords[['x', 'y', 'z']].to_numpy(), dt=dt.to_numpy().ravel()
         )
-
+        
         return sv_coords
 
     def _compute(
@@ -231,14 +214,9 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         # Need to apply the earth rotation correction since SV coordinates are in ECEF in emission epoch
         # Need to rotate each satellite coordinate to the reception epoch since it is common epoch for all satellites
-        # This is delegated to a separate method because there are two ways to rotate which depends on if the reciever location is known or not!
-        # See self._rotate_satellite_coordinates_to_reception_epoch for more details.
         coords = self._rotate_satellite_coordinates_to_reception_epoch(
             sv_coords=coords,
             obs_data=obs.obs_data,
-            approx_coords=pd.Series(kwargs["approx_position"])
-            if 'approx_position' in kwargs
-            else None,
         )
 
         # Attach the relevant statistics to a new frame that contains
