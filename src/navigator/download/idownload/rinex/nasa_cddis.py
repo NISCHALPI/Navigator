@@ -47,8 +47,8 @@ from logging import NullHandler
 from pathlib import Path
 
 import tqdm
-from fs.ftpfs import FTPFS
 
+from ....utility.ftpserver import FTPFSServer
 from ....utility.logger.logger import get_logger
 from ....utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
 from ..idownload import IDownload
@@ -65,18 +65,21 @@ class NasaCddisV3(IDownload):
 
     Attributes:
         server_address (str): The address of the FTP server.
-
-    Methods:
-        __init__: Initializes the NasaCddis object.
-        connect: Establishes a connection to the FTP server.
-        is_alive: Checks if the FTP connection is alive.
-        kwargs_checker: Validates the input arguments for the download method.
-        download: Downloads RINEX V3 files from the FTP server.
+        username (str): The username for authentication.
+        account (str): The account name for authentication.
+        tls (bool): Indicates whether TLS encryption should be used.
     """
 
     server_address: str = "gdc.cddis.eosdis.nasa.gov"
+    usename = "anonymous"
+    tls = True
 
-    def __init__(self, email: str, threads: int = 5, logging: bool = False) -> None:
+    def __init__(
+        self,
+        email: str = "anonymous@gmail.com",
+        threads: int = 5,
+        logging: bool = False,
+    ) -> None:
         """Initialize NasaCddis object to download RINEX V3 files.
 
         Args:
@@ -87,13 +90,6 @@ class NasaCddisV3(IDownload):
         Raises:
             ValueError: If the provided email is invalid.
         """
-        # Check if the email is valid
-        if "@" not in email:
-            raise ValueError(f"Invalid email address {email}")
-
-        # Set a ftp filesystem
-        self.email = email
-
         # Set the number of threads
         self.threads = threads
 
@@ -108,25 +104,14 @@ class NasaCddisV3(IDownload):
         # Matcher for GPS Nav Files
         self.gps_nav_matcher = GpsNav3DailyMatcher()
         self.obs_matcher = MixedObs3DailyMatcher()
-        super().__init__(features="RinexV3 Download from NASA CDDIS")
 
-    def connect(self) -> None:
-        """Connects to the FTP server using FTPFS."""
-        # Log the connection attempt
-        self.logger.info(f"Connecting to {self.server_address}")
-        self.ftpfs = FTPFS(
-            host=self.server_address, user="anonymous", acct=self.email, tls=True
+        self.logger.info(f"Instantiating NasaCddisV3 with email: {email}")
+        # Initialize the FTPFS server
+        self.ftpfs = FTPFSServer(
+            host=self.server_address, user="anonymous", acct=email, tls=True
         )
-        return
 
-    def is_alive(self) -> bool:
-        """Checks if the FTP connection is alive by performing a stat operation."""
-        try:
-            # Attempt to retrieve information about a specific path
-            self.ftpfs.listdir("/")
-            return True
-        except Exception:
-            return False
+        super().__init__(features="RinexV3 Download from NASA CDDIS")
 
     def kwargs_checker(self, **kwargs) -> None:
         """Validates input arguments for the download method."""
@@ -176,29 +161,6 @@ class NasaCddisV3(IDownload):
 
         return
 
-    def ftp_download(self, ftp_file_path: str, save_path: Path) -> None:
-        """Downloads a file from the FTP server while maintaining the same format.
-
-        Args:
-            ftp_file_path (str): The path to the file on the FTP server.
-            save_path (Path): The path to save the file locally.
-
-        Raises:
-            ValueError: If the save_path is not a Path object.
-        """
-        # If not alive, reconnect
-        if not self.is_alive():
-            self.connect()
-
-        # Get the file extension from the FTP file path
-        file_extension = Path(ftp_file_path).suffix
-
-        # Open the file in write binary mode and maintain the same file format
-        with open(save_path.with_suffix(file_extension), "wb") as f:
-            self.ftpfs.download(ftp_file_path, f)
-
-        return
-
     def _download(self, *args, **kwargs) -> None:  # noqa : ARG006
         """Downloads RINEX V3 files from the FTP server.
 
@@ -244,11 +206,6 @@ class NasaCddisV3(IDownload):
 
         self.logger.debug(f"Default OBS Path: {default_obs_path}")
         self.logger.debug(f"Default NAV Path: {default_nav_path}")
-
-        self.logger.info("Checking if the connection is alive!")
-        # Get the file names under the default path
-        if not self.is_alive():
-            self.connect()
 
         # Get the file names under the default path
         obs_file_names = self.ftpfs.listdir(default_obs_path)
@@ -333,10 +290,10 @@ class NasaCddisV3(IDownload):
 
                 for obs_fname, nav_fname in file_pairs:
                     future_obs = executor.submit(
-                        self.ftp_download, obs_fname, save_path / Path(obs_fname).name
+                        self.ftpfs.download, obs_fname, save_path
                     )
                     future_nav = executor.submit(
-                        self.ftp_download, nav_fname, save_path / Path(nav_fname).name
+                        self.ftpfs.download, nav_fname, save_path
                     )
                     # Add callbacks to update the progress bar
                     future_obs.add_done_callback(
@@ -350,4 +307,8 @@ class NasaCddisV3(IDownload):
                 # Wait for all the futures to complete
                 executor.shutdown(wait=True)
         self.logger.info("Download Complete!")
+
+        # Close the FTPFS connection
+        self.ftpfs.close()
+
         return
