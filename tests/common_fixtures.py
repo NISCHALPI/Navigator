@@ -10,6 +10,8 @@ __all__ = [
     "obsfilepath",
     "nav_data",
     "obs_data",
+    "sp3_legacy_filepath",
+    "sp3_filepath",
 ]
 
 
@@ -23,6 +25,18 @@ def navfilepath():
 def obsfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(cwd, "rinexsamples/YELL00CAN_R_20231841500_01H_30S_MO.crx")
+
+
+@pytest.fixture
+def sp3_legacy_filepath():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(cwd, "rinexsamples/igs19663.sp3.Z")
+
+
+@pytest.fixture
+def sp3_filepath():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(cwd, "rinexsamples/IGS0OPSFIN_20233090000_01D_15M_ORB.SP3.gz")
 
 
 @pytest.fixture

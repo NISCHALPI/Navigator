@@ -233,14 +233,13 @@ class Satellite(AbstractSatellite):
         # Return the stacked array
         return np.stack(sat_pos_list, axis=-1)
 
-    
     def trajectory_plot(
         self,
         t_sv: str | pd.Timestamp,
         metadata: pd.Series,
         data: pd.DataFrame,
         interval: int = 3600,
-        step: int = 10
+        step: int = 10,
     ) -> tuple[plt.Figure, plt.Axes]:
         """Plots the satellite trajectory based on ephemeris data.
 
@@ -250,20 +249,21 @@ class Satellite(AbstractSatellite):
             data (pd.DataFrame): RINEX navigation data and Ephemeris data.
             interval (int, optional): The time in seconds from t_sv to compute satellite trajectory. Defaults to 3600 seconds.
             step (int, optional): The number of time divisions in the interval .i.e every n seconds the satellite position is computed. Defaults to every 10 seconds.
-        
+
 
         Returns:
             tuple[plt.Figure, plt.Axes]: A tuple containing the figure and axes objects.
         """
         # Get the trajectory
         trajectory = self.trajectory(t_sv, metadata, data, interval, step)
-        
+
         # Get the figure
         fig = plt.figure(figsize=(10, 8), dpi=300)
         ax = fig.add_subplot(111, projection='3d')
-        
-        
+
         for i in range(trajectory.shape[0]):  # For each satellite
-            ax.plot(trajectory[i][0], trajectory[i][1], trajectory[i][2]) # Plot the trajectory 
-        
+            ax.plot(
+                trajectory[i][0], trajectory[i][1], trajectory[i][2]
+            )  # Plot the trajectory
+
         return fig, ax

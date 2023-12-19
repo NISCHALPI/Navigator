@@ -145,7 +145,9 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         t_sv = (
             emission_epoch.to_frame()
             .join(nav)[["EmissionEpoch"]]
-            .rename({"EmissionEpoch": "Tsv"}, axis=1) # Rename the column to Tsv(Transmission epoch without sv clock correction)
+            .rename(
+                {"EmissionEpoch": "Tsv"}, axis=1
+            )  # Rename the column to Tsv(Transmission epoch without sv clock correction)
         )
 
         # Compute the satellite coordinate at the emission epoch
@@ -170,7 +172,6 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         Returns:
             Epoch: The rotated satellite coordinates at the reception epoch.
         """
-        
         # Compute the dt for each satellite naively
         dt = obs_data['Pseudorange'] / 299792458
 
@@ -178,7 +179,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         sv_coords[['x', 'y', 'z']] = earth_rotation_correction(
             sv_position=sv_coords[['x', 'y', 'z']].to_numpy(), dt=dt.to_numpy().ravel()
         )
-        
+
         return sv_coords
 
     def _compute(
