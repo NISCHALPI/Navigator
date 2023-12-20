@@ -116,6 +116,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         obs: Epoch,
         nav: pd.DataFrame,
         nav_metadata: pd.Series,
+        **kwargs,
     ) -> Epoch:
         """Computes the satellite coordinates at the emission epoch.
 
@@ -127,6 +128,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             obs_metadata (pd.Series): Metadata for the GPS observations.
             nav (pd.DataFrame): Navigation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
+            **kwargs: Additional keyword arguments to be passed to the Satellite class.
 
         Returns:
             Epoch: The computed satellite coordinates at the emission epoch.
@@ -151,7 +153,9 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         )
 
         # Compute the satellite coordinate at the emission epoch
-        return satellite(t_sv=t_sv, metadata=nav_metadata, data=nav).droplevel("time")
+        return satellite(
+            t_sv=t_sv, metadata=nav_metadata, data=nav, **kwargs
+        ).droplevel("time")
 
     def _rotate_satellite_coordinates_to_reception_epoch(
         self,
@@ -211,7 +215,9 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         # Compute the satellite coordinates at the emission epoch
         # This also computes satellite clock correction which is stored in the 'dt' column.
-        coords = self._compute_sv_coordinates_at_emission_epoch(obs, nav, nav_metadata)
+        coords = self._compute_sv_coordinates_at_emission_epoch(
+            obs, nav, nav_metadata, **kwargs
+        )
 
         # Need to apply the earth rotation correction since SV coordinates are in ECEF in emission epoch
         # Need to rotate each satellite coordinate to the reception epoch since it is common epoch for all satellites

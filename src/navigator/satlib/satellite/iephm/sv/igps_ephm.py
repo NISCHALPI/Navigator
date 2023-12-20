@@ -29,6 +29,7 @@ Sources:
    - https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf.
 """
 
+
 import numpy as np
 import pandas as pd
 
@@ -133,13 +134,14 @@ class IGPSEphemeris(AbstractIephemeris):
         return a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 + t_r - t_gd
 
     def _compute(
-        self, metadata: pd.Series, data: pd.Series  # noqa: ARG002
+        self, metadata: pd.Series, data: pd.Series, **kwargs  # noqa: ARG002
     ) -> pd.Series:
         """Calculate the satellite's position based on ephemeris data.
 
         Args:
             metadata (pd.Series): Metadata of the RINEX file.
             data (pd.Series): Data for specific satellite.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             pd.Series: Return a Series containing the calculated position information [x, y , z] in WGS84-ECFC coordinates.
