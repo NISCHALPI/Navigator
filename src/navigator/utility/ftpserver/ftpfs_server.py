@@ -82,6 +82,9 @@ class FTPFSServer:
         Returns:
             bool: True if the file or directory exists, False otherwise.
         """
+        if not self.is_alive():
+            self.connect()
+
         return self.fs.exists(ftp_file_path)
 
     def download(self, ftp_file_path: str, save_path: str) -> None:
@@ -121,5 +124,6 @@ class FTPFSServer:
 
     def close(self) -> None:
         """Close the connection to the FTP server."""
-        self.fs.close()
+        if self.is_alive():
+            self.fs.close()
         return
