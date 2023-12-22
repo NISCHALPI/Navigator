@@ -74,7 +74,7 @@ class IGPSSp3(AbstractIephemeris):
         t: pd.Timestamp | datetime,
         metadata: pd.Series,  # noqa: ARG002
         data: pd.DataFrame,
-        **kwargs,
+        **kwargs,  # noqa: ARG002
     ) -> pd.Series:
         """Compute the satellite position at a given time using interpolation.
 
@@ -101,8 +101,10 @@ class IGPSSp3(AbstractIephemeris):
             raise ValueError("Missing time in index")
 
         # Check that the time is between the first and last time
-        if t < data.index[0] or t > data.index[-1]:
-            raise ValueError("Time outside of the time range")
+        if not (data.index.min() <= t <= data.index.max()):
+            raise ValueError(
+                f"Time {t} is outside the time range of the data: Time range: {data.index.min()} - {data.index.max()}"
+            )
 
         # Get the nearest subset of the data
         subset = self._nearestSubset(data, t)
@@ -157,4 +159,4 @@ class IGPSSp3(AbstractIephemeris):
             ValueError: If essential data (x, y, z coordinates or time) is missing
                         or if the given time is outside the time range of the data.
         """
-        return self._compute(t, metadata, data, **kwargs)
+        return self._compute(t, metadata=None, data=data, **kwargs)

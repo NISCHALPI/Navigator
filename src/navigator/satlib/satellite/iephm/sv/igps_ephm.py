@@ -143,6 +143,9 @@ class IGPSEphemeris(AbstractIephemeris):
             data (pd.Series): Data for specific satellite.
             **kwargs: Additional keyword arguments.
 
+        Additional keyword arguments:
+            no_clock_correction (bool): If True, do not apply clock correction to the satellite time.
+
         Returns:
             pd.Series: Return a Series containing the calculated position information [x, y , z] in WGS84-ECFC coordinates.
         """
@@ -151,6 +154,11 @@ class IGPSEphemeris(AbstractIephemeris):
 
         # Correct the satellite time i.e. Tsv
         t_sv: pd.Timestamp = data["Tsv"] - pd.Timedelta(seconds=dt)
+
+        # If no clock correction is specified, use the original satellite time
+        if kwargs.get("no_clock_correction", False):
+            t_sv = data["Tsv"]
+
         t = self._to_seconds_gps_week(t=t_sv, week=data["GPSWeek"])
 
         # Compute the coordinates of the satellite
