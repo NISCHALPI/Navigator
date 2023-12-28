@@ -5,6 +5,7 @@ from .igs_network.igs_network import IGSNetwork
 from .matcher import (
     EpochFileMatcher,
     GpsNav3DailyMatcher,
+    LegacySP3Matcher,
     MixedObs3DailyMatcher,
     SP3Matcher,
 )

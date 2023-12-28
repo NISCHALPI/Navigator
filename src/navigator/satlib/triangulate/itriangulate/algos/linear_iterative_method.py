@@ -24,7 +24,7 @@ def _design_matrix(
         sv_pos (np.array): The satellite positions of shape (num_svs, 3)
 
     Returns:
-        np.array: The design matrix of shape (num_svs, 4)
+        Tuple[np.array, np.array]: The residual and design matrix of shape (num_svs, 1) and (num_svs, 4) respectively.
     """
     if guess.shape != (3, 1):
         raise ValueError("Guess must be a 3x1 vector")
@@ -110,6 +110,8 @@ def least_squares(
         "GDOP": np.sqrt(np.trace(Q)),
         "PDOP": np.sqrt(np.trace(Q[:3, :3])),
         "TDOP": np.sqrt(Q[3, 3]),
+        "HDOP": np.sqrt(Q[0, 0] + Q[1, 1]),
+        "VDOP": np.sqrt(Q[2, 2]),
     }
 
     return dic, guess.flatten()

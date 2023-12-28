@@ -74,6 +74,7 @@ class IGPSSp3(AbstractIephemeris):
         t: pd.Timestamp | datetime,
         metadata: pd.Series,  # noqa: ARG002
         data: pd.DataFrame,
+        tolerance: int = 5,
         **kwargs,  # noqa: ARG002
     ) -> pd.Series:
         """Compute the satellite position at a given time using interpolation.
@@ -82,6 +83,7 @@ class IGPSSp3(AbstractIephemeris):
             t (pd.Timestamp | datetime): Time of epoch.
             metadata (pd.Series): Metadata of the SP3 orbit file.
             data (pd.DataFrame): DataFrame of the SP3 orbit file. (See SP3 Parser)
+            tolerance (int): Tolerance in sp3 extra interpolation.
             kwargs: Additional keyword arguments.
 
         Returns:
@@ -101,7 +103,11 @@ class IGPSSp3(AbstractIephemeris):
             raise ValueError("Missing time in index")
 
         # Check that the time is between the first and last time
-        if not (data.index.min() <= t <= data.index.max()):
+        if not (
+            data.index.min() - pd.Timedelta(minutes=tolerance)
+            <= t
+            <= data.index.max() + pd.Timedelta(minutes=tolerance)
+        ):
             raise ValueError(
                 f"Time {t} is outside the time range of the data: Time range: {data.index.min()} - {data.index.max()}"
             )
@@ -141,6 +147,7 @@ class IGPSSp3(AbstractIephemeris):
         t: pd.Timestamp | datetime,
         metadata: pd.Series,  # noqa: ARG002
         data: pd.DataFrame,
+        tolerance: int = 5,
         **kwargs,
     ) -> pd.Series:
         """Compute the satellite position at a given time using interpolation.
@@ -149,6 +156,7 @@ class IGPSSp3(AbstractIephemeris):
             t (pd.Timestamp | datetime): Time of epoch.
             metadata (pd.Series): Metadata of the SP3 orbit file.
             data (pd.DataFrame): DataFrame of the SP3 orbit file. (See SP3 Parser)
+            tolerance (int): Tolerance in sp3 extra interpolation.
             kwargs: Additional keyword arguments.
 
         Returns:
@@ -159,4 +167,4 @@ class IGPSSp3(AbstractIephemeris):
             ValueError: If essential data (x, y, z coordinates or time) is missing
                         or if the given time is outside the time range of the data.
         """
-        return self._compute(t, metadata=None, data=data, **kwargs)
+        return self._compute(t, metadata=None, data=data, tolerance=tolerance, **kwargs)

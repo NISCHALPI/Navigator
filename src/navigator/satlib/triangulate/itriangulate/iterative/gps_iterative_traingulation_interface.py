@@ -161,6 +161,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         self,
         sv_coords: pd.DataFrame,
         obs_data: pd.DataFrame,
+        approx_receiver_location: pd.Series | None = None,
     ) -> pd.DataFrame:
         """Rotate the satellite coordinates to the reception epoch.
 
@@ -172,12 +173,30 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         Args:
             sv_coords (pd.DataFrame): Satellite coordinates at the emission epoch.
             obs_data (pd.DataFrame): Observation data containing the pseudorange.
+            approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
 
         Returns:
             Epoch: The rotated satellite coordinates at the reception epoch.
         """
-        # Compute the dt for each satellite naively
-        dt = obs_data['Pseudorange'] / 299792458
+        dt = None  # Initialize the dt to None
+        if approx_receiver_location is None:
+            # Compute the dt for each satellite naively
+            # Use the pseudorange and the speed of light to compute the dt
+            # Include the satellite clock correction and other unmodeled effects
+            dt = obs_data['Pseudorange'] / 299792458
+        else:
+            # Check if ['x', 'y', 'z'] are present in the approx_receiver_location
+            if not all(
+                [coord in approx_receiver_location.index for coord in ['x', 'y', 'z']]
+            ):
+                raise ValueError(
+                    "Invalid approx_receiver_location. Must contain ['x', 'y', 'z'] coordinates."
+                )
+            # Compute the dt using method in Equation 5.13 in ESA GNSS Book
+            # https://gssc.esa.int/navipedia/GNSS_Book/ESA_GNSS-Book_TM-23_Vol_I.pdf
+            dt = (
+                sv_coords[['x', 'y', 'z']] - approx_receiver_location[['x', 'y', 'z']]
+            ).apply(lambda row: row.dot(row) ** 0.5 / 299792458, axis=1)
 
         # Rotate the satellite coordinates to the reception epoch
         sv_coords[['x', 'y', 'z']] = earth_rotation_correction(
@@ -202,6 +221,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
+        Additional Keyword Arguments:
+            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
 
         Returns:
             pd.Series | pd.DataFrame: The computed iterative triangulation.
@@ -224,6 +245,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         coords = self._rotate_satellite_coordinates_to_reception_epoch(
             sv_coords=coords,
             obs_data=obs.obs_data,
+            approx_receiver_location=kwargs.get("approx", None),
         )
 
         # Attach the relevant statistics to a new frame that contains

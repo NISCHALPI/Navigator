@@ -1,9 +1,7 @@
-import pytest
 import os
 
-
-from navigator.parse import Parser, IParseGPSNav, IParseGPSObs
-
+import pytest
+from navigator.parse import IParseGPSNav, IParseGPSObs, Parser
 
 __all__ = [
     "navfilepath",
