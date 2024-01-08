@@ -1,3 +1,19 @@
+"""This module defines the Epoch class.
+
+The Epoch class represents an Epoch instance with observational and navigation data fragments.
+This class provides functionalities to handle and process data related to a single epoch,
+including observational and navigation data, trimming, purifying, saving, loading, and more.
+
+Classes:
+    Epoch: Represents an Epoch instance with observational and navigation data fragments.
+
+Attributes:
+    __all__ (list[str]): List of module level attributes, classes and functions.
+
+Author:
+Name- Nischal Bhattari
+Email- nischalbhattaraipi@gmail.com
+"""
 import pickle
 from copy import deepcopy
 from pathlib import Path  # type: ignore

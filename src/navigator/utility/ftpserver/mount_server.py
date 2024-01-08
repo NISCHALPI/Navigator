@@ -101,7 +101,7 @@ class AbstractMountServer(ABC):
         return self._mountDir
 
     @mountDir.setter
-    def mountDir(self, mountDir: Path) -> None:
+    def mountDir(self, mountDir: Path) -> None:  # noqa: ARG002
         """Sets the mount directory."""
         raise AttributeError(
             "Cannot set mount directory. Use the constructor to set the mount directory."
@@ -113,7 +113,7 @@ class AbstractMountServer(ABC):
         return self._is_mounted
 
     @isMounted.setter
-    def isMounted(self, mounted: bool) -> None:
+    def isMounted(self, mounted: bool) -> None:  # noqa: ARG002
         """Sets the mounted flag."""
         raise AttributeError(
             "Cannot set mounted flag. Use the mount and unmount methods to set the mounted flag."

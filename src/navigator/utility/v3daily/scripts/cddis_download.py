@@ -147,7 +147,7 @@ def yearly(
                 )
 
                 # Add the callback to update the progress bar
-                future.add_done_callback(lambda p: pbar.update(1))
+                future.add_done_callback(lambda p: pbar.update(1))  # noqa : ARG005
 
         # Wait for all the processes to finish
         executor.shutdown(wait=True)

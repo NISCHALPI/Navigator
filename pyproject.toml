@@ -13,7 +13,7 @@ rinex3-dir-ops = "navigator.utility.v3daily.scripts.dir_ops:main"
 triangulate-gpsv3 = "navigator.utility.v3daily.scripts.gps_traingulate:main"
 
 [tool.poetry.dependencies]
-python =  ">=3.10,<3.13"
+python =  ">=3.10,<3.12"
 georinex = "^1.16.1"
 scipy = "^1.11.2"
 numpy = "^1.25.2"
@@ -49,7 +49,7 @@ src =['./ftrain']
 ignore =['ANN101', 'E501', 'ANN002', 'ANN003']
 
 [tool.ruff.per-file-ignores]
-"__init__.py" = ["E402", "F401"]
+"__init__.py" = ["E402", "F401", "D104"]
 
 [tool.ruff.flake8-quotes]
 docstring-quotes = "double"
