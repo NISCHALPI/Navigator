@@ -67,53 +67,48 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         """
         super().__init__(feature="GPS(Iterative)")
 
-    def _ionospehric_free_combination(self, obs: Epoch, no_warn: bool = True) -> Epoch:
+    def _ionospehric_free_combination(
+        self, obs_data: pd.DataFrame, code_warnings: bool = True
+    ) -> pd.Series:
         """Compute the Ionospheric free combination for GPS observations.
 
         Args:
-            obs (Epoch): GPS observations.
-            no_warn (bool, optional): If True, then no warning is raised. Defaults to True.
+            obs_data (pd.DataFrame): GPS observations data.
+            warn (bool, optional): If True, then warning is raised. Defaults to True.
 
         Returns:
-            Epoch: GPS observations with ionospheric correction.
+            pd.DataFrame: The computed ionospheric free combination pseudorange for GPS observations.
         """
-        corrected_obs = obs.obs_data.copy()
+        pseudorange = None  # Initialize the pseudorange to None
+
         # If C1C and C2C are both present, then compute the ionospheric correction wrt C1C and C2C
-        if "C1C" in obs.obs_data.columns and "C2C" in obs.obs_data.columns:
-            corrected_obs["Pseudorange"] = dual_channel_correction(
-                obs.obs_data["C1C"], obs.obs_data["C2C"]
-            )
+        if "C1C" in obs_data.columns and "C2C" in obs_data.columns:
+            pseudorange = dual_channel_correction(obs_data["C1C"], obs_data["C2C"])
         # If C1W and C2W are both present, then compute the ionospheric correction wrt C1W and C2W
-        elif "C1W" in obs.obs_data.columns and "C2W" in obs.obs_data.columns:
-            if not no_warn:
+        elif "C1W" in obs_data.columns and "C2W" in obs_data.columns:
+            if code_warnings:
                 warn(
                     message="C1W and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
                 )
-            corrected_obs["Pseudorange"] = dual_channel_correction(
-                obs.obs_data["C1W"], obs.obs_data["C2W"]
-            )
-        elif "C1C" in obs.obs_data.columns and "C2W" in obs.obs_data.columns:
-            if not no_warn:
+            pseudorange = dual_channel_correction(obs_data["C1W"], obs_data["C2W"])
+        elif "C1C" in obs_data.columns and "C2W" in obs_data.columns:
+            if code_warnings:
                 warn(
                     message="C1C and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
                 )
-            corrected_obs["Pseudorange"] = dual_channel_correction(
-                obs.obs_data["C1C"], obs.obs_data["C2W"]
-            )
+            pseudorange = dual_channel_correction(obs_data["C1C"], obs_data["C2W"])
 
         else:
             raise ValueError(
                 "Invalid observation data. Dual Frequency Ion Free Combination not applied."
             )
 
-        # Replace the Pseudorange column in obs.data with the corrected Pseudorange
-        obs.obs_data = corrected_obs
-
-        return obs
+        return pseudorange
 
     def _compute_sv_coordinates_at_emission_epoch(
         self,
-        obs: Epoch,
+        reception_time: pd.Timestamp,
+        pseudorange: pd.Series,
         nav: pd.DataFrame,
         nav_metadata: pd.Series,
         **kwargs,
@@ -124,8 +119,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         It instantiates the Satellite class and computes the satellite coordinate at the emission epoch.
 
         Args:
-            obs (Epoch): GPS observations.
-            obs_metadata (pd.Series): Metadata for the GPS observations.
+            reception_time (pd.Timestamp): Reception time of the GPS observations.
+            pseudorange (pd.Series): Pseudorange of the GPS observations.
             nav (pd.DataFrame): Navigation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
             **kwargs: Additional keyword arguments to be passed to the Satellite class.
@@ -134,22 +129,17 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             Epoch: The computed satellite coordinates at the emission epoch.
         """
         # Compute the emission epoch
-        dt = obs.obs_data["Pseudorange"] / 299792458
+        dt = pseudorange / 299792458
 
         # Compute the emission epoch
-        emission_epoch = obs.timestamp - pd.to_timedelta(dt, unit="s")
-        emission_epoch.name = "EmissionEpoch"
+        emission_epoch = reception_time - pd.to_timedelta(dt, unit="s")
 
         # Instantiate the Satellite class
         satellite = Satellite(iephemeris=IGPSEphemeris())
 
         # t_sv must have same indexed dataframes as nav. Compatibility check!!
-        t_sv = (
-            emission_epoch.to_frame()
-            .join(nav)[["EmissionEpoch"]]
-            .rename(
-                {"EmissionEpoch": "Tsv"}, axis=1
-            )  # Rename the column to Tsv(Transmission epoch without sv clock correction)
+        t_sv = pd.DataFrame(
+            index=nav.index, columns=["Tsv"], data=emission_epoch.to_numpy()
         )
 
         # Compute the satellite coordinate at the emission epoch
@@ -160,7 +150,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
     def _rotate_satellite_coordinates_to_reception_epoch(
         self,
         sv_coords: pd.DataFrame,
-        obs_data: pd.DataFrame,
+        pseudorange: pd.Series,
         approx_receiver_location: pd.Series | None = None,
     ) -> pd.DataFrame:
         """Rotate the satellite coordinates to the reception epoch.
@@ -172,7 +162,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         Args:
             sv_coords (pd.DataFrame): Satellite coordinates at the emission epoch.
-            obs_data (pd.DataFrame): Observation data containing the pseudorange.
+            pseudorange (pd.Series): Pseudorange of the GPS observations.
             approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
 
         Returns:
@@ -183,7 +173,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             # Compute the dt for each satellite naively
             # Use the pseudorange and the speed of light to compute the dt
             # Include the satellite clock correction and other unmodeled effects
-            dt = obs_data['Pseudorange'] / 299792458
+            dt = pseudorange / 299792458
         else:
             # Check if ['x', 'y', 'z'] are present in the approx_receiver_location
             if not all(
@@ -223,53 +213,49 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         Additional Keyword Arguments:
             approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
+            warn (bool, optional): If True, then warning is raised. Defaults to False.
 
         Returns:
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """
         # Use Epoch to get the navigation message for the observation epoch. Held at "Epoch.nav_data" attribute
-        obs, nav = obs, obs.nav_data
+        obs_data, nav_data = obs.obs_data, obs.nav_data
 
         # Compute the ionospheric free combination
         # Populates the 'Pseudorange' column in obs.obs_data
-        obs = self._ionospehric_free_combination(obs)
+        pseduorange = self._ionospehric_free_combination(
+            obs_data=obs_data, code_warnings=kwargs.get("warn", False)
+        )
 
         # Compute the satellite coordinates at the emission epoch
         # This also computes satellite clock correction which is stored in the 'dt' column.
         coords = self._compute_sv_coordinates_at_emission_epoch(
-            obs, nav, nav_metadata, **kwargs
+            reception_time=obs.timestamp,
+            pseudorange=pseduorange,
+            nav=nav_data,
+            nav_metadata=nav_metadata,
+            **kwargs,
         )
 
         # Need to apply the earth rotation correction since SV coordinates are in ECEF in emission epoch
         # Need to rotate each satellite coordinate to the reception epoch since it is common epoch for all satellites
         coords = self._rotate_satellite_coordinates_to_reception_epoch(
             sv_coords=coords,
-            obs_data=obs.obs_data,
+            pseudorange=pseduorange,
             approx_receiver_location=kwargs.get("approx", None),
         )
 
-        # Attach the relevant statistics to a new frame that contains
-        # pseudorange and sv coordinates
-        stats = obs.obs_data[["Pseudorange"]].join(coords)
-
         # Correct the pseudorange for the satellite clock offset.
         # This crossponds to the satellite clock correction. P(j) + c * dt(j)
-        stats["Pseudorange"] = stats["Pseudorange"] + stats["dt"] * 299792458
-
-        # If less than 4 satellites are available, then raise an error
-        if stats.shape[0] < 4:
-            raise ValueError(
-                f"Insufficient number of satellites. Only {stats.shape[0]} satellites observed in the epoch."
-            )
-
-        # Extract the
-        Range, Coords = (
-            stats["Pseudorange"].to_numpy().reshape(-1, 1),
-            stats[["x", "y", "z"]].to_numpy(),
-        )
+        pseduorange += coords["dt"] * 299792458
 
         # Send to the least squares solver to compute the solution and DOPs
-        dops, solution = least_squares(Range, Coords, eps=1e-6)
+        dops, solution = least_squares(
+            pseudorange=pseduorange.to_numpy().reshape(-1, 1),
+            sv_pos=coords[['x', 'y', 'z']].to_numpy(),
+            weight=kwargs.get("weight", None),
+            eps=1e-6,
+        )
 
         # Convert the geocentric coordinates to ellipsoidal coordinates
         lat, lon, height = geocentric_to_ellipsoidal(*solution[:3])
