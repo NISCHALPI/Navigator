@@ -83,6 +83,8 @@ def least_squares(
     # Initialize the guess for the receiver position and clock offset
     guess = np.array([0, 0, 0, 0]).reshape(-1, 1).astype(np.float64)
 
+    # Add counter to prevent infinite loop
+    counter = 0
     # Iterate until convergence
     while True:
         # Generate the design matrix and residual.
@@ -96,14 +98,19 @@ def least_squares(
         guess += dr
 
         # Check for convergence
-        if np.linalg.norm(dr[:3, 0]) < eps:
+        if np.linalg.norm(dr[:3, 0]) < eps or counter > 10000:
             break
+        # Update the counter
+        counter += 1
 
-    # Normalize the clock offset
-    guess[3, 0] = guess[3, 0] / 299792458
+    # Calculate SigmaNot squared
+    sigma_o = np.sqrt(r.T @ weight @ r / (sv_pos.shape[0] - 4))
 
     # Compute the Q matrix
     Q = np.linalg.inv(A.T @ weight @ A)
+
+    # Normalize the clock offset
+    guess[3, 0] = guess[3, 0] / 299792458
 
     # Compute the GDOP, PDOP and TDOP
     dic = {
@@ -112,6 +119,7 @@ def least_squares(
         "TDOP": np.sqrt(Q[3, 3]),
         "HDOP": np.sqrt(Q[0, 0] + Q[1, 1]),
         "VDOP": np.sqrt(Q[2, 2]),
+        "sigma": sigma_o[0, 0],  # Convert to scalar
     }
 
     return dic, guess.flatten()

@@ -274,18 +274,19 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         # Convert the geocentric coordinates to ellipsoidal coordinates
         lat, lon, height = geocentric_to_ellipsoidal(*solution[:3])
 
-        # Extract the solution into a series
-        return pd.Series(
-            {
-                "x": solution[0],
-                "y": solution[1],
-                "z": solution[2],
-                "dt": solution[3],
-                "lat": lat,
-                "lon": lon,
-                "height": height,
-                "GDOP": dops["GDOP"],
-                "PDOP": dops["PDOP"],
-                "TDOP": dops["TDOP"],
-            }
-        )
+        # Convert the solution
+        solution = {
+            "x": solution[0],
+            "y": solution[1],
+            "z": solution[2],
+            "dt": solution[3],
+            "lat": lat,
+            "lon": lon,
+            "height": height,
+        }
+
+        # Add the DOPs to the solution
+        solution.update(dops)
+
+        # Return the solution
+        return pd.Series(solution)
