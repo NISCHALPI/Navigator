@@ -17,6 +17,7 @@ Usage:
 
 from warnings import warn
 
+import numpy as np
 import pandas as pd
 
 from .....utility.epoch import Epoch
@@ -74,7 +75,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         Args:
             obs_data (pd.DataFrame): GPS observations data.
-            warn (bool, optional): If True, then warning is raised. Defaults to True.
+            code_warnings (bool, optional): If True, then warning is raised. Defaults to True.
 
         Returns:
             pd.DataFrame: The computed ionospheric free combination pseudorange for GPS observations.
@@ -190,7 +191,8 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         # Rotate the satellite coordinates to the reception epoch
         sv_coords[['x', 'y', 'z']] = earth_rotation_correction(
-            sv_position=sv_coords[['x', 'y', 'z']].to_numpy(), dt=dt.to_numpy().ravel()
+            sv_position=sv_coords[['x', 'y', 'z']].to_numpy(dtype=np.float64),
+            dt=dt.to_numpy(dtype=np.float64).ravel(),
         )
 
         return sv_coords
@@ -250,22 +252,37 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         pseduorange += coords["dt"] * 299792458
 
         # Send to the least squares solver to compute the solution and DOPs
-        dops, solution = least_squares(
-            pseudorange=pseduorange.to_numpy().reshape(-1, 1),
-            sv_pos=coords[['x', 'y', 'z']].to_numpy(),
-            weight=kwargs.get("weight", None),
+        solution, covar, sigma = least_squares(
+            pseudorange=pseduorange.to_numpy(dtype=np.float64).reshape(-1, 1),
+            sv_pos=coords[['x', 'y', 'z']].to_numpy(dtype=np.float64),
+            weight=kwargs.get("weight", np.eye(coords.shape[0], dtype=np.float64)),
             eps=1e-6,
         )
 
+        # Calculate Q
+        Q = covar / sigma[0, 0] ** 2
+
+        # Calculate the DOPs
+        dops = {
+            "GDOP": np.sqrt(np.trace(Q)),
+            "PDOP": np.sqrt(np.trace(Q[:3, :3])),
+            "TDOP": np.sqrt(Q[3, 3]),
+            "HDOP": np.sqrt(Q[0, 0] + Q[1, 1]),
+            "VDOP": np.sqrt(Q[2, 2]),
+            "sigma": sigma[0, 0],
+        }
+
         # Convert the geocentric coordinates to ellipsoidal coordinates
-        lat, lon, height = geocentric_to_ellipsoidal(*solution[:3])
+        lat, lon, height = geocentric_to_ellipsoidal(
+            x=solution[0, 0], y=solution[1, 0], z=solution[2, 0]
+        )
 
         # Convert the solution
         solution = {
-            "x": solution[0],
-            "y": solution[1],
-            "z": solution[2],
-            "dt": solution[3],
+            "x": solution[0, 0],
+            "y": solution[1, 0],
+            "z": solution[2, 0],
+            "dt": solution[3, 0],
             "lat": lat,
             "lon": lon,
             "height": height,
