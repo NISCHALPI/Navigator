@@ -24,7 +24,6 @@ click = "^8.1.7"
 tqdm = "^4.66.1"
 fs = "^2.4.16"
 numba = "^0.58.1"
-icc-rt = "^2020.0.133"
 
 
 [tool.poetry.group.dev.dependencies]
