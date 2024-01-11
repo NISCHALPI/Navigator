@@ -7,7 +7,7 @@ import georinex as gr
 import pandas as pd
 
 from ....parse import IParseGPSNav, IParseGPSObs, Parser
-from ....satlib.triangulate import GPSIterativeTriangulationInterface, Triangulate
+from ....satlib.triangulate import IterativeTriangulationInterface, Triangulate
 from ...epoch import Epoch
 from ...logger.logger import get_logger
 
@@ -37,7 +37,7 @@ def main(ctx: click.Context, verbose: bool) -> None:
     # Create a GPS triangulator object
     logger.info("Creating a GPS triangulator object")
     ctx.obj["triangulator"] = Triangulate(
-        interface=GPSIterativeTriangulationInterface(),
+        interface=IterativeTriangulationInterface(),
     )
 
     logger.info("Creating a GPS navigation parser")

@@ -1,5 +1,6 @@
 """Import triangulate modules."""
-from .itriangulate.iterative.gps_iterative_traingulation_interface import (
-    GPSIterativeTriangulationInterface,
+from .itriangulate.iterative.iterative_traingulation_interface import (
+    IterativeTriangulationInterface,
 )
+from .itriangulate.kalman import UnscentedKalmanTriangulationInterface
 from .triangulate import Triangulate

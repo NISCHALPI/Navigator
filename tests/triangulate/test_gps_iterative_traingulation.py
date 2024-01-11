@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from navigator.utility.epoch import Epoch
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
-from navigator.satlib.triangulate import Triangulate, GPSIterativeTriangulationInterface
+from navigator.satlib.triangulate import Triangulate, IterativeTriangulationInterface
 import numpy as np
 from pathlib import Path
 
@@ -17,7 +17,7 @@ def test_traingulation_gps(epoch):
 
     # Triangulate the epoch``
     triangulator = Triangulate(
-        interface=GPSIterativeTriangulationInterface(),
+        interface=IterativeTriangulationInterface(),
     )
 
     # coords list

@@ -27,6 +27,8 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from ....utility import Epoch
+from .preprocess.gps_preprocessor import GPSPreprocessor
+from .preprocess.preprocessor import Preprocessor
 
 __all__ = ["Itriangulate"]
 
@@ -74,6 +76,54 @@ class Itriangulate(ABC):
             This is an abstract method that must be implemented by subclasses. It performs the triangulation calculation using observation and navigation data.
         """
         pass
+
+    def _auto_dispatch_preprocessor(self, epoch: Epoch) -> Preprocessor:
+        """Auto dispatches the preprocessor based on the constellation.
+
+        Dispatching mechanism is based on the PRN of the satellites in the epoch observation data.
+        i.e if "G01" is present in the epoch observation data, then the GPS preprocessor is dispatched.
+
+        Args:
+            epoch (Epoch): Epoch containing observation data and navigation data.
+
+        Returns:
+            Preprocessor: The preprocessor for the constellation.
+        """
+        # Get the common satellites in the epoch observation data
+        prns = epoch.common_sv
+
+        # Check that all the satellites are of the same constellation
+        first_prn = prns[0][0]  # Get the first constellation code
+        assert all(
+            first_prn == prns[0][0] for prn in prns
+        ), "Satellites PRNs are not of the same constellation"
+
+        # Dispatch the preprocessor based on the constellation
+        if first_prn == "G":
+            return GPSPreprocessor()
+
+        # If the constellation is not supported, raise an error
+        raise ValueError(f"Invalid constellation: {first_prn}")
+
+    def _preprocess(
+        self, epoch: Epoch, obs_metadata: pd.Series, nav_metadata: pd.Series, **kwargs
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Preprocesses the data.
+
+        Args:
+            epoch (Epoch): Epoch containing observation data and navigation data.
+            obs_metadata (pd.Series): Metadata for the observation data.
+            nav_metadata (pd.Series): Metadata for the navigation data.
+            **kwargs: Additional keyword arguments passed to the preprocessor.
+
+        Returns:
+            tuple[pd.DataFrame, pd.DataFrame]: range and satellite position dataframes.
+        """
+        # Auto dispatch the preprocessor
+        preprocesser = self._auto_dispatch_preprocessor(epoch)
+
+        # Preprocess the data
+        return preprocesser.preprocess(epoch, obs_metadata, nav_metadata, **kwargs)
 
     def __call__(
         self,

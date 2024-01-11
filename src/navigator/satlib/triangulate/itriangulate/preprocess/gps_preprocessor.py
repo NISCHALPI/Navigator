@@ -1,72 +1,31 @@
-"""The `GPSIterativeTriangulationInterface` module provides classes and methods for GPS iterative triangulation.
+"""Preprocessor for GPS epoch data."""
 
-It implements functionality for estimating a user's position using GPS observations and navigation data using the least-squares triangulation method.
-
-Author:
-    - Nischal Bhattarai (nbhattrai@crimson.ua.edu)
-
-Classes:
-    - `GPSIterativeTriangulationInterface`:
-        Implements iterative triangulation using GPS observations and navigation data.
-        Methods include computing ionospheric corrections, emission epochs,
-        satellite coordinates, and performing least-squares triangulation to estimate user position.
-
-Usage:
-    Import this module to access the `GPSIterativeTriangulationInterface` class for GPS-based iterative triangulation.
-"""
 
 from warnings import warn
 
 import numpy as np
 import pandas as pd
 
-from .....utility.epoch import Epoch
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
+from .....utility.epoch.epoch import Epoch
 from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
 from ....satellite.satellite import Satellite
 from ..algos.dual_frequency_corrections import dual_channel_correction
-from ..algos.linear_iterative_method import least_squares
 from ..algos.rotations import earth_rotation_correction
-from ..itriangulate import Itriangulate
+from .preprocessor import Preprocessor
 
-__all__ = ["GPSIterativeTriangulationInterface"]
+__all__ = ["GPSPreprocessor"]
 
 
-class GPSIterativeTriangulationInterface(Itriangulate):
-    """A Interface class for GPS iterative triangulation.
+class GPSPreprocessor(Preprocessor):
+    """Preprocessor for GPS epoch data.
 
-    This class implements the GPS iterative triangulation using GPS observations and navigation data.
-    It provides methods for choosing the best navigation message, computing ionospheric corrections,
-    emission epochs, satellite coordinates at the emission epoch, and performing least-squares triangulation
-    to estimate the user's position.
-
-    Methods:
-        __init__:
-            Initialize the GPSIterativeTriangulationInterface.
-        _ionospehric_free_combination:
-            Compute the Ionospheric free combination for GPS observations.
-        _compute_sv_coordinates_at_emission_epoch:
-            Computes the satellite coordinates at the emission epoch.
-        _rotate_satellite_coordinates_to_reception_epoch:
-            Rotate the satellite coordinates to the reception epoch.
-        _compute:
-            Compute the iterative triangulation using GPS observations and navigation data.
-
-    Attributes:
-        None
-
+    Args:
+        Preprocessor (_type_): Abstract class for a data preprocessor.
     """
 
     def __init__(self) -> None:
-        """Initialize the GPSIterativeTriangulationInterface.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        super().__init__(feature="GPS(Iterative)")
+        """Initializes the preprocessor with the GPS constellation."""
+        super().__init__(constellation="G")
 
     def _ionospehric_free_combination(
         self, obs_data: pd.DataFrame, code_warnings: bool = True
@@ -197,7 +156,7 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         return sv_coords
 
-    def _preprocess(
+    def preprocess(
         self,
         obs: Epoch,
         obs_metadata: pd.Series,  # noqa: ARG002
@@ -247,76 +206,30 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         # This crossponds to the satellite clock correction. P(j) + c * dt(j)
         pseduorange += coords["dt"] * 299792458
 
-        return pseduorange, coords
+        return pseduorange, coords[['x', 'y', 'z']]
 
-    def _compute(
+    def __call__(
         self,
         obs: Epoch,
         obs_metadata: pd.Series,  # noqa: ARG002
         nav_metadata: pd.Series,
-        **kwargs,  # noqa: ARG002
-    ) -> pd.Series | pd.DataFrame:
-        """Compute the iterative triangulation using GPS observations and navigation data.
+        **kwargs,
+    ) -> None:
+        """Preprocess the observation and navigation data to be used for triangulation!
 
         Args:
             obs (Epoch): Epoch containing observation data and navigation data.
             obs_metadata (pd.Series): Metadata for the observation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
-            *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
-        Additional Keyword Arguments:
-            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            warn (bool, optional): If True, then warning is raised. Defaults to False.
 
         Returns:
-            pd.Series | pd.DataFrame: The computed iterative triangulation.
+            tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
         """
-        # Preprocess the observation and navigation data
-        pseduorange, coords = self._preprocess(
-            obs=obs, obs_metadata=obs_metadata, nav_metadata=nav_metadata, **kwargs
+        return self.preprocess(
+            obs=obs,
+            obs_metadata=obs_metadata,
+            nav_metadata=nav_metadata,
+            **kwargs,
         )
-
-        # Send to the least squares solver to compute the solution and DOPs
-        solution, covar, sigma = least_squares(
-            pseudorange=pseduorange.to_numpy(dtype=np.float64).reshape(-1, 1),
-            sv_pos=coords[['x', 'y', 'z']].to_numpy(dtype=np.float64),
-            weight=kwargs.get("weight", np.eye(coords.shape[0], dtype=np.float64)),
-            eps=1e-6,
-        )
-
-        # Calculate Q
-        Q = covar / sigma[0, 0] ** 2
-
-        # Calculate the DOPs
-        dops = {
-            "GDOP": np.sqrt(np.trace(Q)),
-            "PDOP": np.sqrt(np.trace(Q[:3, :3])),
-            "TDOP": np.sqrt(Q[3, 3]),
-            "HDOP": np.sqrt(Q[0, 0] + Q[1, 1]),
-            "VDOP": np.sqrt(Q[2, 2]),
-            "sigma": sigma[0, 0],
-        }
-
-        # Convert the geocentric coordinates to ellipsoidal coordinates
-        lat, lon, height = geocentric_to_ellipsoidal(
-            x=solution[0, 0], y=solution[1, 0], z=solution[2, 0]
-        )
-
-        # Convert the solution
-        solution = {
-            "x": solution[0, 0],
-            "y": solution[1, 0],
-            "z": solution[2, 0],
-            "dt": solution[3, 0] / 299792458,  # Convert the clock offset to seconds
-            "lat": lat,
-            "lon": lon,
-            "height": height,
-            "P": covar,
-        }
-
-        # Add the DOPs to the solution
-        solution.update(dops)
-
-        # Return the solution
-        return pd.Series(solution)
