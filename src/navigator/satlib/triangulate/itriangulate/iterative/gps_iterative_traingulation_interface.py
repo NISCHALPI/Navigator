@@ -197,28 +197,24 @@ class GPSIterativeTriangulationInterface(Itriangulate):
 
         return sv_coords
 
-    def _compute(
+    def _preprocess(
         self,
         obs: Epoch,
         obs_metadata: pd.Series,  # noqa: ARG002
         nav_metadata: pd.Series,
-        **kwargs,  # noqa: ARG002
-    ) -> pd.Series | pd.DataFrame:
-        """Compute the iterative triangulation using GPS observations and navigation data.
+        **kwargs,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Preprocess the observation and navigation data to be used for triangulation!
 
         Args:
             obs (Epoch): Epoch containing observation data and navigation data.
             obs_metadata (pd.Series): Metadata for the observation data.
             nav_metadata (pd.Series): Metadata for the navigation data.
-            *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
-        Additional Keyword Arguments:
-            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            warn (bool, optional): If True, then warning is raised. Defaults to False.
 
         Returns:
-            pd.Series | pd.DataFrame: The computed iterative triangulation.
+            tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
         """
         # Use Epoch to get the navigation message for the observation epoch. Held at "Epoch.nav_data" attribute
         obs_data, nav_data = obs.obs_data, obs.nav_data
@@ -251,6 +247,36 @@ class GPSIterativeTriangulationInterface(Itriangulate):
         # This crossponds to the satellite clock correction. P(j) + c * dt(j)
         pseduorange += coords["dt"] * 299792458
 
+        return pseduorange, coords
+
+    def _compute(
+        self,
+        obs: Epoch,
+        obs_metadata: pd.Series,  # noqa: ARG002
+        nav_metadata: pd.Series,
+        **kwargs,  # noqa: ARG002
+    ) -> pd.Series | pd.DataFrame:
+        """Compute the iterative triangulation using GPS observations and navigation data.
+
+        Args:
+            obs (Epoch): Epoch containing observation data and navigation data.
+            obs_metadata (pd.Series): Metadata for the observation data.
+            nav_metadata (pd.Series): Metadata for the navigation data.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Additional Keyword Arguments:
+            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
+            warn (bool, optional): If True, then warning is raised. Defaults to False.
+
+        Returns:
+            pd.Series | pd.DataFrame: The computed iterative triangulation.
+        """
+        # Preprocess the observation and navigation data
+        pseduorange, coords = self._preprocess(
+            obs=obs, obs_metadata=obs_metadata, nav_metadata=nav_metadata, **kwargs
+        )
+
         # Send to the least squares solver to compute the solution and DOPs
         solution, covar, sigma = least_squares(
             pseudorange=pseduorange.to_numpy(dtype=np.float64).reshape(-1, 1),
@@ -282,10 +308,11 @@ class GPSIterativeTriangulationInterface(Itriangulate):
             "x": solution[0, 0],
             "y": solution[1, 0],
             "z": solution[2, 0],
-            "dt": solution[3, 0],
+            "dt": solution[3, 0] / 299792458,  # Convert the clock offset to seconds
             "lat": lat,
             "lon": lon,
             "height": height,
+            "P": covar,
         }
 
         # Add the DOPs to the solution

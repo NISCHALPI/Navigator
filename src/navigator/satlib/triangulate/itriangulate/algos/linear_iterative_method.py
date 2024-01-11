@@ -127,22 +127,19 @@ def least_squares(
         guess += dr
 
         # Check for convergence
-        if np.linalg.norm(dr[:3, 0]) < eps or counter > 10000:
+        if np.linalg.norm(dr[:3, 0]) < eps or counter > 100000:
             break
         # Update the counter
         counter += 1
 
-    # Calculate SigmaNot squared
+    # Calculate Variance which is proportional to magnitude of the residual
     sigma_o = np.sqrt(r.T @ weight @ r / (sv_pos.shape[0] - 4))
 
     # Compute the Q matrix
     Q = np.linalg.inv(A.T @ weight @ A)
 
-    # Normalize the clock offset
-    guess[3, 0] = guess[3, 0] / 299792458
-
     # Calculate the covariance matrix
-    cov = sigma_o[0, 0] ** 2 * Q  # Sigma is a 1x1 matrix
+    cov = sigma_o[0, 0] ** 2 * Q  # Note: Sigma is a 1x1 matrix
 
     # Return the guess, covariance, and sigma_o
     return (guess, cov, sigma_o)

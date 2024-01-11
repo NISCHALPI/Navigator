@@ -513,6 +513,21 @@ files = [
 devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
 
 [[package]]
+name = "filterpy"
+version = "1.4.5"
+description = "Kalman filtering and optimal estimation library"
+optional = false
+python-versions = "*"
+files = [
+    {file = "filterpy-1.4.5.zip", hash = "sha256:4f2a4d39e4ea601b9ab42b2db08b5918a9538c168cff1c6895ae26646f3d73b1"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+scipy = "*"
+
+[[package]]
 name = "fonttools"
 version = "4.47.0"
 description = "Tools to manipulate font files"
@@ -2469,4 +2484,4 @@ viz = ["matplotlib", "nc-time-axis", "seaborn"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.12"
-content-hash = "fa451f7ab1eecff87b5cf5873d0799da629b946aeba40c955c272dd11d9d0a58"
+content-hash = "1d1234c3e5a2cb5b4bb8d57c8d09d069d952d5e3043f3868e9d793b2d018de2f"
