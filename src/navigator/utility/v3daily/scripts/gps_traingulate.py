@@ -1,18 +1,21 @@
 """This module contains the script to triangulate the data from the RINEX files."""
-from concurrent.futures import ThreadPoolExecutor
+
 from pathlib import Path
 
 import click
-import georinex as gr
 import pandas as pd
-
-from ....parse import IParseGPSNav, IParseGPSObs, Parser
-from ....satlib.triangulate import IterativeTriangulationInterface, Triangulate
+import tqdm
+import secrets
+from ....satlib.triangulate import (
+    IterativeTriangulationInterface,
+    Triangulate,
+    UnscentedKalmanTriangulationInterface,
+)
 from ...epoch import Epoch
 from ...logger.logger import get_logger
 
 
-@click.group(no_args_is_help=True, invoke_without_command=True)
+@click.group(invoke_without_command=True, no_args_is_help=True)
 @click.pass_context
 @click.option(
     "-v",
@@ -22,106 +25,275 @@ from ...logger.logger import get_logger
     default=False,
     help="Enable verbose logging",
 )
-def main(ctx: click.Context, verbose: bool) -> None:
+def main(
+    ctx: click.Context,
+    verbose: bool,
+) -> None:
     """Triangulate the data from the RINEX files."""
-    # Ensure that the ctx.obj exists and is a dict
+    logger = get_logger(name=__name__, dummy=not verbose)
+    logger.info("Starting triangulation!")
+
+    # Ensure that the context object is dictionary-like
     ctx.ensure_object(dict)
 
-    # Set the logger
-    logger = get_logger(name=__name__, dummy=not verbose)
-
-    # Set the logger in the context
-    logger.info("Setting the logger in the context!")
+    # Add the logger to the context object
     ctx.obj["logger"] = logger
 
-    # Create a GPS triangulator object
-    logger.info("Creating a GPS triangulator object")
-    ctx.obj["triangulator"] = Triangulate(
-        interface=IterativeTriangulationInterface(),
-    )
 
-    logger.info("Creating a GPS navigation parser")
-    ctx.obj["nav_parser"] = Parser(iparser=IParseGPSNav())
-
-    logger.info("Creating a GPS observation parser")
-    ctx.obj["obs_parser"] = Parser(iparser=IParseGPSObs())
-
-
-@main.command(name="all-epochs")
+@main.command(name="wls")
 @click.pass_context
 @click.option(
-    "-o",
-    "--obs",
-    type=click.Path(exists=True, file_okay=True, readable=True, path_type=Path),
+    "-nav",
+    "--nav-file",
     required=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="The path to the RINEX navigation file",
 )
 @click.option(
-    "-n",
-    "--nav",
-    type=click.Path(exists=True, file_okay=True, readable=True, path_type=Path),
+    "-obs",
+    "--obs-file",
     required=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="The path to the RINEX observation file",
 )
 @click.option(
     "-t",
-    "--threads",
-    type=click.IntRange(min=1),
+    "--output-type",
     required=False,
-    default=1,
-    help="Number of threads to use for triangulation",
+    type=click.Choice(["csv", "html"]),
+    default="html",
+    help="The output file type",
 )
-def triangulate_all_epochs(
-    ctx: click.Context, obs: Path, nav: Path, threads: int
+@click.option(
+    "--mode",
+    required=False,
+    type=click.Choice(["maxsv", "nearest"]),
+    default="maxsv",
+    help="The mode to pair the observations and navigation messages",
+)
+@click.option(
+    "-i",
+    "--ignore",
+    required=False,
+    type=click.INT,
+    default=5,
+    help="The epoch to ignore having less than this number of satellites",
+)
+@click.option(
+    "-s",
+    "--save",
+    required=False,
+    type=click.Path(exists=True, dir_okay=True, writable=True, path_type=Path),
+    help="The path to save the data to",
+    default=Path.cwd(),
+)
+def wls(
+    ctx: click.Context,
+    nav_file: Path,
+    obs_file: Path,
+    output_type: str,
+    mode: str,
+    ignore: int,
+    save: str,
 ) -> None:
-    """Triangulate all the epochs in the RINEX files and returns the mean position of the reciver."""
-    # Get the logger
+    """Triangulate the data from the RINEX files using Weighted Least Squares (WLS)."""
     logger = ctx.obj["logger"]
 
-    # Validate the input
-    logger.info(f"Observation file: {obs}")
-    logger.info(f"Navigation file: {nav}")
+    logger.info("Triangulating using Weighted Least Squares (WLS)!")
 
+    logger.info("Epochifying the data!")
     # Epochify the data
-    logger.info("Epochifying the data. This may take a while if the file is large.")
-    epochs = list(Epoch.epochify(obs=obs, nav=nav, mode="maxsv"))
-    # Get the metadata
-    nav_meta = gr.rinexheader(nav)
-    obs_meta = gr.rinexheader(obs)
+    epoches = list(Epoch.epochify(obs=obs_file, nav=nav_file, mode=mode))
+    logger.info(f"Found {len(epoches)} epoches!")
 
-    logger.info("Available epochs:")
-    # log the epochs
-    for epoch in epochs:
-        logger.info(f"Epoch: {epoch}")
+    # Filter out epoches with less than 5 satellites
+    epoches = [epoch for epoch in epoches if len(epoch) > ignore]
+    logger.info(f"Found {len(epoches)} epoches with more than {ignore} satellites!")
 
-    # Log epoch Summary
-    logger.info(f"Number of epochs with 4> SV: {len(epochs)}")
+    # Triangulate the data
+    triangulator = Triangulate(interface=IterativeTriangulationInterface())
 
-    # Start traingulation
-    logger.info(f"Starting triangulation for each epoch with {threads} threads!")
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        results = executor.map(
-            ctx.obj["triangulator"].__call__,
-            epochs,
-            [obs_meta] * len(epochs),
-            [nav_meta] * len(epochs),
+    df = []
+    # Triangulate the data
+    with tqdm.tqdm(total=len(epoches)) as pbar:
+        for epoch in epoches:
+            df.append(
+                triangulator(
+                    epoch,
+                    obs_metadata=None,
+                    nav_metadata=None,
+                    approx=df[-1] if len(df) > 0 else None,
+                )
+            )
+            pbar.update(1)
+
+    logger.info("Traingulation Completed! Saving the data!")
+
+    # Convert to dataframe
+    df = pd.DataFrame(df)
+    # Save the data to the specified output type
+    if output_type == "csv":
+        df.to_csv(
+            save / f"traingulation-wls-{secrets.token_urlsafe(nbytes=4)}.csv",
+            index=False,
         )
-        # Log the results
-        executor.shutdown(wait=True)
-
-    # Create a list of results
-    results = list(results)
-    # Create a dataframe
-    df = pd.DataFrame(results)
-
-    # Save the dataframe to a csv file
-    logger.info(f"Saving the results to a csv file at : {Path.cwd() / 'results.csv'}")
-
-    df.to_csv(Path.cwd() / "results.csv", index=False)
-
-    # Print the mean of the results
-    print(df.mean(axis=0))
+    elif output_type == "html":
+        df.to_html(
+            save / f"traingulation-wls-{secrets.token_urlsafe(nbytes=4)}.html",
+            index=False,
+        )
 
     return
 
 
-if __name__ == "__main__":
-    main()
+@main.command(name="ukf")
+@click.pass_context
+@click.option(
+    "-nav",
+    "--nav-file",
+    required=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="The path to the RINEX navigation file",
+)
+@click.option(
+    "-obs",
+    "--obs-file",
+    required=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="The path to the RINEX observation file",
+)
+@click.option(
+    "-t",
+    "--output-type",
+    required=False,
+    type=click.Choice(["csv", "html"]),
+    default="html",
+    help="The output file type",
+)
+@click.option(
+    "--mode",
+    required=False,
+    type=click.Choice(["maxsv", "nearest"]),
+    default="maxsv",
+    help="The mode to pair the observations and navigation messages",
+)
+@click.option(
+    "-i",
+    "--ignore",
+    required=False,
+    type=click.INT,
+    default=5,
+    help="The epoch to ignore having less than this number of satellites",
+)
+@click.option(
+    "--ukf-dt",
+    required=False,
+    type=float,
+    default=30.0,
+    help="The time step for the UKF triangulation",
+)
+@click.option(
+    "--ukf-sigma-r",
+    required=False,
+    type=float,
+    default=6,
+    help="The error in the range measurement",
+)
+@click.option(
+    "--ukf-sigma-q",
+    required=False,
+    type=float,
+    default=0.01,
+    help="The process noise for the UKF triangulation",
+)
+@click.option(
+    "--ukf-Sf",
+    required=False,
+    type=float,
+    default=36,
+    help="The white noise spectral density for the random walk clock velocity error. Defaults to 36.",
+)
+@click.option(
+    "--ukf-Sg",
+    required=False,
+    type=float,
+    default=0.01,
+    help="The white noise spectral density for the random walk clock drift error. Defaults to 36.",
+)
+@click.option(
+    "-s",
+    "--save",
+    required=False,
+    type=click.Path(exists=True, dir_okay=True, writable=True, path_type=Path),
+    help="The path to save the data to",
+    default=Path.cwd(),
+)
+def ukf(
+    ctx: click.Context,
+    nav_file: Path,
+    obs_file: Path,
+    output_type: str,
+    mode: str,
+    ignore: int,
+    ukf_dt: float,
+    ukf_sigma_r: float,
+    ukf_sigma_q: float,
+    ukf_sf: float,
+    ukf_sg: float,
+    save: Path,
+) -> None:
+    """Triangulate the data from the RINEX files using Unscented Kalman Filter (UKF)."""
+    logger = ctx.obj["logger"]
+
+    logger.info("Triangulating using Unscented Kalman Filter (UKF)!")
+
+    # Epochify the data
+    epoches = list(Epoch.epochify(obs=obs_file, nav=nav_file, mode=mode))
+    logger.info(f"Found {len(epoches)} epoches!")
+
+    # Filter out epoches with less than 5 satellites
+    epoches = [epoch for epoch in epoches if len(epoch) > ignore]
+    logger.info(f"Found {len(epoches)} epoches with more than {ignore} satellites!")
+
+    # Triangulate the data
+    triangulator = Triangulate(
+        interface=UnscentedKalmanTriangulationInterface(
+            num_satellite=ignore,
+            dt=ukf_dt,
+            simga_r=ukf_sigma_r,
+            sigma_q=ukf_sigma_q,
+            S_f=ukf_sf,
+            S_g=ukf_sg,
+            saver=False,
+        )
+    )
+
+    df = []
+    # Triangulate the data
+    with tqdm.tqdm(total=len(epoches)) as pbar:
+        for epoch in epoches:
+            df.append(
+                triangulator(
+                    epoch,
+                    obs_metadata=None,
+                    nav_metadata=None,
+                )
+            )
+            pbar.update(1)
+
+    logger.info("Traingulation Completed! Saving the data!")
+    # Convert to dataframe
+    df = pd.DataFrame(df)
+    # Save the data to the specified output type
+    if output_type == "csv":
+        df.to_csv(
+            save / f"traingulation-ukf-{secrets.token_urlsafe(nbytes=4)}.csv",
+            index=False,
+        )
+    elif output_type == "html":
+        df.to_html(
+            save / f"traingulation-ukf-{secrets.token_urlsafe(nbytes=4)}.html",
+            index=False,
+        )
+
+    return
