@@ -32,7 +32,11 @@ __all__ = ['UnscentedKalmanTriangulationInterface']
 
 
 class UnscentedKalmanTriangulationInterface(Itriangulate):
-    """Unscented Kalman Method for Triangulation."""
+    """Unscented Kalman Method for Triangulation Interface.
+
+    This class implements the Unscented Kalman Filter for triangulation.
+    A constant velocity model is assumed for the state transition function.
+    """
 
     def __init__(
         self,

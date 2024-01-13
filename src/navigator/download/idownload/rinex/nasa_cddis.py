@@ -42,7 +42,6 @@ Version:
 """
 import random
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from logging import NullHandler
 from pathlib import Path
 
@@ -51,12 +50,11 @@ import tqdm
 from ....utility.ftpserver import FTPFSServer
 from ....utility.logger.logger import get_logger
 from ....utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
-from ..idownload import IDownload
 
 __all__ = ['NasaCddisV3']
 
 
-class NasaCddisV3(IDownload):
+class NasaCddisV3:
     """A class to download RINEX V3 files from NASA CDDIS FTP server.
 
     This class enables downloading RINEX V3 files from the NASA CDDIS (Crustal
@@ -111,91 +109,83 @@ class NasaCddisV3(IDownload):
             host=self.server_address, user="anonymous", acct=email, tls=True
         )
 
-        super().__init__(features="RinexV3 Download from NASA CDDIS")
+        super().__init__()
 
-    def kwargs_checker(self, **kwargs) -> None:
-        """Validates input arguments for the download method."""
-        # Check if the year, day are in the kwargs
-        if "year" not in kwargs or "day" not in kwargs or "save_path" not in kwargs:
-            raise ValueError(
-                f"year, day, save_path must be in kwargs for {self.__class__.__name__}"
-            )
+    def _threaded_fetch_files(
+        self,
+        files: list[str],
+        save_path: Path,
+        no_pbar: bool = False,
+        *args,  # noqa : ARG006
+        **kwargs,  # noqa : ARG006
+    ) -> None:
+        """Fetches the file names from the FTP server.
 
-        self.logger.info(f"Year: {kwargs['year']}")
-        self.logger.info(f"Day: {kwargs['day']}")
-        self.logger.info(f"Save Path: {kwargs['save_path']}")
-
-        # Day must be in range 1-366
-        if kwargs["day"] < 1 or kwargs["day"] > 366:
-            raise ValueError(
-                f"day must be in range 1-366 for {self.__class__.__name__}"
-            )
-
-        # Year must be in range 1980-Now
-        if kwargs["year"] < 1980 or kwargs["year"] > datetime.now().year:
-            raise ValueError(
-                f"year must be in range 1980-Now for {self.__class__.__name__}"
-            )
-
-        # Save Path must be a Path object
-        if not isinstance(kwargs["save_path"], Path):
-            raise ValueError(
-                f"save_path must be a Path object for {self.__class__.__name__}"
-            )
-
-        # Check if the save_path exists
-        if not kwargs["save_path"].exists():
-            raise ValueError(f"save_path must exist for {self.__class__.__name__}")
-
-        # CHeck if num_files is in kwargs
-        if "num_files" in kwargs:
-            self.logger.info(f"Number of Files to Download: {kwargs['num_files']}")
-            if not isinstance(kwargs["num_files"], int):
-                raise ValueError(
-                    f"num_files must be an integer for {self.__class__.__name__}"
-                )
-            if not kwargs["num_files"] == -1 and not kwargs["num_files"] > 0:
-                raise ValueError(
-                    f"num_files must be greater than 0 or -1 (all files) for {self.__class__.__name__}"
-                )
-
-        return
-
-    def _download(self, *args, **kwargs) -> None:  # noqa : ARG006
-        """Downloads RINEX V3 files from the FTP server.
-
-        This method downloads RINEX V3 files for a specific day and year from
-        the NASA CDDIS FTP server. It identifies matching observation and GPS
-        navigation files, downloads them concurrently using multiple threads,
-        and saves them to the specified local directory.
+        This method fetches the file names from the FTP server for the provided
+        observation and navigation paths. It also updates the progress bar
+        accordingly.
 
         Args:
+            obs_paths (list[str]): The observation paths to fetch file names from.
+            files (list[str]): The list to store the file names.
+            save_path (Path): The path to save the downloaded files.
+            no_pbar (bool): If True, disables the progress bar (default is False).
             *args: Variable length argument list.
             **kwargs: Arbitrary keyword arguments.
-
-        Required kwargs:
-            year (int): The year to download RINEX V3 files.
-            day (int): The day of the year to download RINEX V3 files.
-            save_path (Path): The path to save the downloaded files.
-
-        Optional kwargs:
-            num_files (int): The number of files to download (default is -1).
-            no_pbar (bool): If True, disables the progress bar (default is False).
-
 
         Raises:
             ValueError: If the provided input arguments are invalid.
         """
-        self.logger.info(f"Downloading RINEX V3 files from {self.server_address}")
+        # Log the number of files to download
+        self.logger.info(f"Number of Files to Download: {len(files)}")
+        # Initialize the progress bar
+        with tqdm.tqdm(
+            total=len(files), desc="Downloading", disable=not no_pbar
+        ) as pbar:
+            with ThreadPoolExecutor(max_workers=self.threads) as executor:
+                futures = []
 
-        # Check if the kwargs are valid
-        self.kwargs_checker(**kwargs)
+                for fname in files:
+                    # Submit the download job to the executor
+                    futures.append(
+                        executor.submit(self.ftpfs.download, fname, save_path)
+                    )
+                    # Add a callback to update the progress bar
+                    futures[-1].add_done_callback(
+                        lambda x: pbar.update(1)  # noqa : ARG005
+                    )
 
-        # Get the year, day, save_path from the kwargs
-        year = kwargs["year"]
-        day = kwargs["day"]
-        save_path = kwargs["save_path"]
+                # Wait for all the futures to complete
+                executor.shutdown(wait=True)
+        # Log the download completion
+        self.logger.info("Download Complete!")
+        self.logger.info(f"Downloaded {len(files)} files to {save_path.absolute()}")
+        return
 
+    def _search_available_files(
+        self,
+        year: int,
+        day: int,
+        match_string: str = None,
+        sample: int = -1,
+        *args,  # noqa : ARG006
+        **kwargs,  # noqa : ARG006
+    ) -> list[str]:
+        """Searches for available files on the FTP server.
+
+        This method searches for available files on the FTP server for the provided year, day, and match string.
+
+        Args:
+            year (int): The year of the RINEX files.
+            day (int): The day of the RINEX files. [1-366]
+            match_string (str): The string to match in the file names (default is None).
+            sample (int): The number of files to sample (default is -1).
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            list[str]: The list of available files on the FTP server.
+        """
         # Default path to daily data
         default_obs_path = (
             f"/pub/gnss/data/daily/{year}/{str(day).zfill(3)}/{str(year)[-2:]}d"
@@ -203,9 +193,9 @@ class NasaCddisV3(IDownload):
         default_nav_path = (
             f"/pub/gnss/data/daily/{year}/{str(day).zfill(3)}/{str(year)[-2:]}n"
         )
-
-        self.logger.debug(f"Default OBS Path: {default_obs_path}")
-        self.logger.debug(f"Default NAV Path: {default_nav_path}")
+        # Log the default paths
+        self.logger.info(f"Default OBS Path: {default_obs_path}")
+        self.logger.info(f"Default NAV Path: {default_nav_path}")
 
         # Get the file names under the default path
         obs_file_names = self.ftpfs.listdir(default_obs_path)
@@ -218,8 +208,6 @@ class NasaCddisV3(IDownload):
         ]
         self.logger.info(f"Number of OBS Files: {len(obs_file_names)}")
         self.logger.info(f"Number of NAV Files: {len(nav_file_names)}")
-        self.logger.debug(f"OBS File Names: {obs_file_names}")
-        self.logger.debug(f"NAV File Names: {nav_file_names}")
 
         # Get the station name in both nav and obs
         obs_stations = [
@@ -233,7 +221,17 @@ class NasaCddisV3(IDownload):
 
         # Intersect the stations
         stations = set(obs_stations).intersection(set(nav_stations))
-        self.logger.debug(f"Common Stations: {stations}")
+
+        # Filter stations based on match_string
+        if match_string is not None:
+            stations = [
+                station for station in stations if match_string.upper() in station
+            ]
+            self.logger.info(f"Filtered Stations: {stations}")
+
+        # Raise error if no stations are found
+        if len(stations) == 0:
+            raise ValueError("No stations found with the provided match_string")
 
         # File pairs
         file_pairs = []
@@ -262,51 +260,74 @@ class NasaCddisV3(IDownload):
                 ]
             )
         self.logger.info(f"Number of File Pairs: {len(file_pairs)}")
-        # num_files in kwargs overrides the number of files to download
-        if "num_files" in kwargs:
-            if kwargs["num_files"] == -1:
-                kwargs["num_files"] = len(file_pairs)  # Download all files
 
-            self.logger.info(f"Number of Files to Download: {kwargs['num_files'] * 2}")
-            num_files = kwargs["num_files"]
-            if num_files > len(file_pairs):
+        # Sample the file pairs if sample is not -1
+        if sample != -1:
+            # Sample must be less than or equal to the number of files
+            if sample > len(file_pairs):
                 raise ValueError(
-                    f"num_files must be less than or equal to {len(file_pairs)}"
+                    f"requested sample must be less than or equal to {len(file_pairs)}"
                 )
-            file_pairs = random.sample(file_pairs, num_files)
+            file_pairs = random.sample(file_pairs, sample)
+            # Log the sample
+            self.logger.info(f"Number of File Pairs after sampling: {len(file_pairs)}")
 
-        self.logger.info(f"Downloading Files with {self.threads} Threads!")
+        # Flatten the file pairs
+        return [pair for pair in file_pairs for pair in pair]
 
-        # Pbar disabled if no_pbar is True
-        pbar = True
-        if "no_pbar" in kwargs and kwargs["no_pbar"]:
-            pbar = False
+    def download(
+        self,
+        year: int,
+        day: int,
+        save_path: Path,
+        num_files: int = -1,
+        no_pbar: bool = False,
+        match_string: str = None,
+        *args,  # noqa : ARG006
+        **kwargs,  # noqa : ARG006
+    ) -> None:
+        """Downloads RINEX V3 files from the FTP server.
 
-        with tqdm.tqdm(
-            total=len(file_pairs) * 2, desc="Downloading", disable=not pbar
-        ) as pbar:
-            with ThreadPoolExecutor(max_workers=self.threads) as executor:
-                futures = []
+        This method downloads RINEX V3 files for a specific day and year from
+        the NASA CDDIS FTP server. It identifies matching observation and GPS
+        navigation files, downloads them concurrently using multiple threads,
+        and saves them to the specified local directory.
 
-                for obs_fname, nav_fname in file_pairs:
-                    future_obs = executor.submit(
-                        self.ftpfs.download, obs_fname, save_path
-                    )
-                    future_nav = executor.submit(
-                        self.ftpfs.download, nav_fname, save_path
-                    )
-                    # Add callbacks to update the progress bar
-                    future_obs.add_done_callback(
-                        lambda x: pbar.update(1)  # noqa : ARG005
-                    )
-                    future_nav.add_done_callback(
-                        lambda x: pbar.update(1)  # noqa : ARG005
-                    )
-                    futures.extend([future_obs, future_nav])
+        Args:
+            year (int): The year of the RINEX files.
+            day (int): The day of the RINEX files. [1-366]
+            save_path (Path): The path to save the downloaded files.
+            num_files (int): The number of files to download (default is -1).
+            no_pbar (bool): If True, disables the progress bar (default is False).
+            match_string (str): The string to match in the file names (default is None).
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
 
-                # Wait for all the futures to complete
-                executor.shutdown(wait=True)
-        self.logger.info("Download Complete!")
+        Raises:
+            ValueError: If the provided input arguments are invalid.
+        """
+        # Check if the save path exists
+        if not save_path.exists():
+            raise ValueError("The save path does not exist.")
+
+        # Get the available files
+        available_files = self._search_available_files(
+            year=year,
+            day=day,
+            match_string=match_string,
+            sample=num_files,
+            *args,
+            **kwargs,
+        )
+
+        # Fetch the files
+        self._threaded_fetch_files(
+            available_files,
+            save_path,
+            no_pbar=no_pbar,
+            *args,
+            **kwargs,
+        )
 
         # Close the FTPFS connection
         self.ftpfs.close()

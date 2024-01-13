@@ -6,7 +6,8 @@ from pathlib import Path
 import click
 import tqdm
 
-from ....download import NasaCddisV3
+from ....download.idownload.rinex.nasa_cddis import NasaCddisV3
+from ....download.idownload.sp3.ccdis_igs_sp3 import NasaCddisIgsSp3
 
 # ------------------------------------------ Global Variables ------------------------------
 # USER EMAIL
@@ -44,7 +45,8 @@ def main(ctx: click.Context, email: str, threads: int, verbose: bool) -> None:
     """Download RINEX files from CCIDS using without mounting the server."""
     # Ensure the context object is dict
     ctx.ensure_object(dict)
-
+    # Add verbose to the context
+    ctx.obj["verbose"] = verbose
     # Create the Downloader
     ctx.obj["downloader"] = NasaCddisV3(email=email, logging=verbose, threads=threads)
 
@@ -78,13 +80,30 @@ def main(ctx: click.Context, email: str, threads: int, verbose: bool) -> None:
     default=-1,
     help="Number of samples to download",
 )
-def daily(ctx: click.Context, path: Path, year: int, day: int, samples: int) -> None:
+@click.option(
+    "-m",
+    "--match",
+    required=False,
+    type=click.STRING,
+    default=None,
+    help="IGS station code to match",
+)
+def daily(
+    ctx: click.Context, path: Path, year: int, day: int, samples: int, match: str
+) -> None:
     """Download RINEX files for the given year and day."""
     # Download the files from downloader
     downloader: NasaCddisV3 = ctx.obj["downloader"]
 
     # Download the files for the given year and day
-    downloader._download(year=year, day=day, save_path=path, num_files=samples)
+    downloader.download(
+        year=year,
+        day=day,
+        save_path=path,
+        num_files=samples,
+        no_pbar=False,
+        match_string=match,
+    )
     return
 
 
@@ -115,8 +134,16 @@ def daily(ctx: click.Context, path: Path, year: int, day: int, samples: int) -> 
     default=1,
     help="Number of processes to use for downloading",
 )
+@click.option(
+    "-m",
+    "--match",
+    required=False,
+    type=click.STRING,
+    default=None,
+    help="IGS station code to match",
+)
 def yearly(
-    ctx: click.Context, path: Path, year: int, samples: int, process: int
+    ctx: click.Context, path: Path, year: int, samples: int, process: int, match: str
 ) -> None:
     """Download RINEX files for the given year."""
     # Get the range of days
@@ -138,12 +165,13 @@ def yearly(
         with ProcessPoolExecutor(max_workers=process) as executor:
             for day in range(start_day, end_day + 1):
                 future = executor.submit(
-                    downloader._download,
+                    downloader.download,
                     year=year,
                     day=day,
                     save_path=path,
                     num_files=samples,
                     no_pbar=True,
+                    match_string=match,
                 )
 
                 # Add the callback to update the progress bar
@@ -152,6 +180,52 @@ def yearly(
         # Wait for all the processes to finish
         executor.shutdown(wait=True)
 
+    return
+
+
+@main.command()
+@click.pass_context
+@click.option(
+    "-p",
+    "--path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, writable=True, path_type=Path),
+    help="Path to save the files",
+)
+@click.option(
+    "-y",
+    "--year",
+    required=True,
+    type=click.INT,
+    help="Year to download RINEX SP3 files",
+)
+@click.option(
+    "-m",
+    "--month",
+    required=True,
+    type=click.IntRange(1, 12),
+    help="Month of year to download RINEX SP3 files",
+)
+@click.option(
+    "-d",
+    "--day",
+    required=True,
+    type=click.IntRange(1, 31),
+    help="Day of month to download RINEX SP3 files",
+)
+def sp3(ctx: click.Context, path: Path, year: int, month: int, day: int) -> None:
+    """Download SP3 files for the given year, month and day."""
+    # Create the downloader
+    downloader = NasaCddisIgsSp3(logging=ctx.obj["verbose"])
+
+    # Create a datetime object for the given year, month and day
+    dt = datetime(year, month, day)
+
+    # Download the SP3 files
+    downloader.download_from_datetime(
+        time=dt,
+        save_dir=path,
+    )
     return
 
 

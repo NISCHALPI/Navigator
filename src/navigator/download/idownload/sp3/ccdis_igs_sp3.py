@@ -6,10 +6,9 @@ from logging import NullHandler
 from ....utility.ftpserver.ftpfs_server import FTPFSServer
 from ....utility.logger.logger import get_logger
 from ....utility.matcher.sp3_matcher import LegacySP3Matcher, SP3Matcher
-from ...idownload import IDownload
 
 
-class NasaCddisIgsSp3(IDownload):
+class NasaCddisIgsSp3:
     """Implementation of the NASA CDDIS SP3 download class.
 
     This class facilitates the download of SP3 files from the NASA CDDIS FTP server. It includes methods for handling
@@ -70,7 +69,7 @@ class NasaCddisIgsSp3(IDownload):
         self.logger.info(f"Setting the FTP server at {self.server_address}!")
         self.fs = FTPFSServer(self.server_address, self.usename, self.email, self.tls)
 
-        super().__init__(features="NASA IGS SP3 Downloader")
+        super().__init__()
 
     def gps_to_datetime(self, gps_week: int, gps_day: int) -> datetime:
         """This method is used to convert the GPS week and day to a datetime.
@@ -111,54 +110,29 @@ class NasaCddisIgsSp3(IDownload):
 
         return gps_week, gps_day
 
-    def _check_kwargs(self, kwargs: dict) -> None:
-        """This method is used to check the keyword arguments.
-
-        Args:
-            kwargs (dict): Keyword arguments.
-
-        Returns:
-            None
-        """
-        # Check if the GPS week is provided
-        if "gps_week" not in kwargs:
-            raise ValueError("GPS week not provided!")
-
-        # Check if the GPS day is provided
-        if "gps_day" not in kwargs:
-            raise ValueError("GPS day not provided!")
-
-        # Check if the save directory is provided
-        if "save_dir" not in kwargs:
-            raise ValueError("Save directory not provided!")
-
-        return
-
-    def _download(self, *args, **kwargs) -> None:  # noqa: ARG002
+    def download(
+        self,
+        gps_week: int,
+        gps_day: int,
+        save_dir: str,
+        *args,  # noqa: ARG002
+        **kwargs,  # noqa: ARG002
+    ) -> None:
         """This method is used to download the SP3 files from NASA CDDIS.
 
         Args:
-            *args: Variable length argument list.
-            **kwargs: Arbitrary keyword arguments.
-
-        Required Keyword Args:
             gps_week (int): GPS week number.
             gps_day (int): GPS day of week.
             save_dir (str): Directory to save the downloaded files.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
 
         Returns:
             None
         """
         self.logger.info("Downloading SP3 files from NASA CDDIS!")
-
-        # Check the keyword arguments
-        self._check_kwargs(kwargs)
-
         # Download the SP3 files
-        self.dowload_from_week_info(
-            kwargs["gps_week"], kwargs["gps_day"], kwargs["save_dir"]
-        )
-
+        self.dowload_from_week_info(gps_week, gps_day, save_dir=save_dir)
         return
 
     def fname(self, gps_week: int, gps_day: int) -> str:

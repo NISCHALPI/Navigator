@@ -12,12 +12,10 @@ from urllib.parse import urlparse
 
 import requests
 
-from ..idownload import IDownload
-
 __all__ = ["AusGovDownload"]
 
 
-class AusGovDownload(IDownload):
+class AusGovDownload:
     """Implements an API download from the Australian Government GNSS data API portal.
 
     This class provides a way to download RINEX files from the Australian Government GNSS data API portal.
@@ -134,7 +132,7 @@ class AusGovDownload(IDownload):
             "CHID",
             "CDWL",
         ]
-        super().__init__(features="Rinex Downloader")
+        super().__init__()
 
     def api_url(
         self,

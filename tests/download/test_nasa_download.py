@@ -13,7 +13,7 @@ def test_nasa_download():
         downloder = NasaCddisV3()
 
         # Download two rinex files
-        downloder._download(
+        downloder.download(
             year=2022,
             day=1,
             save_path=Path(tmpdir),

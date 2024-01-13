@@ -1,3 +1,2 @@
 """Idownload interface."""
-from .idownload import IDownload
-from .rinex import AusGovDownload
+from .rinex import AusGovDownload, NasaCddisV3
