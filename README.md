@@ -1,97 +1,74 @@
 # Navigator: GNSS Processing Library
-
-Navigator is a educational Python package designed for GNSS (Global Navigation Satellite System) processing, specifically focusing on GPS. It offers functionalities to estimate user positions using GPS observations and navigation data, RINEX data processing pipelines, and data collection scripts. 
-Currently, no filtering techniques are implemented, so the estimated positions are not precise. However, the package is under development and will be updated with more functionalities in the future.
+The Navigator is a python based GNSS library and toolkit tailored for GNSS PVT solutions. It provides a uniform object-oriented API to do baisc GNSS data processing, including RINEX parsing, satellite position calculation, and user PVT calculation. The library is well documented and easy to use. It also provides a set of CLI tools for RINEX data collection from public FTP servers.
 
 ## Features
-
-- Triangulation using GPS observations and navigation data
-- RINEX data processing, parsing, and plotting
-- Data collection scripts form CCDIS and IGS
-- Intutuitive and easy-to-use API
+- RINEX data collection, parsing, and processing using simple API
+- Satellite Tracking and Position Estimation using Broadcast Ephemeris and SP3 files
+- Single Point Positioning (SPP) using WLS and UKF
+- Easy to use CLI tools for bulk processing of RINEX data
 
 ## Installation
+To install the library, user need to clone the repository from **Pntf Lab Server**(*10.116.24.69*) which is only accessible to authorized lab members. To use the **Lab Git Server**, user need to have access to the git user account. If you don't have access to the git user account, please contact the lab administrator.
 
-You can install Navigator using clone this repository and install it using pip:
+**Note: The server is only accessible from the UA network. If you are not on the UA network, you need to connect to the UA VPN first.**
 
+To install the library, first create a python virtual environment and activate it. 
+**Note: This assumes that you have python3.10 installed on your system.**
 ```bash
-git clone $repo_url
-cd navigator
-pip install .
+# Create a virtual environment
+python3 -m venv .venv
+
+# Activate the virtual environment
+source .venv/bin/activate
 ```
+
+Now, after activating the virtual environment, you can install the library from the git server using a single command:
+```bash
+pip install git+ssh://git@10.116.24.69:/home/git/Navigator.git
+```
+**Note: A password prompt will appear if you are not using an SSH key.**
+
+## Documentation
+The illustration of basic usage of library is provided in the `/docs` directory of the repository. To generate the API documentation, activate the virtual environment and run the following command:
+```bash
+pdoc -o $DOC_DIR -d google navigator
+```
+where `$DOC_DIR` is the directory where the documentation will be generated. To view the documentation, open the `index.html` file in the `$DOC_DIR/` directory in a web browser.
 
 ## Usage
-Navigator is mostly used as a library, but it also offers CLI tools for data processing and traingulation. See the `docs` directory for more information about the API.
+The introduction usage of the library is documented in the *docs* directory. It provides basic usage of the library and its modules. Curretly available introductory notebooks are:
+1. [Intro to Parsing](./docs/intro/intro_parsing_and_interpolation.ipynb)
+2. [Intro to Traingulation](./docs/intro/intro_triangulation.ipynb)
+3. [Intro to Epoch Directory](./docs/intro/epoch_directory_tutorial.ipynb)
+4. [Intro to SP3 Orbit](./docs/intro/intro_sp3_orbit.ipynb)
+5. [Intro to Unscented Kalman Filter](./docs//intro/unscented_kalman_filter_gps.ipynb)
 
-### CLI tools
-#### rinex3-download-nasa-mounted
-Helps download RINEX data from NASA's CDDIS server. The script will download all the RINEX files from the given start date to the end date. The downloaded files will be stored in the given directory. This requires `curlftpfs` to be installed.
+Other notebooks will be added in the future to provide more detailed usage of the library.
+
+### Data Collection
+The data collection is done by using publicly available FTP servers. The primary source of the data is the [CDDIS](https://cddis.nasa.gov/Data_and_Derived_Products/CDDIS_Archive_Access.html) server. The data is collected using the download tools provided by the library.
+
+There are two way of downloading the files from the FTP server.
+
+- Using API provided by download module
+- Using CLI tools provided by navigator library (Recommended)
+
+ Two CLI tools are available for downloading the data. These tools are:
+- rinex3-download-nasa (For downloading RINEXv3 files)
+- rinex3-dir-ops (For standerdizing the directory structure of the downloaded files)
+
+The command line tools are accessible only after activating the virtual environment where the navigator library is installed. To activate the virtual environment, run the following command:
 ```bash
-Usage: rinex3-download-nasa-mounted [OPTIONS] COMMAND [ARGS]...
-
-  Download RINEX files from CCIDS using curlftpfs(Required).
-
-Options:
-  -e, --email TEXT  Email to login to CCIDS. Default: hades@PNTFLABCOMP5
-  --version         Show the version and exit.
-  --help            Show this message and exit.
-
-Commands:
-  daily   Download RINEX files for the given year and day.
-  yearly  Download RINEX files for the given year.
-```
-#### rinex3-download-nasa
-This is upgraded version of `rinex3-download-nasa-mounted`. This script will download all the RINEX files from the given start date to the end date. The downloaded files will be stored in the given directory. Does not require `curlftpfs` to be installed.
-```bash
-Usage: rinex3-dir-ops [OPTIONS] COMMAND [ARGS]...
-
-  Epochify RINEX Directory .i.e convert RINEX files direcotry to Epoch
-  Directory.
-
-Options:
-  -v, --verbose  Enable verbose logging
-  --help         Show this message and exit.
-
-Commands:
-  epochify    Epochify data contained in RINEX directory.
-  standerize  Standerize RINEX V3 files in RINEX directory.
-```
-#### rinex3-dir-ops
-This script will perform operations on the given directory. User can standerize a RINEX data directory, or epochify a standered RINEX data directory that can work
-seamlessly with the navigator library. 
-```bash
-Usage: rinex3-dir-ops [OPTIONS] COMMAND [ARGS]...
-
-  Epochify RINEX Directory .i.e convert RINEX files direcotry to Epoch
-  Directory.
-
-Options:
-  -v, --verbose  Enable verbose logging
-  --help         Show this message and exit.
-
-Commands:
-  epochify    Epochify data contained in RINEX directory.
-  standerize  Standerize RINEX V3 files in RINEX directory.
+source .navigator/bin/activate
 ```
 
-#### triangulate-gpsv3
-This script will triangulate the given RINEX files and print the estimated positions.
-```bash
-Usage: triangulate-gpsv3 [OPTIONS] COMMAND [ARGS]...
+For convenience, the API tools are demonstrated in the [Data Collection](./docs/reports/report-jan-2024/summary_jan24.ipynb)
 
-  Triangulate the data from the RINEX files.
-
-Options:
-  -v, --verbose  Enable verbose logging
-  --help         Show this message and exit.
-
-Commands:
-  all-epochs  Triangulate all the epochs in the RINEX files and returns...
-```
+### Triangulation and User Position Calculation
+These are throughly demonstrated in the [Triangulation](./docs/reports/report-jan-2024/summary_jan24.ipynb) notebook.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change. Also, please make sure to update tests as appropriate. (Only PNTF Lab members under navigation department can contribute to this repository.)
-
 
 ## License
 This software is strictly licensed for use within the PNTF Lab at the University of Alabama. Usage is solely granted to active members of the PNTF Lab for academic and research purposes. No distribution rights are granted for any member. For more details, refer to the [LICENSE](LICENSE) file.

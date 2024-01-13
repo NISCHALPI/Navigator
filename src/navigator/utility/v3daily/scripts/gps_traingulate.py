@@ -1,11 +1,12 @@
 """This module contains the script to triangulate the data from the RINEX files."""
 
+import secrets
 from pathlib import Path
 
 import click
 import pandas as pd
 import tqdm
-import secrets
+
 from ....satlib.triangulate import (
     IterativeTriangulationInterface,
     Triangulate,

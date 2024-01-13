@@ -6,7 +6,7 @@ Attributes:
     features (str): A string indicating the type of data to parse ('gps_nav' for GPS navigation data).
 
 Methods:
-    _parse(filename: str | Path) -> Tuple[pd.Series, pd.DataFrame]: 
+    parse(filename: str | Path) -> Tuple[pd.Series, pd.DataFrame]: 
         Parses GPS navigation data from a RINEX file and returns it as a Pandas DataFrame along with associated metadata.
 
 Args:
@@ -18,7 +18,7 @@ Returns:
 Example Usage:
     ```
     parser = IParseGPSNav()
-    metadata, parsed_data = parser._parse('/path/to/rinex_nav_file.19n')
+    metadata, parsed_data = parser.parse('/path/to/rinex_nav_file.19n')
     ```
 
 Note:
@@ -48,7 +48,7 @@ class IParseGPSNav(IParse):
         """
         super().__init__(features="gps_nav")
 
-    def _parse(self, filename: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(self, filename: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse GPS navigation data from a RINEX file.
 
         This method parses GPS navigation data from a RINEX file using the georinex parsing backend, converts it to a

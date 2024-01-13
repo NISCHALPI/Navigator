@@ -47,31 +47,32 @@ class AbstractParser(ABC):
 
     Methods:
     __init__(self, iparser: IParse, logger: Logger | None = None, dispatcher: None = None) -> None:
-    Initialize a new AbstractParser instance.
+        Initialize a new AbstractParser instance.
 
     _check_file_integrity(self, filepath: str | Path) -> None:
-    Check the integrity of a file path to ensure it exists, is a file, and is readable.
+        Check the integrity of a file path to ensure it exists, is a file, and is readable.
 
-    _parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
-    Parse data from a file using the provided IParse interface.
+    parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+        Parse data from a file using the provided IParse interface.
 
     __call__(self, filepath: str | Path) -> Any:
-    Call method for parsing data from a file.
+        Call method for parsing data from a file.
 
     __repr__(self) -> str:
-    Return a string representation of the AbstractParser instance.
+        Return a string representation of the AbstractParser instance.
 
-    Example:
-    ```python
-    from myparser import MyCustomParser
-    from myiparse import MyIParseImplementation
+    iparser(self) -> IParse:
+        Returns the IParse object associated with this BaseParse object.
 
-    # Create a parser instance
-    custom_parser = MyCustomParser(MyIParseImplementation())
+    iparser(self, iparser: IParse) -> None:
+        Sets the internal IParse instance to the provided IParse object.
 
-    # Parse data from a file
-    parsed_data = custom_parser('datafile.dat')
-    ```
+    swap(self, iparser: IParse) -> None:
+        Swaps the internal IParse instance with the provided IParse object.
+
+
+    Notes:
+        - This class is an abstract base class and should not be instantiated directly.
 
     """
 
@@ -147,7 +148,7 @@ class AbstractParser(ABC):
     # TO DO : def _dispatch(self) -> None:
 
     @abstractmethod
-    def _parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse data from a file using the provided IParse interface.
 
         Args:
@@ -161,7 +162,7 @@ class AbstractParser(ABC):
         self._check_file_integrity(filepath)
 
         # Parse data
-        return self.iparser(filepath)
+        return self.iparser.parse(filepath)
 
     def __call__(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Call method for parsing data from a file.
@@ -173,7 +174,7 @@ class AbstractParser(ABC):
             Any: The parsed data.
 
         """
-        return self._parse(filepath)
+        return self.parse(filepath)
 
     def __repr__(self) -> str:
         """Return a string representation of the AbstractParser instance.
@@ -247,5 +248,13 @@ class Parser(AbstractParser):
         super().__init__(iparser, logger, dispatcher)
         return
 
-    def _parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
-        return super()._parse(filepath)
+    def parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+        """Parse data from a file using the provided IParse interface.
+
+        Args:
+            filepath (str | Path): Path to the file to parse.
+
+        Returns:
+            tp.Tuple[pd.Series, pd.DataFrame]: Tuple of parsed data (metadata, data).
+        """
+        return super().parse(filepath)

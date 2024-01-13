@@ -3,8 +3,13 @@ import tempfile
 from pathlib import Path
 import datetime
 from navigator.download.idownload.sp3.ccdis_igs_sp3 import NasaCddisIgsSp3
+import os
 
 
+@pytest.mark.skipif(
+    os.environ.get("CONNECT", None) == None,
+    reason="Run this test only when explicitly network is enabled",
+)
 def test_nasa_sp3_download():
     """
     Test NASA CDDIS download

@@ -34,7 +34,7 @@ class IParseSP3GPS(IParse):
         Inherits all attributes from the IParse base class.
 
     Methods:
-        _parse: Parses the SP3 file to extract GPS position and clock data.
+        parse: Parses the SP3 file to extract GPS position and clock data.
 
     Example:
         Instantiate an object of IParseSP3GPS and call the _parse method with
@@ -42,7 +42,7 @@ class IParseSP3GPS(IParse):
 
         ```
         parser = IParseSP3GPS()
-        position_data, clock_data = parser._parse('sample.sp3')
+        position_data, clock_data = parser.parse('sample.sp3')
         ```
     """
 
@@ -50,7 +50,15 @@ class IParseSP3GPS(IParse):
         """Initializes the IParseSP3GPS class."""
         super().__init__("SP3-GPS")
 
-    def _parse(self, filename: str) -> Tuple[Series, DataFrame]:
+    def parse(self, filename: str) -> Tuple[Series, DataFrame]:
+        """Parses the SP3 file to extract GPS position and clock data.
+
+        Args:
+            filename: The filename of the SP3 file.
+
+        Returns:
+            Tuple[Series, DataFrame]: A tuple containing the metadata and data extracted from the SP3 file.
+        """
         # Read SP3 file
         df = gr.load_sp3(fn=filename, outfn=None).to_dataframe().reset_index(2)
 

@@ -24,7 +24,7 @@ class IParse(ABC):
         __repr__(self) -> str:
             Return a string representation of the IParse instance, including its features type.
 
-        _parse(self, file: str) -> tp.Tuple[pd.Series, pd.DataFrame]:
+        parse(self, file: str) -> tp.Tuple[pd.Series, pd.DataFrame]:
             [Abstract Method] Parse data from a file and return a tuple containing metadata (as a pd.Series) and data (as a pd.DataFrame).
 
         __call__(self, filepath: Path) -> Any:
@@ -72,7 +72,7 @@ class IParse(ABC):
         return f"Iparser({self._features})" if self._features else "Iparser()"
 
     @abstractmethod
-    def _parse(self, filename: str) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(self, filename: str) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """[Abstract Method] Parse data from a file.
 
         Args:
@@ -82,7 +82,6 @@ class IParse(ABC):
             tp.Tuple[pd.Series, pd.DataFrame]: A tuple containing parsed metadata (as a pd.Series) and data (as a pd.DataFrame).
 
         """
-        """Parse data from a file."""
         pass
 
     def __call__(self, filepath: Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
@@ -95,4 +94,4 @@ class IParse(ABC):
             Any: The result of the parsing operation, typically a tuple containing metadata and data.
 
         """
-        return self._parse(filepath)
+        return self.parse(filepath)

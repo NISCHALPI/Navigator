@@ -1,10 +1,14 @@
 import pytest
 import tempfile
 from pathlib import Path
-
+import os
 from navigator.download.idownload.rinex.nasa_cddis import NasaCddisV3
 
 
+@pytest.mark.skipif(
+    os.environ.get("CONNECT", None) == None,
+    reason="Run this test only when explicitly network is enabled",
+)
 def test_nasa_download():
     """
     Test NASA CDDIS download

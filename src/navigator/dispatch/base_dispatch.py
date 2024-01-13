@@ -1,13 +1,12 @@
-"""Implements a abstract base class for dispatchers.
+"""Implements an abstract base class for dispatchers.
 
 Ideas:
-Multiplethreaded dispatcher
-Multiprocess dispatcher
+- Multiplethreaded dispatcher
+- Multiprocess dispatcher
 
+Dispatch will be done using the Idispatch interface.
 
-Dipatch will be done using Idispatch interface.
 """
-
 
 ## TODO: Implement dispatcher
 
@@ -17,9 +16,22 @@ __all__ = ["AbstractDispatcher"]
 
 
 class AbstractDispatcher(ABC):
-    """Dispatch class."""
+    """Dispatch class.
+
+    Attributes:
+        None
+
+    Methods:
+        __init__: Constructor
+
+    """
 
     def __init__(self) -> None:
-        """Constructor."""
+        """Constructor.
+
+        Raises:
+            NotImplementedError: This is an abstract class and should not be instantiated directly.
+
+        """
         super().__init__()
         raise NotImplementedError
