@@ -1,10 +1,8 @@
 """Download rinex files from CCIDS using curlftpfs."""
 import calendar
-import os
 import random
 import re
 import shutil
-import socket
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +24,7 @@ logger.info(f"Staring the logging for {__name__}... ")
 
 # ------------------------------------------ Global Variables ------------------------------
 # USER EMAIL
-USER_EMAIL = f"{os.getlogin()}@{socket.gethostname()}"
+USER_EMAIL = "anonymous@anonymous.com"
 
 # Temporary directory name
 TEMP_MOUNT_DIR_NAME = "tmp_ccids_mount"

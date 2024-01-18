@@ -7,7 +7,6 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.scripts]
-rinex3-download-nasa-mounted = "navigator.utility.v3daily.scripts.cddis_download_mounted:main"
 rinex3-download-nasa = "navigator.utility.v3daily.scripts.cddis_download:main"
 rinex3-dir-ops = "navigator.utility.v3daily.scripts.dir_ops:main"
 triangulate = "navigator.utility.v3daily.scripts.gps_traingulate:main"
@@ -26,6 +25,10 @@ fs = "^2.4.16"
 numba = "^0.58.1"
 filterpy = "^1.4.5"
 pdoc = "^14.3.0"
+matplotlib = "^3.8.0"
+notebook = "^6.4.4"
+rise = "^5.6.1"
+
 
 
 [tool.poetry.group.dev.dependencies]
@@ -33,12 +36,12 @@ black = "^23.9.1"
 ruff = "^0.0.288"
 pytest = "^7.4.2"
 ipykernel = "^6.25.2"
-matplotlib = "^3.8.0"
 lxml = "^4.9.3"
 html5lib = "^1.1"
 plotly = "^5.18.0"
 nbformat = "^5.9.2"
 sympy = "^1.12"
+
 
 [build-system]
 requires = ["poetry-core"]
