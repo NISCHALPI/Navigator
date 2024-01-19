@@ -1,11 +1,10 @@
 """This module contains functions to calculate the coordinate of different satellites.
 
-The procedure is taken from the follwing GPS ICD 200 document:
+The procedure is taken from the following GPS ICD 200 document:
 
 Links:
-    - https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf
+- `GPS ICD 200 Document <https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf>`_
 """
-
 
 import numpy as np
 from numba import float64, njit

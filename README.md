@@ -24,16 +24,27 @@ source .venv/bin/activate
 
 Now, after activating the virtual environment, you can install the library from the git server using a single command:
 ```bash
-pip install git+ssh://git@10.116.24.69:/home/git/Navigator.git
+pip install git+ssh://git@10.116.24.69:2222/home/git/Navigator.git
+```
+
+Optionally to clone the repository from the git server, use the following command:
+```bash
+git clone ssh://git@10.116.24.69:2222/home/git/Navigator.git
 ```
 **Note: A password prompt will appear if you are not using an SSH key.**
+
 
 ## Documentation
 The illustration of basic usage of library is provided in the `/docs` directory of the repository. To generate the API documentation, activate the virtual environment and run the following command:
 ```bash
 pdoc -o $DOC_DIR -d google navigator
 ```
-where `$DOC_DIR` is the directory where the documentation will be generated. To view the documentation, open the `index.html` file in the `$DOC_DIR/` directory in a web browser.
+where `$DOC_DIR` is the directory where the documentation will be generated. The documentation will be generated in the `$DOC_DIR/navigator` directory. To view the documentation, open the `index.html` file in the `$DOC_DIR/` directory in a web browser.
+
+It is recommended to generated directly from the clone repository using the following command:
+```bash
+pdoc -o $DOC_DIR -d google Navigator/src/navigator
+```
 
 ## Usage
 The introduction usage of the library is documented in the *docs* directory. It provides basic usage of the library and its modules. Curretly available introductory notebooks are:

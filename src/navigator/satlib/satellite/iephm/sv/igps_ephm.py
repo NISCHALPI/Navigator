@@ -50,6 +50,14 @@ class IGPSEphemeris(AbstractIephemeris):
     """Interface for calculating satellite positions using RINEX ephemeris data.
 
     Subclass this interface and implement the '_compute' method for specific satellite systems.
+
+    Algorithms:
+        - Calculate the relativistic clock correction.
+            Source: `IS-GPS-200N.pdf page 98 <https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf>`_
+        - Calculate the clock correction.
+            Source: `IS-GPS-200N.pdf page 98 <https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf>`_
+        - Calculate the satellite's position based on ephemeris data.
+            Source: `IS-GPS-200N.pdf page 104-106 <https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf>`_
     """
 
     def __init__(self) -> None:
@@ -148,6 +156,7 @@ class IGPSEphemeris(AbstractIephemeris):
 
         Returns:
             pd.Series: Return a Series containing the calculated position information [x, y , z] in WGS84-ECFC coordinates.
+
         """
         # Get clock correction for the satellite time i.e. Tsv
         dt = self.clock_correction(data=data)

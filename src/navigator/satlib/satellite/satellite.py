@@ -18,15 +18,9 @@ Usage:
     Then, call the object with metadata and data to compute satellite positions.
 
 Example:
-    # Create an 'Iephemeris' object
-    ephemeris = SomeEphemerisImplementation()
-
-    # Create a 'Satellite' object
-    satellite = Satellite(iephemeris=ephemeris)
-
-    # Compute satellite positions
-    positions = satellite(metadata=metadata, data=data)
-
+    >>> from navigator.satlib import Satellite, IGPSEphemeris
+    >>> satellite_processor = Satellite(interface=IGPSEphemeris())
+    >>> satellite_processor(filename=nav_dataframe)
 """
 
 

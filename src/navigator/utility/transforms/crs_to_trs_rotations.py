@@ -1,11 +1,9 @@
-"""These are rotation matrix corssponding to the transformation from the Celestial Reference System (CRS) to the Terrestrial Reference System (TRS).
+"""These are rotation matrix corresponding to the transformation from the Celestial Reference System (CRS)to the Terrestrial Reference System (TRS).
 
 References:
-Chapter 3.1.2.2 of the following book by ESA:
-https://server.gage.upc.edu/TEACHING_MATERIAL/GNSS_Book/ESA_GNSS-Book_TM-23_Vol_I.pdf#page=58&zoom=100,262,174
-
+- Chapter 3.1.2.2 of the following book by ESA:
+  `ESA GNSS Book - TM-23 Vol I <https://server.gage.upc.edu/TEACHING_MATERIAL/GNSS_Book/ESA_GNSS-Book_TM-23_Vol_I.pdf#page=58&zoom=100,262,174>`_
 """
-
 
 import numpy as np
 
