@@ -1,5 +1,7 @@
 """This module contains the function to convert geocentric coordinates to ellipsoidal coordinates."""
+
 import pyproj
+import numpy as np  # type: ignore
 
 __all__ = ["geocentric_to_ellipsoidal", "ellipsoidal_to_geocentric"]
 
@@ -50,3 +52,55 @@ def ellipsoidal_to_geocentric(lat: float, lon: float, height: float) -> tuple:
 
     # Return the result as a tuple
     return x, y, z
+
+
+def ellipsoidal_to_enu(
+    lat: float, long: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Convert ellipsoidal coordinates to ENU coordinates.
+
+    Args:
+        lat (float): The latitude in ellipsoidal coordinates. Units: degrees
+        long (float): The longitude in ellipsoidal coordinates. Units: degrees
+
+    Returns:
+        tuple: Unit vectors for the east, north, and up directions.
+    """
+    # Convert the latitude and longitude to radians
+    lat_rad = np.deg2rad(lat)
+    long_rad = np.deg2rad(long)
+
+    e_hat = np.array([-np.sin(long_rad), np.cos(long_rad), 0])
+    n_hat = np.array(
+        [
+            -np.sin(lat_rad) * np.cos(long_rad),
+            -np.sin(lat_rad) * np.sin(long_rad),
+            np.cos(lat_rad),
+        ]
+    )
+    u_hat = np.array(
+        [
+            np.cos(lat_rad) * np.cos(long_rad),
+            np.cos(lat_rad) * np.sin(long_rad),
+            np.sin(lat_rad),
+        ]
+    )
+
+    return e_hat, n_hat, u_hat
+
+
+def geocentric_to_enu(
+    x: float, y: float, z: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Convert geocentric coordinates to ENU coordinates.
+
+    Args:
+        x (float): The x-coordinate in geocentric coordinates.
+        y (float): The y-coordinate in geocentric coordinates.
+        z (float): The z-coordinate in geocentric coordinates.
+
+    Returns:
+        tuple: Unit vectors for the east, north, and up directions.
+    """
+    lat, long, _ = geocentric_to_ellipsoidal(x, y, z)
+    return ellipsoidal_to_enu(lat, long)
