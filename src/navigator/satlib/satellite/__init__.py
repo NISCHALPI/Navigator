@@ -22,5 +22,6 @@ Todo:
     - Add support for other GNSS systems.
     - Migrate to a Rust backend for performance improvement.
 """
+
 from .iephm import IGPSEphemeris, IGPSSp3
 from .satellite import AbstractSatellite, Satellite

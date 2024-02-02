@@ -24,6 +24,7 @@ Todo:
     - Add other triangulation algorithms.
     - Migrate to a Rust backend for performance improvement.
 """
+
 from .itriangulate.iterative.iterative_traingulation_interface import (
     IterativeTriangulationInterface,
 )

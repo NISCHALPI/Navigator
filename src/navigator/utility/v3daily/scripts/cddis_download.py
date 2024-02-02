@@ -1,4 +1,5 @@
 """Download rinex files from CCIDS using curlftpfs."""
+
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path

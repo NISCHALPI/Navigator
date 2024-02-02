@@ -1,4 +1,5 @@
 """Logger module for the navigator package."""
+
 import logging
 import os
 import sys

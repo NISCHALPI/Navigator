@@ -1,4 +1,5 @@
 """Mounts the FTP server to the local file system."""
+
 import os
 import shutil
 from abc import ABC, abstractmethod

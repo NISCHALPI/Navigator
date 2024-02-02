@@ -1,4 +1,5 @@
 """Imports for the matcher module."""
+
 from .fragment_matcher import FragNavMatcher, FragObsMatcher
 from .matcher import (
     EpochFileMatcher,

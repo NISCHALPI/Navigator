@@ -1,4 +1,5 @@
 """Standard Directory Structure for RINEX v3 Daily Data."""
+
 import shutil
 from itertools import chain
 from pathlib import Path

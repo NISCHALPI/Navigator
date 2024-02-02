@@ -23,7 +23,6 @@ Example:
     >>> satellite_processor(filename=nav_dataframe)
 """
 
-
 from abc import ABC, abstractmethod
 from datetime import datetime
 

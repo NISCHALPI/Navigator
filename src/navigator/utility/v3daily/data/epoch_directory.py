@@ -9,7 +9,6 @@ Pattern : {root}/{year}/{day_of_year}/{station}/(OBS|NAV)FRAG_{station}_{%Y%M%D}
 
 """
 
-
 import shutil
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path

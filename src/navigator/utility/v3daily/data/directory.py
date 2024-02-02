@@ -20,6 +20,7 @@ Methods:
     __iter__() -> Iterator: Iterate over the directory.
     __len__() -> int: Length of the directory.
 """
+
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path

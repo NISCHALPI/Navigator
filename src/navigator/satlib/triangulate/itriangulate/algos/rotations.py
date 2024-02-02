@@ -21,6 +21,7 @@ Returns:
 Summary:
     This module contains functionality to calculate the corrected satellite position by applying rotation matrices that account for Earth's rotation. The `earth_rotation_correction` function takes the satellite's ECEF position and a time interval (delta_t) as input and returns the corrected position to account for the time difference between calculation and the current time.
 """
+
 import warnings
 
 import numpy as np

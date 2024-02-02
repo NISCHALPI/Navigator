@@ -25,7 +25,6 @@ Note:
     This class should be subclassed to implement specific parsing behavior for different data types.
 """
 
-
 import typing as tp
 from pathlib import Path
 

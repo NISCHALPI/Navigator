@@ -1,4 +1,5 @@
 """Implementation of the FTPFS server to be used by the download module."""
+
 from pathlib import Path
 
 from fs.ftpfs import FTPFS

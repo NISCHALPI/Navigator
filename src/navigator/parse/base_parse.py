@@ -22,6 +22,7 @@ Classes:
     - AbstractParser: An abstract base class for parsing data from files.
 
 """
+
 import typing as tp
 from abc import ABC, abstractmethod
 from logging import Logger

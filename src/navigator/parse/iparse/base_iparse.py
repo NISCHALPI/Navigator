@@ -1,4 +1,5 @@
 """Module for the IParse interface."""
+
 import typing as tp
 from abc import ABC, abstractmethod
 from pathlib import Path

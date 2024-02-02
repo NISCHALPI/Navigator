@@ -1,4 +1,5 @@
 """Download rinex files from CCIDS using curlftpfs."""
+
 import calendar
 import random
 import re

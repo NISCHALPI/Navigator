@@ -1,4 +1,5 @@
 """IGS Network Module."""
+
 import os
 
 import numpy as np

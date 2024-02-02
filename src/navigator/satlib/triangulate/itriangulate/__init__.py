@@ -30,4 +30,5 @@ Todo:
     - Add other triangulation algorithms.
     - Migrate to a Rust backend for performance improvement.
 """
+
 from .itriangulate import Itriangulate

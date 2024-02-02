@@ -1,6 +1,5 @@
 """Matcher for IGS SP3 files."""
 
-
 from .matcher import Matcher
 
 __all__ = ["SP3Matcher", "LegacySP3Matcher"]

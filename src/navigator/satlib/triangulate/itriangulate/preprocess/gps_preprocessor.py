@@ -1,6 +1,5 @@
 """Preprocessor for GPS epoch data."""
 
-
 from warnings import warn
 
 import numpy as np

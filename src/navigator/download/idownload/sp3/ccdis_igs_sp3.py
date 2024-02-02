@@ -1,4 +1,5 @@
 """Implementation of the NASA CDDIS SP3 download class."""
+
 import os
 from datetime import datetime, timedelta
 from logging import NullHandler
