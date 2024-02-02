@@ -1,7 +1,7 @@
 """This module contains the function to convert geocentric coordinates to ellipsoidal coordinates."""
 
-import pyproj
 import numpy as np  # type: ignore
+import pyproj
 
 __all__ = ["geocentric_to_ellipsoidal", "ellipsoidal_to_geocentric"]
 

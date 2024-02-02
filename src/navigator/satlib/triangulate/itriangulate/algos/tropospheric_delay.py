@@ -9,11 +9,10 @@ Attributes:
     __all__ (List[str]): List of public symbols to be exported when using "from module import *".
 
 Functions:
-    - tropospheric_delay: Calculate the tropospheric delay in the signal.
-    - mapping_function: Calculate the obliquity factor for the tropospheric delay.
-    - _get_interpolated_parameters: Get the interpolated parameters for the Saastamoinen model.
-    - _dispatch_values: Dispatch the values for the given day of the year.
-    - _day_interpolator: Interpolate the value for the given day of the year.
+    - tropospheric_delay_correction: Calculate the tropospheric delay in the signal.
+    - neil_obliquity_factors: Calculate the mapping function for the tropospheric delay using Neil mapping function.
+    - common_mapping_function: Calculate the obliquity factor for the tropospheric delay using collins mapping function.
+
 
 Constants:
     - k1 (float): Constant used in the calculation.
@@ -29,17 +28,17 @@ Example:
     Usage of the tropospheric_delay function:
 
     ```python
-    from tropospheric_model import tropospheric_delay
+    from tropospheric_model import tropospheric_delay_correction
 
     elevation = 30.0
     height = 100.0
     day_of_year = 180
-    delay = tropospheric_delay(elevation, height, day_of_year)
+    delay = tropospheric_delay_correction(elevation, height, day_of_year)
     print(f"Tropospheric Delay: {delay} meters")
     ```
 """
 
-__all__ = ['tropospheric_delay']
+__all__ = ['tropospheric_delay_correction']
 
 from pathlib import Path
 
@@ -53,11 +52,16 @@ Rd = 287.054
 gm = 9.784
 g = 9.80665
 
+# Constants for Neil mapping function
+a_ht = 2.53e-5
+b_ht = 5.49e-3
+c_ht = 1.14e-3
 
-def mapping_function(
+
+def common_mapping_function(
     elevation: float,
 ) -> float:
-    """Calculate the obliquity factor for the tropospheric delay.
+    """Calculate the obliquity factor for the tropospheric delay using collins mapping function.
 
     Note: This mapping function is valid for elevation angles greater than 5 degrees.
 
@@ -72,11 +76,200 @@ def mapping_function(
     return 1.001 / (0.002001 + np.sin(np.radians(elevation)) ** 2)
 
 
-def tropospheric_delay(
+def _neil_mapping_function(
+    elevation: float,
+    a: float,
+    b: float,
+    c: float,
+) -> float:
+    """Calculate the obliquity factor for the tropospheric delay using Neil mapping function.
+
+    Args:
+        elevation (float): The elevation angle of the satellite in degrees.
+        a (float): The parameter a for the mapping function.
+        b (float): The parameter b for the mapping function.
+        c (float): The parameter c for the mapping function.
+
+    Returns:
+        float: The mapping function for the tropospheric delay.
+    """
+    E = np.deg2rad(elevation)
+    numerator = 1 + (a / (1 + b / (1 + c)))
+    denominator = np.sin(E) + (a / (np.sin(E) + b / (np.sin(E) + c)))
+    return numerator / denominator
+
+
+def neil_obliquity_factors(
     elevation: float,
     height: float,
     day_of_year: int,
     hemisphere: bool = True,
+) -> tuple[float, float]:
+    """This function calculates the mapping function for the tropospheric delay using Neil mapping function.
+
+    Args:
+        elevation (float): The elevation angle of the satellite in degrees.
+        height (float): The height of the receiver above the sea level in meters.
+        day_of_year (int): The day of the year. [1-365]
+        hemisphere (bool, optional): The hemisphere. Defaults to True meaning northern hemisphere else southern hemisphere.
+
+
+    Returns:
+        tuple[float, float]: The mapping function for the tropospheric delay. (M_dry, M_wet)
+
+    """
+    # Get the parameters for hydrostatic delay
+    a_d, b_d, c_d = _get_neil_mapping_parameters_for_hydrostatic_delay(
+        elevation, day_of_year, hemisphere
+    )
+    # Get the parameters for wet delay
+    a_w, b_w, c_w = _get_neil_mapping_parameters_for_wet_delay(
+        elevation, day_of_year, hemisphere
+    )
+
+    # Calculate the mapping function for hydrostatic delay
+    E = np.deg2rad(elevation)
+    # Calculate delay for dry component
+    dm = ((1 / np.sin(E)) - _neil_mapping_function(elevation, a_ht, b_ht, c_ht)) * (
+        height / 1000
+    )  # Height in km
+    M_dry = _neil_mapping_function(elevation, a_d, b_d, c_d) + dm
+
+    # Calculate delay for wet component
+    M_wet = _neil_mapping_function(elevation, a_w, b_w, c_w)
+
+    return M_dry, M_wet
+
+
+def _get_neil_mapping_parameters_for_hydrostatic_delay(
+    elevation: float,
+    day_of_year: int,
+    hemisphere: bool = True,
+) -> tuple[float, float, float]:
+    """Get the interpolated parameters for the Neil mapping function for hydrostatic delay.
+
+    Args:
+        elevation (float): The elevation angle of the satellite in degrees.
+        day_of_year (int): The day of the year. [1-365]
+        hemisphere (bool, optional): The hemisphere. Defaults to True meaning northern hemisphere.
+
+
+    Returns:
+        tuple[float, float, float: The interpolated parameters for the Neil mapping function for hydrostatic delay.
+        (a_d, b_d, c_d)
+    """
+    # Load the average parameters and variation parameters
+    neil_avg_parameters = pd.read_csv(
+        Path(__file__).parent
+        / "static/neil_mapping/neil_hydrostatic_average_parameters.csv",
+        index_col=0,
+    )
+    neil_var_parameters = pd.read_csv(
+        Path(__file__).parent
+        / "static/neil_mapping/neil_hydrostatic_variation_parameters.csv",
+        index_col=0,
+    )
+
+    # Interpolate the parameters for the given elevation
+    interpolated_avg = _interpolate_closest_two_elevation_index(
+        elevation, neil_avg_parameters
+    )
+    interpolated_var = _interpolate_closest_two_elevation_index(
+        elevation, neil_var_parameters
+    )
+
+    return _neil_dispatch_values(
+        avg_series=interpolated_avg,
+        var_series=interpolated_var,
+        day_of_year=day_of_year,
+        hemisphere=hemisphere,
+        mode="dry",
+    )
+
+
+def _get_neil_mapping_parameters_for_wet_delay(
+    elevation: float,
+    day_of_year: int,
+    hemisphere: bool = True,
+) -> tuple[float, float, float, float, float, float]:
+    """Get the interpolated parameters for the Neil mapping function for wet delay.
+
+    Args:
+        elevation (float): The elevation angle of the satellite in degrees.
+        day_of_year (int): The day of the year. [1-365]
+        hemisphere (bool, optional): The hemisphere. Defaults to True meaning northern hemisphere.
+
+    Returns:
+        tuple[float, float, float,]: The interpolated parameters for the Neil mapping function for wet delay.
+        (a_w, b_w, c_w)
+
+    """
+    # Load just the average parameters for wet delay since it is not time dependent
+    neil_avg_parameters = pd.read_csv(
+        Path(__file__).parent / "static/neil_mapping/neil_wet_average_parameters.csv",
+        index_col=0,
+    )
+
+    # Interpolate the parameters for the given elevation
+    interpolated_avg = _interpolate_closest_two_elevation_index(
+        elevation, neil_avg_parameters
+    )
+
+    return _neil_dispatch_values(
+        avg_series=interpolated_avg,
+        var_series=pd.Series(),
+        day_of_year=day_of_year,
+        hemisphere=hemisphere,
+        mode="wet",
+    )
+
+
+def _neil_dispatch_values(
+    avg_series: pd.Series,
+    var_series: pd.Series,
+    day_of_year: int,
+    hemisphere: bool = True,
+    mode: str = "dry",
+) -> tuple:
+    """Dispatch the values for the given day of the year.
+
+    Args:
+        avg_series (pd.Series): The average series.
+        var_series (pd.Series): The variation series.
+        day_of_year (int): The day of the year. [1-365]
+        hemisphere (bool, optional): The hemisphere. Defaults to True meaning northern hemisphere.
+        mode (str, optional): The mode of the function. Defaults to "dry".
+
+    Returns:
+        tuple: The interpolated a, b, and c values.
+    """
+    a, b, c = 0, 0, 0
+    if mode == "dry":
+        # Dry parameters need to be interpolated since they are time dependent
+        a = _day_interpolator(
+            day_of_year, avg_series["a"], var_series["da"], hemisphere
+        )
+        b = _day_interpolator(
+            day_of_year, avg_series["b"], var_series["db"], hemisphere
+        )
+        c = _day_interpolator(
+            day_of_year, avg_series["c"], var_series["dc"], hemisphere
+        )
+    else:
+        # Wet parameters need not be interpolated
+        a = avg_series["a"]
+        b = avg_series["b"]
+        c = avg_series["c"]
+
+    return a, b, c
+
+
+def tropospheric_delay_correction(
+    elevation: float,
+    height: float,
+    day_of_year: int,
+    hemisphere: bool = True,
+    mapping_function: str = "collins",
 ) -> float:
     """Calculate the tropospheric delay in the signal.
 
@@ -85,12 +278,13 @@ def tropospheric_delay(
         height (float): The height of the receiver above the sea level in meters.
         day_of_year (int): The day of the year. [1-365]
         hemisphere (bool, optional): The hemisphere. Defaults to True meaning northern hemisphere else southern hemisphere.
+        mapping_function (str, optional): The mapping function to be used. [collins, neil] Defaults to collins.
 
     Returns:
         float: The tropospheric delay in the signal in meters.
     """
     # Get the average parameters
-    P, T, e, beta, lmda = _get_interpolated_parameters(
+    P, T, e, beta, lmda = _get_interpolated_parameters_saastamoinen(
         elevation, day_of_year, hemisphere
     )
 
@@ -103,11 +297,21 @@ def tropospheric_delay(
     T_z_wet = T_z0_wet * (1 - ((beta * height) / T)) ** (
         ((lmda + 1) * g / (Rd * beta)) - 1
     )
-    # Return the tropospheric delay
-    return mapping_function(elevation) * (T_z_dry + T_z_wet)
+
+    # Calculate the mapping function for the tropospheric delay
+    if mapping_function == "collins":
+        return common_mapping_function(elevation) * (T_z_dry + T_z_wet)
+    #
+    if mapping_function == "neil":
+        M_dry, M_wet = neil_obliquity_factors(
+            elevation, height, day_of_year, hemisphere
+        )
+        return M_dry * T_z_dry + M_wet * T_z_wet
+
+    raise ValueError("Invalid mapping function. Choose from [collins, neil]")
 
 
-def _get_interpolated_parameters(
+def _get_interpolated_parameters_saastamoinen(
     elevation: float, day_of_year: int, hemisphere: bool = True
 ) -> tuple:
     """Get the interpolated parameters for the Saastamoinen model.
@@ -122,58 +326,64 @@ def _get_interpolated_parameters(
     """
     fp = Path(__file__).parent
     # Read the average parameters and variation parameters from dataframes
-    average_parameters = pd.read_csv(fp / "static/average_parameters.csv", index_col=0)
+    average_parameters = pd.read_csv(fp / "static/tropospheric_parameters/average_parameters.csv", index_col=0)
     variation_parameters = pd.read_csv(
-        fp / "static/varaition_parameters.csv", index_col=0
+        fp / "static/tropospheric_parameters/varaition_parameters.csv", index_col=0
     )
 
+    # Interpolate the parameters for the given elevation
+    interpolated_avg = _interpolate_closest_two_elevation_index(
+        elevation, average_parameters
+    )
+    # Interpolate the variation parameters for the given elevation
+    interpolated_var = _interpolate_closest_two_elevation_index(
+        elevation, variation_parameters
+    )
+
+    return _dispatch_values(
+        avg_series=interpolated_avg,
+        var_series=interpolated_var,
+        day_of_year=day_of_year,
+        hemisphere=hemisphere,
+    )
+
+
+def _interpolate_closest_two_elevation_index(
+    elevation: float,
+    frame: pd.DataFrame,
+    threash_low: float = 15,
+    threash_high: float = 75,
+) -> pd.Series:
+    """Interpolate the closest two index for given elevation.
+
+    Args:
+        elevation (float): The elevation angle of the satellite in degrees.
+        frame (pd.DataFrame): The dataframe to interpolate that must have elevation as index.
+        threash_low (float, optional): Lower threashold for elevation. Defaults to 15.
+        threash_high (float, optional): Higher threashold for elevation. Defaults to 75.
+
+    Returns:
+        pd.Series: The average parameters for the given elevation.
+    """
     # Get the closest two index for given elevation
-    closest = (
-        ((average_parameters.index.to_series() - elevation) ** 2).nsmallest(2).index
-    )
-
-    # Get the closest two index for given day of year
-    closest_avg = average_parameters.loc[closest]
-    closest_variations = variation_parameters.loc[closest]
+    closest = ((frame.index.to_series() - elevation) ** 2).nsmallest(2).index
 
     # Check if the elevation is out of range [15, 75]
-    if elevation < 15:
-        return _dispatch_values(
-            avg_series=closest_avg.iloc[0],
-            var_series=closest_variations.iloc[0],
-            day_of_year=day_of_year,
-            hemisphere=hemisphere,
-        )
-    elif elevation > 75:
-        return _dispatch_values(
-            avg_series=closest_avg.iloc[1],
-            var_series=closest_variations.iloc[1],
-            day_of_year=day_of_year,
-            hemisphere=hemisphere,
-        )
-    else:
-        # Interpolate the values for the given elevation
-        start_elv = closest_avg.index[0]
-        end_elv = closest_avg.index[1]
+    if elevation < threash_low:
+        return frame.loc[closest[0]]
+    if elevation > threash_high:
+        return frame.loc[closest[1]]
 
-        # Interpolated average values
-        interpolated_avg = closest_avg.iloc[0] + (
-            (closest_avg.iloc[1] - closest_avg.iloc[0])
-            * (elevation - start_elv)
-            / (end_elv - start_elv)
-        )
-        # Interpolated variation values
-        interpolated_var = closest_variations.iloc[0] + (
-            (closest_variations.iloc[1] - closest_variations.iloc[0])
-            * (elevation - start_elv)
-            / (end_elv - start_elv)
-        )
-        return _dispatch_values(
-            avg_series=interpolated_avg,
-            var_series=interpolated_var,
-            day_of_year=day_of_year,
-            hemisphere=hemisphere,
-        )
+    # Interpolate the values for the given elevation
+    start_elv = closest[0]
+    end_elv = closest[1]
+
+    # Interpolated average values
+    return frame.loc[closest[0]] + (
+        (frame.loc[closest[1]] - frame.loc[closest[0]])
+        * (elevation - start_elv)
+        / (end_elv - start_elv)
+    )
 
 
 def _dispatch_values(
@@ -210,7 +420,7 @@ def _dispatch_values(
 def _day_interpolator(
     day_of_year: int, val: float, variation: float, hemisphere: bool = True
 ) -> float:
-    """Interpolate the value for the given day of the year.
+    """Interpolate the value for the given day of the year using cosine interpolation.
 
     Args:
         day_of_year (int): The day of the year. [1-365]

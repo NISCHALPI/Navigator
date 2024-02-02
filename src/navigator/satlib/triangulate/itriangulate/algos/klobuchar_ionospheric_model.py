@@ -26,12 +26,12 @@ Note:
 
 import numpy as np
 
-__all__ = ['klobuchar_ionospheric_model']
+__all__ = ['klobuchar_ionospheric_correction']
 
 L1_FREQUENCY = 1.57542e9  # Hz
 
 
-def klobuchar_ionospheric_model(
+def klobuchar_ionospheric_correction(
     latitude: float,
     longitude: float,
     E: float,
@@ -48,7 +48,7 @@ def klobuchar_ionospheric_model(
         E (float): The elevation angle of the satellite in degrees.
         A (float): The azimuth angle of the satellite in degrees.
         t (float): The current time in seconds.
-        ionospheric_parameters (dict): The ionospheric parameters.
+        ionospheric_parameters (dict): The ionospheric parameters dictionary containing the following keys: 'alpha0', 'alpha1', 'alpha2', 'alpha3', 'beta0', 'beta1', 'beta2', and 'beta3'.
         frequency (float): The frequency of the signal in Hz for which the ionospheric delay is to be computed. Default is for L1 frequency (1.57542e9 Hz).
 
     Returns:
@@ -61,7 +61,7 @@ def klobuchar_ionospheric_model(
     A = np.deg2rad(A)
 
     # Compute the Earth-centered angle
-    psi = 0.0137 / (E + 0.11) - 0.022
+    psi = (0.0137 / (E + 0.11)) - 0.022
 
     # Compute the latitude of the Ionospheric Pierce Point (IPP)
     phi_i = phi_u + psi * np.cos(A)
