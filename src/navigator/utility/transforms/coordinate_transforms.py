@@ -26,6 +26,11 @@ def geocentric_to_ellipsoidal(x: float, y: float, z: float) -> tuple:
     # Perform the transformation
     lon, lat, height = transformer.transform(x, y, z, radians=False)
 
+    # Normalize the longitude to be between -180 and 180
+    lon = (lon + 180) % 360 - 180
+    # Normalize the latitude to be between -90 and 90
+    lat = (lat + 90) % 180 - 90
+
     # Return the result as a tuple
     return lat, lon, height
 

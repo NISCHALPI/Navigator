@@ -70,5 +70,15 @@ class IParseGPSNav(IParse):
         # Filter the dataframme to drop all null rows
         rinex_data = rinex_data.dropna(axis=0, thresh=10)
 
+        # Convert the ionospheric correction metadata if available to a single dictionary
+        # Georinex parser the ionospheric correction as IONOSPHERIC CORR key in the metadata
+        # The value is two list with alpha and beta values
+        # Make them just a single dictionary with alpha{i} and beta{i} as key value pairs
+        if "IONOSPHERIC CORR" in metadata:
+            iono_corr = metadata["IONOSPHERIC CORR"]
+            iono_parameter = {f"alpha{i}": iono_corr["GPSA"][i] for i in range(4)}
+            iono_parameter.update({f"beta{i}": iono_corr["GPSB"][i] for i in range(4)})
+            metadata["IONOSPHERIC CORR"] = iono_parameter
+
         # Return the metadata and data
         return metadata, rinex_data

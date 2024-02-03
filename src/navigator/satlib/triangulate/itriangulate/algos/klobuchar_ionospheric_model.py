@@ -117,4 +117,4 @@ def klobuchar_ionospheric_correction(
         iono_delay = (5.0e-9 + A * (1 - (X_I**2) / 2 + (X_I**4) / 24)) * F
 
     # Return the ionospheric delay in meters for the given frequency
-    return (L1_FREQUENCY / frequency) ** 2 * iono_delay
+    return (L1_FREQUENCY / frequency) ** 2 * iono_delay * 299792458.0

@@ -269,7 +269,7 @@ def tropospheric_delay_correction(
     height: float,
     day_of_year: int,
     hemisphere: bool = True,
-    mapping_function: str = "collins",
+    mapping_function: str = "neil",
 ) -> float:
     """Calculate the tropospheric delay in the signal.
 
@@ -326,7 +326,9 @@ def _get_interpolated_parameters_saastamoinen(
     """
     fp = Path(__file__).parent
     # Read the average parameters and variation parameters from dataframes
-    average_parameters = pd.read_csv(fp / "static/tropospheric_parameters/average_parameters.csv", index_col=0)
+    average_parameters = pd.read_csv(
+        fp / "static/tropospheric_parameters/average_parameters.csv", index_col=0
+    )
     variation_parameters = pd.read_csv(
         fp / "static/tropospheric_parameters/varaition_parameters.csv", index_col=0
     )
