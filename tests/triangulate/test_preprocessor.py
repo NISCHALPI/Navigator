@@ -18,7 +18,9 @@ def test_gps_preprocessor(epoch):
     preprocessor = GPSPreprocessor()
 
     # Calculate the pseudoranges and sat_pos
-    pseudoranges, sat_pos = preprocessor(epoches[0], None, None)
+    pseudoranges, sat_pos = preprocessor(
+        epoches[0], None, None, apply_tropo=False, apply_iono=False
+    )
 
     # Check that the pseudoranges and sat_pos are the correct shape
     assert isinstance(pseudoranges, pd.Series)
