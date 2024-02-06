@@ -238,6 +238,7 @@ class FragNav(Fragment):
             timestamp (pd.Timestamp): Fragment timestamp.
             nav_data (pd.DataFrame): Fragment navigation data.
             parent (str): Parent file name.
+            metadata (pd.Series): Navigation metadata.
         """
         super().__init__(parent)
         self.timestamp = timestamp

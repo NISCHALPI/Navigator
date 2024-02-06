@@ -157,7 +157,7 @@ class IGPSEphemeris(AbstractIephemeris):
         # Iteratively compute the clock correction
         for _ in range(self.MAX_CLOCK_CORRECTION_ITERATIONS):
             # Compute the satellite time i.e. Tsv
-            t_sv: pd.Timestamp = data["Tsv"] - pd.Timedelta(seconds=dt)
+            data["Tsv"] -= pd.Timedelta(seconds=dt)
 
             # Compute the clock correction
             dt = self._clock_correction(data=data)

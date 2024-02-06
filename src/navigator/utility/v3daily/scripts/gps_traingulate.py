@@ -261,7 +261,7 @@ def ukf(
         interface=UnscentedKalmanTriangulationInterface(
             num_satellite=ignore,
             dt=ukf_dt,
-            simga_r=ukf_sigma_r,
+            sigma_r=ukf_sigma_r,
             sigma_q=ukf_sigma_q,
             S_f=ukf_sf,
             S_g=ukf_sg,

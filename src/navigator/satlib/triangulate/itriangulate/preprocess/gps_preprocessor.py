@@ -188,7 +188,7 @@ class GPSPreprocessor(Preprocessor):
         day_of_year: int,
         sv_coords: pd.DataFrame,
         approx_receiver_location: pd.Series,
-        **kwargs,
+        **kwargs,  # noqa: ARG002
     ) -> pd.Series:
         """Compute the tropospheric correction for the GPS observations.
 
@@ -222,7 +222,7 @@ class GPSPreprocessor(Preprocessor):
         approx_receiver_location: pd.Series,
         time: pd.Timestamp,
         iono_params: pd.Series,
-        **kwargs,
+        **kwargs,  # noqa: ARG002
     ) -> pd.Series:
         """Compute the ionospheric correction for the GPS observations.
 

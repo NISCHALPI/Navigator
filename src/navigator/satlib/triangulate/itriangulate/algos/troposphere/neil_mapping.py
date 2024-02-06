@@ -139,7 +139,7 @@ class NeilMapping:
         elevation: float,
         height: float,
         day_of_year: int,
-        hemisphere: bool = True,
+        hemisphere: bool = True,  # noqa : ARG002
     ) -> tuple[float, float]:
         """This function calculates the mapping function for the tropospheric delay using Neil mapping function.
 

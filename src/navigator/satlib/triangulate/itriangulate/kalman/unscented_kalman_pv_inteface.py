@@ -42,10 +42,11 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         self,
         num_satellite: int = 5,
         dt: float = 30.0,
-        simga_r: float = 6.0,
+        sigma_r: float = 6.0,
         sigma_q: float = 0.01,
         S_f: float = 36.0,
         S_g: float = 0.01,
+        q_wet_tropo: float = 0.25,
         saver: bool = False,
     ) -> None:
         """Initializes an instance of the Unscented Kalman Method for Triangulation.
@@ -53,10 +54,11 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         Args:
             num_satellite (int, optional): Number of satellites to track using the UKF. Defaults to 5.
             dt (float, optional): The sampling time interval in seconds. Defaults to 30..
-            simga_r (float, optional): The measurement noise for the pseudorange measurement. Defaults to 6.
+            sigma_r (float, optional): The measurement noise for the pseudorange measurement. Defaults to 6.
             sigma_q (float, optional): The process noise for the state transition. Defaults to 0.01.
             S_f (float, optional): The white noise spectral density for the random walk clock velocity error. Defaults to 36..
             S_g (float, optional): The white noise spectral density for the random walk clock drift error. Defaults to 0.01.
+            q_wet_tropo (float, optional): The process noise for the wet tropospheric delay. Defaults to 0.25.
             saver (bool, optional): Whether to save the intermediate results. Defaults to False.
         """
         # Check if the number of satellites to track is valid
@@ -70,8 +72,8 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         self.dt = dt
 
         # Check if the measurement noise is valid
-        assert simga_r > 0, "Measurement noise must be greater than 0."
-        self.simga_r = simga_r
+        assert sigma_r > 0, "Measurement noise must be greater than 0."
+        self.simga_r = sigma_r
 
         # Check if the process noise is valid
         assert sigma_q > 0, "Process noise must be greater than 0."
@@ -89,14 +91,20 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         ), "White noise spectral density for the random walk clock drift error must be greater than 0."
         self.S_g = S_g
 
+        # Check if the process noise for the wet tropospheric delay is valid
+        assert (
+            q_wet_tropo > 0
+        ), "Process noise for the wet tropospheric delay must be greater than 0."
+        self.q_wet_tropo = q_wet_tropo
+
         # Initialize the Unscented Kalman Filter
         self.ukf = UnscentedKalmanFilter(
-            dim_x=8,  # Number of state variables
+            dim_x=9,  # Number of state variables
             dim_z=num_satellite,  # Number of measurement variables
             dt=dt,  # Sampling time interval
             fx=fx,  # State transition function
             hx=hx,  # Measurement function
-            points=MerweScaledSigmaPoints(n=8, alpha=0.1, beta=2.0, kappa=-1),
+            points=MerweScaledSigmaPoints(n=9, alpha=0.1, beta=2.0, kappa=-1),
         )
 
         # Save the intermediate results if specified
@@ -112,21 +120,24 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
     def _ukf_init(self) -> None:
         """Initializes the Unscented Kalman Filter."""
         # Initialize the state vector
-        self.ukf.x = np.ones(8, dtype=np.float64)
+        self.ukf.x = np.ones(9, dtype=np.float64)
 
         # Initialize the state covariance matrix
-        self.ukf.P = np.eye(8, dtype=np.float64) * 100
+        self.ukf.P = np.eye(9, dtype=np.float64) * 100
 
         # Initialize the process noise covariance matrix
-        Q = np.kron(
+        Q_not = np.kron(
             np.eye(4, dtype=np.float64),
             Q_discrete_white_noise(dim=2, dt=self.dt, var=self.sigma_q),
         )
-
         # Initialize the clock noise covariance matrix
-        Q[-2:, -2:] = np.array(
+        Q_not[-2:, -2:] = np.array(
             [[self.S_f * self.dt, 0], [0, 0]], dtype=np.float64
         ) + Q_discrete_white_noise(dim=2, dt=30, var=self.S_g)
+
+        Q = np.eye(9, dtype=np.float64)
+        Q[:8, :8] = Q_not
+        Q[-1, -1] = self.q_wet_tropo
 
         # Set the process noise covariance matrix
         self.ukf.Q = Q
@@ -139,8 +150,7 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         obs: Epoch,
         obs_metadata: Series,
         nav_metadata: Series,
-        *args,  # noqa : ARG002
-        **kwargs,
+        **kwargs,  # noqa: ARG002
     ) -> Series | DataFrame:
         """Computes the triangulated position using the Unscented Kalman Filter.
 
@@ -148,7 +158,6 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             obs (Epoch):  The epoch to be processed.
             obs_metadata (Series): Metadata associated with the epoch.
             nav_metadata (Series): Metadata associated with the navigation data.
-            *args: Variable length argument list.
             **kwargs: Arbitrary keyword arguments.
 
         Returns:
@@ -170,13 +179,14 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             epoch=copy_obs,
             obs_metadata=obs_metadata,
             nav_metadata=nav_metadata,
-            **kwargs,
         )
 
         # Run the Unscented Kalman Predic and Update Loop
         self.ukf.predict()
         self.ukf.update(
-            pseudorange.values, sv_location=sv_coordinates[["x", "y", "z"]].values
+            pseudorange.values,
+            sv_location=sv_coordinates[["x", "y", "z"]].values,
+            day_of_year=obs.timestamp.day_of_year,
         )
 
         # Save the intermediate results if saver is specified
@@ -193,6 +203,7 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             "z_dot": self.ukf.x[5],
             "cdt": self.ukf.x[6],
             "cdt_dot": self.ukf.x[7],
+            "wet_delay": self.ukf.x[8],
             "sigma_x": self.ukf.P[0, 0],
             "sigma_y": self.ukf.P[2, 2],
             "sigma_z": self.ukf.P[4, 4],
@@ -201,6 +212,7 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             "sigma_z_dot": self.ukf.P[5, 5],
             "sigma_cdt": self.ukf.P[6, 6],
             "sigma_cdt_dot": self.ukf.P[7, 7],
+            "sigma_wet_delay": self.ukf.P[8, 8],
         }
 
         return Series(results)
