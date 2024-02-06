@@ -9,10 +9,12 @@ from .....utility.epoch.epoch import Epoch
 from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
 from ....satellite.iephm.sv.tools.elevation_and_azimuthal import elevation_and_azimuthal
 from ....satellite.satellite import Satellite
-from ..algos.dual_frequency_corrections import dual_channel_correction
-from ..algos.klobuchar_ionospheric_model import klobuchar_ionospheric_correction
+from ..algos.ionosphere.dual_frequency_corrections import dual_channel_correction
+from ..algos.ionosphere.klobuchar_ionospheric_model import (
+    klobuchar_ionospheric_correction,
+)
 from ..algos.rotations import earth_rotation_correction
-from ..algos.tropospheric_delay import tropospheric_delay_correction
+from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
 from .preprocessor import Preprocessor
 
 __all__ = ["GPSPreprocessor"]
@@ -204,13 +206,10 @@ class GPSPreprocessor(Preprocessor):
         for index, row in sv_coords.iterrows():
             corr.append(
                 tropospheric_delay_correction(
+                    latitude=approx_receiver_location["lat"],
                     elevation=row["elevation"],
                     height=approx_receiver_location["height"],
                     day_of_year=day_of_year,
-                    hemisphere=True
-                    if approx_receiver_location["lat"] > 0
-                    else False,
-                    mapping_function=kwargs.get("mapping_function", "neil"),
                 )
             )
         return pd.Series(
@@ -239,9 +238,7 @@ class GPSPreprocessor(Preprocessor):
 
         """
         # Calculate the gps in seconds of the week
-        time = (time - pd.Timestamp("1980-01-06")).total_seconds() % (
-            7 * 24 * 60 * 60
-        )
+        time = (time - pd.Timestamp("1980-01-06")).total_seconds() % (7 * 24 * 60 * 60)
 
         # Compute the ionospheric correction
         iono_corr = []
@@ -256,7 +253,7 @@ class GPSPreprocessor(Preprocessor):
                     t=time,
                 )
             )
-     
+
         return pd.Series(
             data=iono_corr, index=sv_coords.index, name="ionospheric_correction"
         )
@@ -270,7 +267,7 @@ class GPSPreprocessor(Preprocessor):
         approx: pd.Series = None,
         nav_metadata: pd.Series = None,
         **kwargs,
-    ) -> pd.Series:
+    ) -> tuple[pd.Series, pd.DataFrame]:
         """Process the mode flag for the GPS observations.
 
         Args:
@@ -283,14 +280,19 @@ class GPSPreprocessor(Preprocessor):
             **kwargs: Additional keyword arguments.
 
         Returns:
-            pd.Series: The processed pseudorange for the GPS observations.
+            tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
         """
         if mode == "dual":
             # Compute the ionospheric free combination
-            pseudorange = self._ionospehric_free_combination(obs_data, code_warnings=kwargs.get("verbose", False))
+            pseudorange = self._ionospehric_free_combination(
+                obs_data, code_warnings=kwargs.get("verbose", False)
+            )
 
             if approx is None:
-                return pseudorange  # Do not apply the tropospheric correction since the approximate receiver location is not provided
+                return (
+                    pseudorange,
+                    coords,
+                )  # Do not apply the tropospheric correction since the approximate receiver location is not provided
 
             # Compute the azimuth and elevation of the satellites
             (
@@ -299,7 +301,7 @@ class GPSPreprocessor(Preprocessor):
             ) = self._compute_satellite_azimuth_and_elevation(
                 sv_coords=coords, approx_receiver_location=approx
             )
-            
+
             # Compute the tropospheric correction
             coords["tropospheric_correction"] = self._compute_tropospheric_correction(
                 day_of_year=time.dayofyear,
@@ -313,7 +315,7 @@ class GPSPreprocessor(Preprocessor):
                 "tropospheric_correction"
             ]  # Apply the tropospheric correction
 
-            return pseudorange
+            return pseudorange, coords
 
         if mode == "single":
             # Compute the ionospheric free combination
@@ -364,7 +366,7 @@ class GPSPreprocessor(Preprocessor):
                 warn(
                     "Ionospheric correction not applied. Navigation metadata not provided or IONOSPHERIC CORR not present."
                 )
-            return pseudorange
+            return pseudorange, coords
 
         raise ValueError("Invalid mode flag. Must be either 'dual' or 'single'.")
 
@@ -418,20 +420,21 @@ class GPSPreprocessor(Preprocessor):
         kwargs.pop("approx", None)
 
         # Process the mode flag for the GPS observations
-        pseudorange = self._mode_processing(
+        pseudorange, coords = self._mode_processing(
             time=obs.timestamp,
             mode=mode,
             obs_data=obs_data,
             coords=coords,
             approx=approx,
             nav_metadata=nav_metadata,
-            **kwargs
+            **kwargs,
         )
+
         # Correct the pseudorange for the satellite clock offset.
         # This crossponds to the satellite clock correction. P(j) + c * dt(j)
         pseudorange += coords["dt"] * 299792458
 
-        return pseudorange, coords[['x', 'y', 'z']]
+        return pseudorange, coords
 
     def __call__(
         self,
@@ -450,7 +453,7 @@ class GPSPreprocessor(Preprocessor):
 
 
         Returns:
-            tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
+            tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates and intermediate results at the common reception epoch.
         """
         return self.preprocess(
             obs=obs,

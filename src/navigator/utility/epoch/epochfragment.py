@@ -84,7 +84,11 @@ class FragObs(Fragment):
     """
 
     def __init__(
-        self, epoch_time: pd.Timestamp, obs_data: pd.DataFrame, parent: str
+        self,
+        epoch_time: pd.Timestamp,
+        obs_data: pd.DataFrame,
+        parent: str,
+        metadata: pd.Series = None,
     ) -> None:
         """Initialize a FragObs object.
 
@@ -92,10 +96,12 @@ class FragObs(Fragment):
             epoch_time (pd.Timestamp): Fragment epoch time.
             obs_data (pd.DataFrame): Fragment observation data.
             parent (str): Parent file name.
+            metadata (pd.Series): Observation metadata.
         """
         super().__init__(parent)
         self.obs_data = obs_data
         self.epoch_time = epoch_time
+        self.metadata = metadata
 
     def get_name(self) -> str:
         """Get the name of the fragment.
@@ -116,13 +122,16 @@ class FragObs(Fragment):
         # Return the fragment name.
         return f"OBSFRAG_{met['station_name']}_{self.epoch_time.strftime('%Y%m%d_%H%M%S')}.pkl"
 
-    def fragmentify(obs_data: pd.DataFrame, parent: str) -> list["FragObs"]:
+    def fragmentify(
+        obs_data: pd.DataFrame, parent: str, obs_meta: pd.Series = None
+    ) -> list["FragObs"]:
         """Fragmentify the observation data.
 
         Args:
             obs_data (pd.DataFrame): Observation data.
             parent (str): Parent file name.
-            fragment_size (int, optional): Size of each fragment. Defaults to 1000.
+            obs_meta (pd.Series): Observation metadata.
+
 
         Returns:
             list[FragObs]: List of fragments.
@@ -138,7 +147,7 @@ class FragObs(Fragment):
             data = obs_data.xs(key=timestamp, level="time", drop_level=True)
 
             # Create the fragment.
-            fragment = FragObs(timestamp, data, parent)
+            fragment = FragObs(timestamp, data, parent, obs_meta)
 
             # Append the fragment to the list.
             fragments.append(fragment)
@@ -217,7 +226,11 @@ class FragNav(Fragment):
     """
 
     def __init__(
-        self, timestamp: pd.Timestamp, nav_data: pd.DataFrame, parent: str
+        self,
+        timestamp: pd.Timestamp,
+        nav_data: pd.DataFrame,
+        parent: str,
+        metadata: pd.Series = None,
     ) -> None:
         """Initialize a FragNav object.
 
@@ -229,6 +242,7 @@ class FragNav(Fragment):
         super().__init__(parent)
         self.timestamp = timestamp
         self.nav_data = nav_data
+        self.metadata = metadata
 
     def get_name(self) -> str:
         """Get the name of the fragment.
@@ -252,12 +266,15 @@ class FragNav(Fragment):
         return f"NAVFRAG_{met['station_name']}_{self.timestamp.strftime('%Y%m%d_%H%M%S')}.pkl"
 
     @staticmethod
-    def fragmentify(nav_data: pd.DataFrame, parent: str) -> list["FragNav"]:
+    def fragmentify(
+        nav_data: pd.DataFrame, parent: str, nav_meta: pd.Series
+    ) -> list["FragNav"]:
         """Fragmentify the navigation data.
 
         Args:
             nav_data (pd.DataFrame): Navigation data.
             parent (str): Parent file name.
+            nav_meta (pd.Series): Navigation metadata.
 
         Returns:
             list[FragNav]: List of fragments.
@@ -273,7 +290,7 @@ class FragNav(Fragment):
             data = nav_data.xs(key=timestamp, level="time", drop_level=False)
 
             # Create the fragment.
-            fragment = FragNav(timestamp, data, parent)
+            fragment = FragNav(timestamp, data, parent, nav_meta)
 
             # Append the fragment to the list.
             fragments.append(fragment)

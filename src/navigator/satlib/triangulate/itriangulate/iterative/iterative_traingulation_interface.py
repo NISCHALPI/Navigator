@@ -85,7 +85,9 @@ class IterativeTriangulationInterface(Itriangulate):
         # Send to the least squares solver to compute the solution and DOPs
         solution, covar, sigma = least_squares(
             pseudorange=pseduorange.to_numpy(dtype=np.float64).reshape(-1, 1),
-            sv_pos=coords.to_numpy(dtype=np.float64),
+            sv_pos=coords[["x", "y", "z"]].to_numpy(
+                dtype=np.float64
+            ),  # Get the satellite position in ECEF
             weight=kwargs.get("weight", np.eye(coords.shape[0], dtype=np.float64)),
             eps=1e-6,
         )

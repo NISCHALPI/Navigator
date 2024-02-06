@@ -150,6 +150,26 @@ class Epoch:
         """
         return self._obs_frag.station
 
+    @property
+    def nav_meta(self) -> pd.Series:
+        """Get the navigation metadata.
+
+        Returns:
+            pd.Series: The navigation metadata.
+
+        """
+        return self._nav_frag.metadata
+
+    @property
+    def obs_meta(self) -> pd.Series:
+        """Get the observation metadata.
+
+        Returns:
+            pd.Series: The observation metadata.
+
+        """
+        return self._obs_frag.metadata
+
     def trim(self) -> None:
         """Intersect the satellite vehicles in the observation data and navigation data.
 
@@ -244,7 +264,7 @@ class Epoch:
         parser = Parser(iparser=IParseGPSNav())
 
         # Parse the navigation data
-        metadata, nav_data = parser(nav)
+        nav_meta, nav_data = parser(nav)
 
         if nav_data.empty:
             raise ValueError("No navigation data found.")
@@ -253,16 +273,20 @@ class Epoch:
         parser.swap(iparser=IParseGPSObs())
 
         # Parse the observation data
-        metadata, data = parser(obs)
+        obs_meta, data = parser(obs)
 
         if data.empty:
             raise ValueError("No observation data found.")
 
         # Get the observational fragments
-        obs_frags = FragObs.fragmentify(obs_data=data, parent=obs.name)
+        obs_frags = FragObs.fragmentify(
+            obs_data=data, parent=obs.name, obs_meta=obs_meta
+        )
 
         # Get the navigation fragments
-        nav_frags = FragNav.fragmentify(nav_data=nav_data, parent=nav.name)
+        nav_frags = FragNav.fragmentify(
+            nav_data=nav_data, parent=nav.name, nav_meta=nav_meta
+        )
 
         # Filter at least 4 satellites
         obs_frags = [frag for frag in obs_frags if len(frag) >= 4]

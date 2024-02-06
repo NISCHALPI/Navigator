@@ -59,6 +59,8 @@ class IGPSEphemeris(AbstractIephemeris):
             Source: `IS-GPS-200N.pdf page 104-106 <https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf>`_
     """
 
+    MAX_CLOCK_CORRECTION_ITERATIONS = 20
+
     def __init__(self) -> None:
         """Initialize an IGPSEphemeris instance."""
         super().__init__(feature="GPS")
@@ -89,7 +91,7 @@ class IGPSEphemeris(AbstractIephemeris):
         """
         return (t - gps_start_time).total_seconds() - (week * 604800)
 
-    def clock_correction(self, data: pd.Series) -> float:
+    def _clock_correction(self, data: pd.Series) -> float:
         """Calculate the clock correction. See GPS ICD 200 Page 98: https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf X.
 
         Args:
@@ -139,6 +141,32 @@ class IGPSEphemeris(AbstractIephemeris):
 
         # Compute clock correction
         return a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 + t_r - t_gd
+
+    def clock_correction(self, data: pd.Series) -> float:
+        """Calculate the clock correction for specific satellite data.
+
+        Args:
+            data (pd.Series): Data for specific satellite.
+
+        Returns:
+            float: Clock correction.
+        """
+        # Initial clock correction
+        dt = self._clock_correction(data=data)
+
+        # Iteratively compute the clock correction
+        for _ in range(self.MAX_CLOCK_CORRECTION_ITERATIONS):
+            # Compute the satellite time i.e. Tsv
+            t_sv: pd.Timestamp = data["Tsv"] - pd.Timedelta(seconds=dt)
+
+            # Compute the clock correction
+            dt = self._clock_correction(data=data)
+
+            # If the clock correction is within 1 ns, break
+            if abs(dt) < 1e-11:
+                break
+
+        return dt
 
     def _compute(
         self, metadata: pd.Series, data: pd.Series, **kwargs  # noqa: ARG002

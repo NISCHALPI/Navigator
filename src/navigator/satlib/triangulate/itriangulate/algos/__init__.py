@@ -12,7 +12,8 @@ Note:
     This is a functional interface for the triangulation algorithm. It provides tools for calculating corrections to the signal, including ionospheric delay, tropospheric delay, and dual-frequency corrections
 
 """
-from .dual_frequency_corrections import dual_channel_correction
-from .klobuchar_ionospheric_model import klobuchar_ionospheric_correction
+
+from .ionosphere.dual_frequency_corrections import dual_channel_correction
+from .ionosphere.klobuchar_ionospheric_model import klobuchar_ionospheric_correction
 from .linear_iterative_method import least_squares
-from .tropospheric_delay import tropospheric_delay_correction
+from .troposphere.tropospheric_delay import tropospheric_delay_correction
