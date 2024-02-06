@@ -106,6 +106,8 @@ class EgnosTroposphericModel:
             lmda=avg_parameter["lmda"],
             beta=avg_parameter["beta"],
         )
+        # Clip the height to be greater that -200m
+        height = np.clip(height, -200, None)
 
         # Compute the height correction
         height_factor = 1 - ((avg_parameter["beta"] * height) / avg_parameter["T"])
@@ -115,8 +117,8 @@ class EgnosTroposphericModel:
         wet_pow = ((avg_parameter["lmda"] + 1) * dry_pow) - 1
 
         # Compute the dry and wet delay at the given height
-        d_dry = Z_dry * height_factor**dry_pow
-        d_wet = Z_wet * height_factor**wet_pow
+        d_dry = Z_dry * np.power(height_factor, dry_pow)
+        d_wet = Z_wet * np.power(height_factor, wet_pow)
         return d_dry, d_wet
 
     def zenith_dry_delay_at_sea_level(self, pressure: float) -> float:
