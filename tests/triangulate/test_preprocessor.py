@@ -19,7 +19,7 @@ def test_gps_preprocessor(epoch):
 
     # Calculate the pseudoranges and sat_pos
     pseudoranges, sat_pos = preprocessor(
-        epoches[0], None, None, apply_tropo=False, apply_iono=False
+        epoches[0], apply_tropo=False, apply_iono=False
     )
 
     # Check that the pseudoranges and sat_pos are the correct shape

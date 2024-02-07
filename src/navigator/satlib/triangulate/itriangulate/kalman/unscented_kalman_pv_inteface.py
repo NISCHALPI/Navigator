@@ -16,8 +16,6 @@ See Example At:
     src/docs/intro/unscenetd_kalman_filter_gps.ipynb
 """
 
-from copy import deepcopy
-
 import numpy as np
 from filterpy.common import Q_discrete_white_noise, Saver
 from filterpy.kalman import MerweScaledSigmaPoints, UnscentedKalmanFilter
@@ -61,6 +59,7 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             S_g (float, optional): The white noise spectral density for the random walk clock drift error. Defaults to 0.01.
             q_wet_tropo (float, optional): The process noise for the wet tropospheric delay. Defaults to 0.25.
             saver (bool, optional): Whether to save the intermediate results. Defaults to False.
+            intial_coords (np.ndarray, optional): The initial coordinates of the receiver. Defaults to None.
         """
         # Check if the number of satellites to track is valid
         assert (
@@ -158,38 +157,31 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
 
     def _compute(
         self,
-        obs: Epoch,
-        obs_metadata: Series,
-        nav_metadata: Series,
+        epoch: Epoch,
         **kwargs,  # noqa: ARG002
     ) -> Series | DataFrame:
         """Computes the triangulated position using the Unscented Kalman Filter.
 
         Args:
-            obs (Epoch):  The epoch to be processed.
-            obs_metadata (Series): Metadata associated with the epoch.
-            nav_metadata (Series): Metadata associated with the navigation data.
+            epoch (Epoch):  The epoch to be processed.
             **kwargs: Arbitrary keyword arguments.
 
         Returns:
             Series | DataFrame: A pandas series containing the triangulated position, DOPS, and clock bias and drift.
         """
         # Check if the epoch has the minimum number of satellites
-        if len(obs) < self.num_satellite:
+        if len(epoch) < self.num_satellite:
             raise ValueError(
                 f"Epoch must have at least {self.num_satellite} satellites."
             )
 
         # Remove the extra satellites from the epoch
-        copy_obs = deepcopy(obs)
-        copy_obs.obs_data = copy_obs.obs_data.iloc[: self.num_satellite]
-        copy_obs.trim()  # Remove the extra satellites from the navigation data
+        epoch.obs_data = epoch.obs_data.iloc[: self.num_satellite]
+        epoch.trim()  # Remove the extra satellites from the navigation data
 
         # Get the range and sv_coordinates
         pseudorange, sv_coordinates = self._preprocess(
-            epoch=copy_obs,
-            obs_metadata=obs_metadata,
-            nav_metadata=nav_metadata,
+            epoch=epoch,
             apply_iono=True,
             apply_tropo=False,
         )
@@ -199,7 +191,7 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         self.ukf.update(
             pseudorange.values,
             sv_location=sv_coordinates[["x", "y", "z"]].values,
-            day_of_year=obs.timestamp.day_of_year,
+            day_of_year=epoch.timestamp.day_of_year,
         )
 
         # Save the intermediate results if saver is specified

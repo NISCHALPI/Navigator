@@ -53,18 +53,14 @@ class Itriangulate(ABC):
     @abstractmethod
     def _compute(
         self,
-        obs: Epoch,
-        obs_metadata: pd.Series,
-        nav_metadata: pd.Series,
+        epoch: Epoch,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
         """Abstract method for computing triangulated locations.
 
         Args:
-            obs (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
+            epoch (Epoch): Epoch containing observation data and navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
@@ -105,15 +101,11 @@ class Itriangulate(ABC):
         # If the constellation is not supported, raise an error
         raise ValueError(f"Invalid constellation: {first_prn}")
 
-    def _preprocess(
-        self, epoch: Epoch, obs_metadata: pd.Series, nav_metadata: pd.Series, **kwargs
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _preprocess(self, epoch: Epoch, **kwargs) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Preprocesses the data.
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             **kwargs: Additional keyword arguments passed to the preprocessor.
 
         Returns:
@@ -123,13 +115,11 @@ class Itriangulate(ABC):
         preprocesser = self._auto_dispatch_preprocessor(epoch)
 
         # Preprocess the data
-        return preprocesser.preprocess(epoch, obs_metadata, nav_metadata, **kwargs)
+        return preprocesser.preprocess(epoch, **kwargs)
 
     def __call__(
         self,
         obs: Epoch,
-        obs_metadata: pd.Series,
-        nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
@@ -137,8 +127,6 @@ class Itriangulate(ABC):
 
         Args:
             obs (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
@@ -150,7 +138,7 @@ class Itriangulate(ABC):
         Summary:
             This method allows the instance of the `Itriangulate` class to be called like a function, and it delegates the triangulation calculation to the `_compute` method.
         """
-        return self._compute(obs, obs_metadata, nav_metadata, *args, **kwargs)
+        return self._compute(obs, *args, **kwargs)
 
     def __repr__(self) -> str:
         """Returns a string representation of the triangulation algorithm instance.

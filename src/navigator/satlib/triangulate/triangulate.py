@@ -78,8 +78,6 @@ class AbstractTriangulate(ABC):
     def _compute(
         self,
         epoch: Epoch,
-        obs_metadata: pd.Series,
-        nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
@@ -87,8 +85,6 @@ class AbstractTriangulate(ABC):
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
@@ -97,18 +93,14 @@ class AbstractTriangulate(ABC):
             pd.Series | pd.DataFrame: The computed triangulated location.
         """
         return self.itriangulate._compute(
-            deepcopy(epoch),
-            obs_metadata,
-            nav_metadata,
+            deepcopy(epoch),  # Deep copy the epoch to avoid modifying the original
             *args,
-            **kwargs,  # Copy the epoch to avoid modifying the original
+            **kwargs,
         )
 
     def __call__(
         self,
         epoch: Epoch,
-        obs_metadata: pd.Series,
-        nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
@@ -116,8 +108,6 @@ class AbstractTriangulate(ABC):
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
@@ -125,7 +115,7 @@ class AbstractTriangulate(ABC):
         Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
         """
-        return self._compute(epoch, obs_metadata, nav_metadata, *args, **kwargs)
+        return self._compute(epoch, *args, **kwargs)
 
     def __repr__(self) -> str:
         """Return a string representation of the AbstractTraingulate instance.
@@ -165,15 +155,35 @@ class Triangulate(AbstractTriangulate):
 
     This class is a concrete implementation of the AbstractTriangulate class, providing specific functionality for a triangulation algorithm.
 
+    Attributes:
+        itraingulate (property): Property to access the triangulation interface.
+
+
     Methods:
-        _compute(self, obs: pd.DataFrame, nav: pd.DataFrame, *args, **kwargs) -> pd.Series | pd.DataFrame:
+        _compute(self, epoch: Epoch, *args, **kwargs) -> pd.Series | pd.DataFrame:
             Computes triangulated locations using a specific algorithm.
 
-    Args:
-            obs (pd.DataFrame): DataFrame containing observation data.
-            nav (pd.DataFrame): DataFrame containing navigation data.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
+        igs_diff(self, epoch: Epoch, *args, **kwargs) -> pd.Series:
+            Computes the error between the computed location and the actual location for only IGS stations.
+
+        igs_real_coords(self, obs: Epoch) -> np.ndarray:
+            Computes the actual location for only IGS stations.
+
+        coords(self, epoch: Epoch, *args, **kwargs) -> np.ndarray:
+            Computes the triangulated location.
+
+        triangulate_time_series(self, epochs: list[Epoch], override: bool = False, **kwargs) -> pd.DataFrame:
+            Computes the triangulated location for a time series of epochs.
+
+        google_earth_view(self, lat: float, lon: float) -> None:
+            Open Google Earth in a web browser centered at the specified coordinates.
+
+        google_maps_view(self, lat: float, lon: float) -> None:
+            Open Google Maps in a web browser centered at the specified coordinates.
+
+        google_earth_view_cartisian(self, x: float, y: float, z: float) -> None:
+            Open Google Earth in a web browser centered at the specified coordinates with a marker.
+
 
     Returns:
             pd.Series | pd.DataFrame: The computed triangulated location.
@@ -185,19 +195,15 @@ class Triangulate(AbstractTriangulate):
     def _compute(
         self,
         epoch: Epoch,
-        obs_metadata: pd.Series,
-        nav_metadata: pd.Series,
         *args,
         **kwargs,
     ) -> pd.Series | pd.DataFrame:
         """Computes triangulated locations using a specific algorithm."""
-        return super()._compute(epoch, obs_metadata, nav_metadata, *args, **kwargs)
+        return super()._compute(epoch, *args, **kwargs)
 
     def igs_diff(
         self,
         epoch: Epoch,
-        obs_metadata: pd.Series = None,
-        nav_metadata: pd.Series = None,
         *args,
         **kwargs,
     ) -> pd.Series:
@@ -220,7 +226,7 @@ class Triangulate(AbstractTriangulate):
         actual = self.igs_real_coords(epoch)
 
         # Get the computed location
-        computed = self._compute(epoch, obs_metadata, nav_metadata, *args, **kwargs)
+        computed = self._compute(epoch, *args, **kwargs)
 
         # Calculate the difference between the computed and actual locations
         computed['diff'] = np.linalg.norm(computed[['x', 'y', 'z']] - actual)
@@ -244,8 +250,6 @@ class Triangulate(AbstractTriangulate):
     def coords(
         self,
         epoch: Epoch,
-        obs_metadata: pd.Series = None,
-        nav_metadata: pd.Series = None,
         *args,
         **kwargs,
     ) -> np.ndarray:
@@ -253,23 +257,17 @@ class Triangulate(AbstractTriangulate):
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
         Returns:
             np.ndarray: The computed triangulated location.
         """
-        return self._compute(epoch, obs_metadata, nav_metadata, *args, **kwargs)[
-            ['x', 'y', 'z']
-        ].to_numpy()
+        return self._compute(epoch, *args, **kwargs)[['x', 'y', 'z']].to_numpy()
 
     def triangulate_time_series(
         self,
         epochs: list[Epoch],
-        obs_metadata: pd.Series = None,
-        nav_metadata: pd.Series = None,
         override: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
@@ -277,8 +275,6 @@ class Triangulate(AbstractTriangulate):
 
         Args:
             epochs (list[Epoch]): A list of Epochs containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             override (bool): A flag to override errors in triangulation. Defaults to False.
             **kwargs: Additional keyword arguments.
 
@@ -295,8 +291,6 @@ class Triangulate(AbstractTriangulate):
         # Calculate prior approximation
         prior = self._compute(
             epochs[0],
-            obs_metadata,
-            nav_metadata,
             apply_tropo=False,
             apply_iono=False,
             verbose=False,
@@ -304,11 +298,7 @@ class Triangulate(AbstractTriangulate):
         with tqdm.tqdm(total=len(epochs), desc="Triangulating") as pbar:
             for e in epochs:
                 try:
-                    results.append(
-                        compute_func(
-                            e, obs_metadata, nav_metadata, prior=prior, **kwargs
-                        )
-                    )
+                    results.append(compute_func(e, prior=prior, **kwargs))
                     prior = results[-1]
                     pbar.update(1)
                 except Exception as e:

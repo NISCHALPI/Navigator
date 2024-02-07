@@ -13,7 +13,7 @@ def epoch(navfilepath, obsfilepath) -> list[Epoch]:
 
 
 def test_traingulation_gps(epoch):
-    epoches = epoch
+    epoches = list(epoch)
 
     # Triangulate the epoch``
     triangulator = Triangulate(
@@ -24,14 +24,15 @@ def test_traingulation_gps(epoch):
     coords = []
 
     # Trianguate all the epochs
+    prior = triangulator(epoch=epoches[0], apply_tropo=False, apply_iono=False)
     for eph in epoches:
         series = triangulator(
             epoch=eph,
-            obs_metadata=None,
-            nav_metadata=None,
-            apply_tropo=False,
-            apply_iono=False,
+            apply_tropo=True,
+            apply_iono=True,
+            prior=prior,
         )
+        prior = series
         coords.append(np.array([series["x"], series["y"], series["z"]]))
 
     # Take the average of the coords

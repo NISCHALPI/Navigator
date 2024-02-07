@@ -56,9 +56,7 @@ class Preprocessor(ABC):
         super().__init__()
 
     @abstractmethod
-    def preprocess(
-        self, epoch: Epoch, obs_metadata: pd.Series, nav_metadata: pd.Series, **kwargs
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def preprocess(self, epoch: Epoch, **kwargs) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Preprocesses the data.
 
         Args:

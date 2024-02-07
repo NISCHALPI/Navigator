@@ -466,17 +466,13 @@ class GPSPreprocessor(Preprocessor):
 
     def preprocess(
         self,
-        obs: Epoch,
-        obs_metadata: pd.Series,  # noqa: ARG002
-        nav_metadata: pd.Series,
+        epoch: Epoch,
         **kwargs,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Preprocess the observation and navigation data to be used for triangulation!
 
         Args:
-            obs (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
+            epoch (Epoch): Epoch containing observation data and navigation data.
             **kwargs: Additional keyword arguments.
 
         Additional Keyword Arguments:
@@ -490,15 +486,15 @@ class GPSPreprocessor(Preprocessor):
             tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
         """
         # Use Epoch to get the navigation message for the observation epoch. Held at "Epoch.nav_data" attribute
-        obs_data, nav_data = obs.obs_data, obs.nav_data
+        obs_data, nav_data = epoch.obs_data, epoch.nav_data
 
         # Compute the satellite coordinates at the emission epoch
         # This also computes satellite clock correction which is stored in the 'dt' column.
         coords = self._compute_sv_coordinates_at_emission_epoch(
-            reception_time=obs.timestamp,
+            reception_time=epoch.timestamp,
             pseudorange=obs_data["C1C"],
             nav=nav_data,
-            nav_metadata=nav_metadata,
+            nav_metadata=epoch.nav_meta,
             no_clock_correction=kwargs.get("no_clock_correction", False),
         )
 
@@ -519,12 +515,12 @@ class GPSPreprocessor(Preprocessor):
 
         # Process the mode flag for the GPS observations
         pseudorange, coords = self._dispatch_mode(
-            time=obs.timestamp,
+            time=epoch.timestamp,
             mode=mode,
             obs_data=obs_data,
             coords=coords,
             approx=approx,
-            nav_metadata=nav_metadata,
+            nav_metadata=epoch.nav_meta,
             apply_iono=apply_iono,
             apply_tropo=apply_tropo,
             verbose=verbose,
@@ -539,16 +535,12 @@ class GPSPreprocessor(Preprocessor):
     def __call__(
         self,
         obs: Epoch,
-        obs_metadata: pd.Series,  # noqa: ARG002
-        nav_metadata: pd.Series,
         **kwargs,
     ) -> None:
         """Preprocess the observation and navigation data to be used for triangulation!
 
         Args:
             obs (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
             **kwargs: Additional keyword arguments.
 
 
@@ -556,8 +548,6 @@ class GPSPreprocessor(Preprocessor):
             tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates and intermediate results at the common reception epoch.
         """
         return self.preprocess(
-            obs=obs,
-            obs_metadata=obs_metadata,
-            nav_metadata=nav_metadata,
+            epoch=obs,
             **kwargs,
         )

@@ -56,17 +56,13 @@ class IterativeTriangulationInterface(Itriangulate):
 
     def _compute(
         self,
-        obs: Epoch,
-        obs_metadata: pd.Series,  # noqa: ARG002
-        nav_metadata: pd.Series,
+        epoch: Epoch,
         **kwargs,  # noqa: ARG002
     ) -> pd.Series | pd.DataFrame:
         """Compute the iterative triangulation using GPS observations and navigation data.
 
         Args:
-            obs (Epoch): Epoch containing observation data and navigation data.
-            obs_metadata (pd.Series): Metadata for the observation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
+            epoch (Epoch): Epoch containing observation data and navigation data.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
 
@@ -83,9 +79,7 @@ class IterativeTriangulationInterface(Itriangulate):
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """
         # Preprocess the observation and navigation data
-        pseduorange, coords = self._preprocess(
-            epoch=obs, obs_metadata=obs_metadata, nav_metadata=nav_metadata, **kwargs
-        )
+        pseduorange, coords = self._preprocess(epoch=epoch, **kwargs)
 
         # Send to the least squares solver to compute the solution and DOPs
         solution, covar, sigma = least_squares(
