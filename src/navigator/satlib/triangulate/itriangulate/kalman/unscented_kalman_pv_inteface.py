@@ -48,6 +48,7 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         S_g: float = 0.01,
         q_wet_tropo: float = 0.25,
         saver: bool = False,
+        intial_coords: np.ndarray = None,
     ) -> None:
         """Initializes an instance of the Unscented Kalman Method for Triangulation.
 
@@ -112,15 +113,25 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             self.saver = Saver(self.ukf)
 
         # Initialize the Unscented Kalman Filter
-        self._ukf_init()  # Do not remove this line from here
+        self._ukf_init(
+            initial_coords=intial_coords
+        )  # Do not remove this line from here
 
         # Initialize
         super().__init__(feature="UKF Triangulation")
 
-    def _ukf_init(self) -> None:
+    def _ukf_init(self, initial_coords: np.ndarray) -> None:
         """Initializes the Unscented Kalman Filter."""
         # Initialize the state vector
-        self.ukf.x = np.ones(9, dtype=np.float64)
+        if initial_coords is not None:
+            self.ukf.x = np.zeros(9, dtype=np.float64)
+            self.ukf.x[0], self.ukf.x[2], self.ukf.x[4] = (
+                initial_coords[0],
+                initial_coords[1],
+                initial_coords[2],
+            )
+        else:
+            self.ukf.x = np.ones(9, dtype=np.float64)
 
         # Initialize the state covariance matrix
         self.ukf.P = np.eye(9, dtype=np.float64) * 100
@@ -179,6 +190,8 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             epoch=copy_obs,
             obs_metadata=obs_metadata,
             nav_metadata=nav_metadata,
+            apply_iono=True,
+            apply_tropo=False,
         )
 
         # Run the Unscented Kalman Predic and Update Loop

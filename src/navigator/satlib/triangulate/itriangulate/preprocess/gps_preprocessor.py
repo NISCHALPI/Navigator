@@ -245,12 +245,19 @@ class GPSPreprocessor(Preprocessor):
         for index, row in sv_coords.iterrows():
             iono_corr.append(
                 klobuchar_ionospheric_correction(
-                    E=row["elevation"],
-                    A=row["azimuth"],
-                    ionospheric_parameters=iono_params,
+                    elev=row["elevation"],
+                    azimuth=row["azimuth"],
                     latitude=approx_receiver_location["lat"],
                     longitude=approx_receiver_location["lon"],
-                    t=time,
+                    tow=time,
+                    alpha0=iono_params["alpha0"],
+                    alpha1=iono_params["alpha1"],
+                    alpha2=iono_params["alpha2"],
+                    alpha3=iono_params["alpha3"],
+                    beta0=iono_params["beta0"],
+                    beta1=iono_params["beta1"],
+                    beta2=iono_params["beta2"],
+                    beta3=iono_params["beta3"],
                 )
             )
 
