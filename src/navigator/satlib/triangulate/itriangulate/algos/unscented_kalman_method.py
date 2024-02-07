@@ -37,10 +37,6 @@ Note:
 
 import numpy as np
 
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
-from ....satellite.iephm.sv.tools.elevation_and_azimuthal import elevation_and_azimuthal
-from ..algos.troposphere.tropospheric_delay import filtered_troposphere_correction
-
 
 def fx(x: np.ndarray, dt: float) -> np.ndarray:
     """State transition function.
@@ -57,57 +53,26 @@ def fx(x: np.ndarray, dt: float) -> np.ndarray:
     A[0, 1] = dt
 
     # The state transition matrix
-    X = np.kron(np.eye(4, dtype=np.float64), A)
-
-    # The state transition function
-    F = np.eye(9, dtype=np.float64)
-    F[:8, :8] = X
+    F = np.kron(np.eye(4, dtype=np.float64), A)
 
     return F @ x
 
 
-def hx(x: np.ndarray, sv_location: np.ndarray, day_of_year: int) -> np.ndarray:
+def hx(x: np.ndarray, sv_location: np.ndarray) -> np.ndarray:
     """Measurement function for the pseudorange GPS problem.
 
     Args:
-        x (np.ndarray): Current state vector.
-        sv_location (np.ndarray): Location of the satellite.
-        day_of_year (int): The day of the year. [1-365]
+        x (_type_): Current state vector.
+        sv_location (_type_): Location of the satellite.
 
     Returns:
         pseudorange: Pseudorange measurement for the given satellite.
     """
-    # Clip the values of the state vector if they are too large
-    x = np.clip(x, -1e10, 1e10)
-
     # Grab the dt from the state vector
     dt = x[6]
-
-    # Grab the tropospheric delay from the state vector
-    wet_delay = x[8]
 
     # Grab the position from the state vector
     position = np.array([x[0], x[2], x[4]], dtype=np.float64)
 
-    # Convert the coordinates from geocentric to ellipsoidal
-    lat, _, height = geocentric_to_ellipsoidal(*position)
-
-    # Get the satellite elevation
-    E, _ = elevation_and_azimuthal(
-        satellite_positions=sv_location,
-        observer_position=position,
-    )
-
-    # Compute the tropospheric delay
-    tropo_delay = [
-        filtered_troposphere_correction(
-            latitude=lat,
-            elevation=E,
-            height=height,
-            estimated_wet_delay=wet_delay,
-            day_of_year=day_of_year,
-        )
-        for E in E
-    ]
     # Compute the pseudorange
-    return np.sqrt(np.power((sv_location - position), 2).sum(axis=1)) + dt + tropo_delay
+    return np.sqrt(np.power((sv_location - position), 2).sum(axis=1)) + dt
