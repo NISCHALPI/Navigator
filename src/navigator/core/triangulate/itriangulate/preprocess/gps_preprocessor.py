@@ -15,6 +15,7 @@ from ..algos.ionosphere.klobuchar_ionospheric_model import (
 )
 from ..algos.rotations import earth_rotation_correction
 from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
+from ..smoothing.base_smoother import BaseSmoother
 from .preprocessor import Preprocessor
 
 __all__ = ["GPSPreprocessor"]
@@ -481,6 +482,7 @@ class GPSPreprocessor(Preprocessor):
             apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
             apply_iono (bool, optional): If True, then ionospheric correction is applied. Defaults to True.
             verbose (bool, optional): If True, then warning is raised. Defaults to False.
+            init (bool, optional): If True, then initial triangulation mode is used. Defaults to False. [No iono, no tropo, single mode]
 
         Returns:
             tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
@@ -506,12 +508,23 @@ class GPSPreprocessor(Preprocessor):
             approx_receiver_location=kwargs.get("approx", None),
         )
 
-        # Get Necessary parameters from the kwargs
+        # Get the appropriate mode for the GPS observations
         mode = kwargs.get("mode", "dual")
         approx = kwargs.get("prior", None)
         apply_tropo = kwargs.get("apply_tropo", True)
         apply_iono = kwargs.get("apply_iono", True)
         verbose = kwargs.get("verbose", False)
+
+        # Initial triangulation mode override everything
+        if kwargs.get("init", False):
+            mode = "single"
+            apply_iono = False
+            apply_tropo = False
+
+        # If the epoch is smoothed, then apply swap the smoothed key as C1C
+        if epoch.is_smoothed and not kwargs.get("init", False):
+            if BaseSmoother.SMOOOTHING_KEY in obs_data.columns:
+                obs_data["C1C"] = obs_data[BaseSmoother.SMOOOTHING_KEY]
 
         # Process the mode flag for the GPS observations
         pseudorange, coords = self._dispatch_mode(

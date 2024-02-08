@@ -289,12 +289,15 @@ class Triangulate(AbstractTriangulate):
         results = []
 
         # Calculate prior approximation
+        prior = epochs[0]
+
+        # Have to be careful with the first epoch since it might be smoothed and smoothed constrains might not be available
+        # Compute the first epoch
         prior = self._compute(
             epochs[0],
-            apply_tropo=False,
-            apply_iono=False,
-            verbose=False,
+            init=True,  # Overrides anything that needs priors
         )
+
         with tqdm.tqdm(total=len(epochs), desc="Triangulating") as pbar:
             for e in epochs:
                 try:

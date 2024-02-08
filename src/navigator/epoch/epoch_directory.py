@@ -16,16 +16,16 @@ from typing import Iterator
 
 import tqdm
 
-from ....epoch.epoch import Epoch
-from ....epoch.epochfragment import FragNav, FragObs
-from ....parse.base_parse import Parser
-from ....parse.iparse import IParseGPSNav, IParseGPSObs
-from ...igs_network import IGSNetwork
-from ...logger.logger import get_logger
-from ...matcher.fragment_matcher import FragNavMatcher, FragObsMatcher
-from ...matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
-from .directory import AbstractDirectory
-from .standerd_directory import StanderdDirectory
+from ..parse.base_parse import Parser
+from ..parse.iparse import IParseGPSNav, IParseGPSObs
+from ..utility.data_tools.directory import AbstractDirectory
+from ..utility.data_tools.standerd_directory import StanderdDirectory
+from ..utility.igs_network import IGSNetwork
+from ..utility.logger.logger import get_logger
+from ..utility.matcher.fragment_matcher import FragNavMatcher, FragObsMatcher
+from ..utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+from .epoch import Epoch
+from .epochfragment import FragNav, FragObs
 
 __all__ = ["EpochDirectory"]
 

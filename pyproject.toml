@@ -7,9 +7,9 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.scripts]
-rinex3-download-nasa = "navigator.utility.v3daily.scripts.cddis_download:main"
-rinex3-dir-ops = "navigator.utility.v3daily.scripts.dir_ops:main"
-triangulate = "navigator.utility.v3daily.scripts.gps_traingulate:main"
+rinex3-download-nasa = "navigator.utility.scripts.cddis_download:main"
+rinex3-dir-ops = "navigator.utility.scripts.dir_ops:main"
+triangulate = "navigator.utility.scripts.gps_traingulate:main"
 
 [tool.poetry.dependencies]
 python =  ">=3.10,<3.12"
@@ -42,6 +42,7 @@ html5lib = "^1.1"
 plotly = "^5.18.0"
 nbformat = "^5.9.2"
 sympy = "^1.12"
+mypy = "^1.8.0"
 
 
 [build-system]

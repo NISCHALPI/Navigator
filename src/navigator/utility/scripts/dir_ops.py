@@ -4,9 +4,9 @@ from pathlib import Path
 
 import click
 
-from ...logger.logger import get_logger
-from ..data.epoch_directory import EpochDirectory
-from ..data.standerd_directory import StanderdDirectory
+from ...epoch.epoch_directory import EpochDirectory
+from ..data_tools.standerd_directory import StanderdDirectory
+from ..logger.logger import get_logger
 
 
 @click.group(invoke_without_command=True, no_args_is_help=True)

@@ -7,8 +7,8 @@ from pathlib import Path
 import click
 import tqdm
 
-from ....download.idownload.rinex.nasa_cddis import NasaCddisV3
-from ....download.idownload.sp3.ccdis_igs_sp3 import NasaCddisIgsSp3
+from ...download.idownload.rinex.nasa_cddis import NasaCddisV3
+from ...download.idownload.sp3.ccdis_igs_sp3 import NasaCddisIgsSp3
 
 # ------------------------------------------ Global Variables ------------------------------
 # USER EMAIL

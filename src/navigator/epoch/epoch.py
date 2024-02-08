@@ -83,6 +83,9 @@ class Epoch:
             nav_frag
         )  # Need to deepcopy to avoid modifying the original object
 
+        # Flags
+        self._is_smoothed = False
+
         # Purify the data
         if purify:
             self.obs_data = self.purify(self.obs_data)
@@ -169,6 +172,25 @@ class Epoch:
 
         """
         return self._obs_frag.metadata
+
+    @property
+    def is_smoothed(self) -> bool:
+        """Check if the epoch is smoothed.
+
+        Returns:
+            bool: True if the epoch is smoothed, False otherwise.
+        """
+        return self._is_smoothed
+
+    @is_smoothed.setter
+    def is_smoothed(self, value: bool) -> None:
+        """Set the is_smoothed attribute.
+
+        Args:
+            value (bool): The value to set.
+
+        """
+        self._is_smoothed = value
 
     def trim(self) -> None:
         """Intersect the satellite vehicles in the observation data and navigation data.

@@ -5,7 +5,7 @@ from itertools import chain
 from pathlib import Path
 from typing import Iterator
 
-from ...matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+from ..matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
 from .directory import AbstractDirectory
 
 __all__ = ['StanderdDirectory']

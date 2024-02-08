@@ -7,13 +7,13 @@ import click
 import pandas as pd
 import tqdm
 
-from ....core.triangulate import (
+from ...core.triangulate import (
     IterativeTriangulationInterface,
     Triangulate,
     UnscentedKalmanTriangulationInterface,
 )
-from ....epoch import Epoch
-from ...logger.logger import get_logger
+from ...epoch import Epoch
+from ..logger.logger import get_logger
 
 
 @click.group(invoke_without_command=True, no_args_is_help=True)

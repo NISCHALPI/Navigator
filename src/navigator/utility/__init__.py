@@ -9,4 +9,3 @@ from .matcher import (
     MixedObs3DailyMatcher,
     SP3Matcher,
 )
-from .v3daily.data import EpochDirectory, StanderdDirectory
