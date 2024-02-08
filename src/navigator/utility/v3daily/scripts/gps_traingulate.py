@@ -7,12 +7,12 @@ import click
 import pandas as pd
 import tqdm
 
-from ....satlib.triangulate import (
+from ....core.triangulate import (
     IterativeTriangulationInterface,
     Triangulate,
     UnscentedKalmanTriangulationInterface,
 )
-from ...epoch import Epoch
+from ....epoch import Epoch
 from ...logger.logger import get_logger
 
 
@@ -121,9 +121,7 @@ def wls(
             df.append(
                 triangulator(
                     epoch,
-                    obs_metadata=None,
-                    nav_metadata=None,
-                    approx=df[-1] if len(df) > 0 else None,
+                    prior=df[-1] if len(df) > 0 else None,
                 )
             )
             pbar.update(1)
@@ -276,8 +274,6 @@ def ukf(
             df.append(
                 triangulator(
                     epoch,
-                    obs_metadata=None,
-                    nav_metadata=None,
                 )
             )
             pbar.update(1)

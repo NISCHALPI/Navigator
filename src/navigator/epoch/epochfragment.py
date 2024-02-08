@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+from ..utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
 
 __all__ = ["Fragment", "FragObs", "FragNav"]
 

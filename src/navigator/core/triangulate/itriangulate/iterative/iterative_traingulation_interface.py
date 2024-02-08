@@ -16,7 +16,7 @@ Usage:
 import numpy as np
 import pandas as pd
 
-from .....utility.epoch import Epoch
+from .....epoch import Epoch
 from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 from ..algos.linear_iterative_method import least_squares
 from ..itriangulate import Itriangulate

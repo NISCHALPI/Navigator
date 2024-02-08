@@ -18,7 +18,7 @@ Usage:
     Then, call the object with metadata and data to compute satellite positions.
 
 Example:
-    >>> from navigator.satlib import Satellite, IGPSEphemeris
+    >>> from navigator.core import Satellite, IGPSEphemeris
     >>> satellite_processor = Satellite(interface=IGPSEphemeris())
     >>> satellite_processor(filename=nav_dataframe)
 """

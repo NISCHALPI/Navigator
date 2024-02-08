@@ -1,6 +1,6 @@
-from navigator.satlib.triangulate.itriangulate.preprocess import GPSPreprocessor
+from navigator.core.triangulate.itriangulate.preprocess import GPSPreprocessor
 import pytest
-from navigator.utility import Epoch
+from navigator.epoch import Epoch
 from pathlib import Path
 import pandas as pd
 from tests.common_fixtures import navfilepath, obsfilepath

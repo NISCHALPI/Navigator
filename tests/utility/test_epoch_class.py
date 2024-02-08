@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from navigator.utility.epoch import Epoch
+from navigator.epoch import Epoch
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
 from pathlib import Path
 

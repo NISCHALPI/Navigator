@@ -5,7 +5,7 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 
-from .....utility.epoch.epoch import Epoch
+from .....epoch.epoch import Epoch
 from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
 from ....satellite.iephm.sv.tools.elevation_and_azimuthal import elevation_and_azimuthal
 from ....satellite.satellite import Satellite

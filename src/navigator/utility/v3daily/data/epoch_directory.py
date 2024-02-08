@@ -16,10 +16,10 @@ from typing import Iterator
 
 import tqdm
 
+from ....epoch.epoch import Epoch
+from ....epoch.epochfragment import FragNav, FragObs
 from ....parse.base_parse import Parser
 from ....parse.iparse import IParseGPSNav, IParseGPSObs
-from ...epoch.epoch import Epoch
-from ...epoch.epochfragment import FragNav, FragObs
 from ...igs_network import IGSNetwork
 from ...logger.logger import get_logger
 from ...matcher.fragment_matcher import FragNavMatcher, FragObsMatcher
@@ -217,8 +217,12 @@ class EpochDirectory(AbstractDirectory):
             return
 
         # Get the epoch fragments
-        obs_fragments = FragObs.fragmentify(obs_data=obs_data, parent=obs_file.name)
-        nav_fragments = FragNav.fragmentify(nav_data=nav_data, parent=nav_file.name)
+        obs_fragments = FragObs.fragmentify(
+            obs_data=obs_data, parent=obs_file.name, obs_metadata=obs_metadata
+        )
+        nav_fragments = FragNav.fragmentify(
+            nav_data=nav_data, parent=nav_file.name, nav_meta=nav_metadata
+        )
 
         self._logger.info(f"Number of OBS Fragments: {len(obs_fragments)}.")
         self._logger.info(f"Number of NAV Fragments: {len(nav_fragments)}.")

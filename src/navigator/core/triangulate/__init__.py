@@ -1,8 +1,7 @@
-"""This is an interface module for the triangulation module.
+"""This is the triangulate module for Navigator, serving as the primary module for user-end data processing for triangulation.
 
 Design Pattern:
     - Builder: The `Triangulate` class is a builder class for the `AbstractTriangulationInterface` interface.
-    - Functional: Algorithms are implemented functionally rather than object-oriented.
 
 Interface Available:
     - AbstractTriangulationInterface (abc.ABC): An abstract interface for triangulation.
@@ -10,25 +9,24 @@ Interface Available:
     - UnscentedKalmanTriangulationInterface (AbstractTriangulationInterface): A concrete class for Unscented Kalman Filter triangulation.
 
 Example Usage:
-    >>> from navigator.satlib import Triangulate, IterativeTriangulationInterface
+    >>> from navigator.core import Triangulate, IterativeTriangulationInterface
     >>> triangulator = Triangulate(interface=IterativeTriangulationInterface())
     >>> triangulator.process(obs=obs_epoch, nav_metadata=nav_metadata, obs_metadata=obs_metadata)
-
-Submodules:
-    - `algos`: Contains the algorithms for triangulation.
-    - `iterative`: Contains the iterative triangulation functional interface.
-    - `kalman`: Contains the Unscented Kalman Filter triangulation functional interface.
-    - `preprocess`: Contains the preprocessing functions for triangulation.
 
 Note:
     Use the `Triangulate` class to process GNSS data for triangulation with respective interfaces.
 
 See Also:
-    - `navigator.satlib.satellite`: Handles satellite data processing.
+    - `navigator.core.satellite`: Handles satellite data processing.
+    - `navigator.core.triangulate.itriangulate`: The Interface module for triangulation.
 
 Todo:
     - Add other triangulation algorithms.
     - Migrate to a Rust backend for performance improvement.
 """
 
-from .itriangulate import Itriangulate
+from .itriangulate.iterative.iterative_traingulation_interface import (
+    IterativeTriangulationInterface,
+)
+from .itriangulate.kalman import UnscentedKalmanTriangulationInterface
+from .triangulate import Triangulate

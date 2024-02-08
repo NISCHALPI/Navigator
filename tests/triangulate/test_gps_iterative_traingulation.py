@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
-from navigator.utility.epoch import Epoch
+from navigator.epoch import Epoch
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
-from navigator.satlib.triangulate import Triangulate, IterativeTriangulationInterface
+from navigator.core.triangulate import Triangulate, IterativeTriangulationInterface
 import numpy as np
 from pathlib import Path
 

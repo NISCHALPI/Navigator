@@ -1,6 +1,6 @@
 import pytest
 from navigator.parse import Parser, IParseGPSNav
-from navigator.satlib import Satellite, IGPSEphemeris
+from navigator.core import Satellite, IGPSEphemeris
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
 import numpy as np
 

@@ -22,8 +22,8 @@ from typing import Iterator
 
 import pandas as pd  # type: ignore
 
-from ...parse.base_parse import Parser
-from ...parse.iparse import IParseGPSNav, IParseGPSObs
+from ..parse import Parser
+from ..parse.iparse import IParseGPSNav, IParseGPSObs
 from .epochfragment import FragNav, FragObs
 
 __all__ = ["Epoch"]

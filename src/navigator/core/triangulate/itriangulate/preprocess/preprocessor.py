@@ -38,7 +38,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
-from .....utility.epoch.epoch import Epoch
+from .....epoch.epoch import Epoch
 
 __all__ = ["Preprocessor"]
 

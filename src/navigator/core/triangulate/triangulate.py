@@ -39,7 +39,7 @@ import pandas as pd
 import tqdm
 
 from ...dispatch.base_dispatch import AbstractDispatcher
-from ...utility import Epoch
+from ...epoch import Epoch
 from ...utility.igs_network import IGSNetwork
 from .itriangulate.itriangulate import Itriangulate
 

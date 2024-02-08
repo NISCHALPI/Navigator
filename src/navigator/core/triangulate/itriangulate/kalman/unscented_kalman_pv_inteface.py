@@ -21,11 +21,10 @@ from filterpy.common import Q_discrete_white_noise, Saver
 from filterpy.kalman import MerweScaledSigmaPoints, UnscentedKalmanFilter
 from pandas.core.api import DataFrame, Series
 
-from navigator.utility import Epoch
-
+from .....epoch.epoch import Epoch
+from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 from ..algos.unscented_kalman_method import fx, hx
 from ..itriangulate import Itriangulate
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 
 __all__ = ['UnscentedKalmanTriangulationInterface']
 

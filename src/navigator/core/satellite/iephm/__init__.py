@@ -8,15 +8,15 @@ Interfaces Available:
     - IGPSSp3 (AbstractIEphemeris): A concrete class for the GPS SP3 interface.
 
 Example Usage:
-    >>> from navigator.satlib import Satellite, IGPSEphemeris
+    >>> from navigator.core import Satellite, IGPSEphemeris
     >>> satellite_processor = Satellite(interface=IGPSEphemeris())
     >>> satellite_processor(filename=nav_dataframe)
 
 Note:
-    This interface is not meant to be instantiated directly. Instead, use the `Satellite` class from the `navigator.satlib` module.
+    This interface is not meant to be instantiated directly. Instead, use the `Satellite` class from the `navigator.core` module.
 
 See Also:
-    - `navigator.satlib`: The satlib module for Navigator.
+    - `navigator.core`: The satlib module for Navigator.
 """
 
 from .iephm import AbstractIephemeris
