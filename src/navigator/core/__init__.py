@@ -23,3 +23,9 @@ from .triangulate import (
     Triangulate,
     UnscentedKalmanTriangulationInterface,
 )
+from .triangulate.itriangulate.slip_detection import GeometryFreeDetector
+from .triangulate.itriangulate.smoothing import (
+    DivergenceFreeSmoother,
+    HatchFilter,
+    IonosphereFreeSmoother,
+)

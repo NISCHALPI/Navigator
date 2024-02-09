@@ -283,7 +283,12 @@ class Triangulate(AbstractTriangulate):
         """
         # Choose the compute function based on the type of epoch
         # If the epoch contains station information, use the igs_diff method
-        compute_func = self.igs_diff if hasattr(epochs[0], "station") else self._compute
+        compute_func = None
+        try:
+            epochs[0].station
+            compute_func = self.igs_diff
+        except ValueError:
+            compute_func = self._compute
 
         # Compute the triangulated location for each epoch
         results = []

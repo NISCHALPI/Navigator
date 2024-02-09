@@ -43,7 +43,7 @@ __all__ = ["BaseSmoother"]
 
 # CONSTANTS
 L1_FREQ = 1575.42e6
-L1_WAVELENGTH = 299792458 / L1_FREQ
+L1_WAVELENGTH = 299792458.0 / L1_FREQ
 
 
 class BaseSmoother(ABC):
@@ -91,12 +91,15 @@ class HatchLikeSmoother(BaseSmoother):
         _smoother_type (str): The type of the smoother.
     """
 
-    def __init__(self, smoother_type: str) -> None:
+    def __init__(self, window: int, smoother_type: str) -> None:
         """Constructs a HatchLikeSmoother object.
 
         Args:
+            window (int): The window size for the smoother.
             smoother_type (str): The type of the smoother.
         """
+        # The window size for the smoother
+        self.window = window
         # Create a SV visibility map
         self._sv_visibility_map = {}
         super().__init__(smoother_type)
@@ -177,6 +180,9 @@ class HatchLikeSmoother(BaseSmoother):
             curr_update = self._current_update(row)
             if sv in self._sv_visibility_map:
                 prev_avg_parameter[sv] = self._sv_visibility_map[sv]
+                # Check if the window size is reached
+                if prev_avg_parameter[sv][1] > self.window:
+                    prev_avg_parameter[sv] = (prev_avg_parameter[sv][0], self.window)
             else:
                 prev_avg_parameter[sv] = (curr_update, 1.0)
 
@@ -222,6 +228,19 @@ class HatchLikeSmoother(BaseSmoother):
         # Reset the sv visibility map for the next smoothing
         self._sv_visibility_map.clear()
         return smoothed
+
+    @property
+    def window(self) -> int:
+        """The window size for the smoother."""
+        return self._window
+
+    @window.setter
+    def window(self, window: int) -> int:
+        """Sets the window size for the smoother."""
+        if window <= 1:
+            raise ValueError("The window size must be greater than 1.")
+        self._window = window
+        return
 
 
 # Path: src/navigator/core/triangulate/itriangulate/smoothing/base_smoother.py

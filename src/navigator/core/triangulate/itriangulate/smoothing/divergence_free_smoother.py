@@ -11,9 +11,9 @@ __all__ = ["DivergenceFreeSmoother"]
 
 # CONSTANTS
 L1_FREQ = 1575.42e6
-L1_WAVELENGTH = 299792458 / L1_FREQ
+L1_WAVELENGTH = 299792458.0 / L1_FREQ
 L2_FREQ = 1227.60e6
-L2_WAVELENGTH = 299792458 / L2_FREQ
+L2_WAVELENGTH = 299792458.0 / L2_FREQ
 
 
 class DivergenceFreeSmoother(HatchLikeSmoother):
@@ -27,9 +27,19 @@ class DivergenceFreeSmoother(HatchLikeSmoother):
 
     alpha = 1 / ((L1_FREQ / L2_FREQ) ** 2 - 1)
 
-    def __init__(self) -> None:
-        """Constructs a DivergenceFreeSmoother object."""
-        super().__init__(smoother_type="Divergence-Free")
+    def __init__(self, window: int = 100) -> None:
+        """Constructs a DivergenceFreeSmoother object.
+
+        Args:
+            window (int): The window size for the Divergence-Free Smoother. Defaults to 100.
+
+        Note:
+            The window size determines the number of observations used for smoothing. A larger window size results in a more robust smoothing effect.
+
+        Returns:
+            None
+        """
+        super().__init__(window=window, smoother_type="Divergence-Free")
 
     def _current_update(self, sv_row: Series) -> float:
         """This method calculates the current update for divergence-free smoothing.

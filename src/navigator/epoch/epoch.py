@@ -197,19 +197,12 @@ class Epoch:
 
         Trims the data to contain only satellite vehicles present in both observations and navigation.
         """
-        # Get the common satellite vehicles
-        common_sv = self.obs_data.index.get_level_values("sv").intersection(
-            self.nav_data.index.get_level_values("sv")
-        )
-
-        # Trim the data
-        self.obs_data = self.obs_data.loc[
-            self.obs_data.index.get_level_values("sv").isin(common_sv)
-        ]
+        # Drop the satellite vehicles not present in both observation and navigation data
+        common_sv = self.common_sv.copy()
+        self.obs_data = self.obs_data.loc[common_sv]
         self.nav_data = self.nav_data.loc[
-            self.nav_data.index.get_level_values("sv").isin(common_sv)
-        ]
-
+            (slice(None), common_sv), :
+        ]  # Nav data is multi-indexed
         return
 
     def purify(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -227,7 +220,8 @@ class Epoch:
         elif "C1W" in data.columns and "C2W" in data.columns:
             data = data.dropna(subset=["C1W", "C2W"], axis=0)
 
-        return data
+        # Drop Duplicates columns
+        return data[~data.index.duplicated(keep="first")]
 
     @property
     def common_sv(self) -> pd.Index:
@@ -319,7 +313,6 @@ class Epoch:
             nearest_nav = observational_fragments.nearest_nav_fragment(
                 nav_fragments=nav_frags, mode=mode
             )
-
             if nearest_nav is None:
                 continue
 

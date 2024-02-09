@@ -64,9 +64,19 @@ class HatchFilter(HatchLikeSmoother):
         - Carrier-smoothing of code pseudoranges: https://gssc.esa.int/navipedia/index.php?title=Carrier-smoothing_of_code_pseudoranges
     """
 
-    def __init__(self) -> None:
-        """Constructs a HatchFilter object."""
-        super().__init__(smoother_type="Hatch")
+    def __init__(self, window: int = 100) -> None:
+        """Constructs a HatchFilter object.
+
+        Args:
+            window (int): The window size for the Hatch filter. Defaults to 100.
+
+        Note:
+            The window size determines the number of observations used for smoothing. A larger window size results in a more robust smoothing effect.
+
+        Returns:
+            None
+        """
+        super().__init__(window=window, smoother_type="Hatch")
 
     def _current_update(self, sv_row: Series) -> float:
         """This method calculates the current update for the Hatch filter.

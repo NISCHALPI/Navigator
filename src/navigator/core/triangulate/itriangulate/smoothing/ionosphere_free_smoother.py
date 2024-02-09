@@ -11,9 +11,9 @@ __all__ = ["IonosphereFreeSmoother"]
 
 # CONSTANTS
 L1_FREQ = 1575.42e6
-L1_WAVELENGTH = 299792458 / L1_FREQ
+L1_WAVELENGTH = 299792458.0 / L1_FREQ
 L2_FREQ = 1227.60e6
-L2_WAVELENGTH = 299792458 / L2_FREQ
+L2_WAVELENGTH = 299792458.0 / L2_FREQ
 
 
 class IonosphereFreeSmoother(HatchLikeSmoother):
@@ -30,9 +30,19 @@ class IonosphereFreeSmoother(HatchLikeSmoother):
 
     """
 
-    def __init__(self) -> None:
-        """Constructs a IonosphereFreeSmoother object."""
-        super().__init__(smoother_type="Ionosphere-Free")
+    def __init__(self, window: int = 100) -> None:
+        """Constructs a IonosphereFreeSmoother object.
+
+        Args:
+            window (int): The window size for the Divergence-Free Smoother. Defaults to 100.
+
+        Note:
+            The window size determines the number of observations used for smoothing. A larger window size results in a more robust smoothing effect.
+
+        Returns:
+            None
+        """
+        super().__init__(window=window, smoother_type="IonosphereFree")
 
     def _ion_free_combination(self, l1: float, l2: float) -> float:
         """This method calculates the ionosphere-free combination of the phase measurements.
