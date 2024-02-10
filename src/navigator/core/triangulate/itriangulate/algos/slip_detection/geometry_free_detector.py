@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 from numpy.polynomial import Polynomial
 
-from .....epoch import Epoch
+from ......epoch import Epoch
 from .base_slip_dector import BaseSlipDetector
 
 
@@ -206,4 +206,13 @@ class GeometryFreeDetector(BaseSlipDetector):
 
                 # Append the value to the queue
                 self.detector_map[satellite].append(value)
+        return
+
+    def reset(self) -> None:
+        """Resets the detector map.
+
+        Returns:
+            None
+        """
+        self.detector_map = {}
         return

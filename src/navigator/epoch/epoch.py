@@ -1,27 +1,68 @@
-"""This module defines the Epoch class.
+"""Epoch Class.
 
-The Epoch class represents an Epoch instance with observational and navigation data fragments.
-This class provides functionalities to handle and process data related to a single epoch,
-including observational and navigation data, trimming, purifying, saving, loading, and more.
+This module defines the Epoch class, representing an Epoch instance with observational and navigation data fragments. The class provides functionalities to handle and process data related to a single epoch, including observational and navigation data manipulation, trimming, purifying, saving, loading, and more.
+
+Attributes:
+    SINGLE (dict): Single Frequency Profile, specifying settings for single frequency mode.
+    DUAL (dict): Dual Frequency Profile, specifying settings for dual frequency mode.
+    INIT (dict): Initial Profile, specifying settings without applying any corrections.
 
 Classes:
     Epoch: Represents an Epoch instance with observational and navigation data fragments.
 
+Methods:
+    - __init__: Initializes an Epoch instance with observational and navigation data fragments.
+    - trim: Intersects satellite vehicles in observation and navigation data.
+    - purify: Removes observations with missing data.
+    - save: Saves the epoch to a file.
+    - load: Loads an epoch from a file.
+    - load_from_fragment: Loads an epoch from observational and navigation fragments.
+    - load_from_fragment_path: Loads an epoch from paths to observational and navigation fragments.
+
+Example:
+    ```python
+    from gnss_module import Epoch
+
+    # Create an Epoch instance
+    epoch = Epoch(obs_frag=obs_fragment, nav_frag=nav_fragment, trim=True, purify=True)
+
+    # Save the Epoch
+    epoch.save("path/to/save/epoch.pkl")
+
+    # Load the Epoch
+    loaded_epoch = Epoch.load("path/to/save/epoch.pkl")
+    ```
+
 Attributes:
-    __all__ (list[str]): List of module level attributes, classes and functions.
+    - timestamp: Get the timestamp of the epoch.
+    - obs_data: Get or set the observational data of the epoch.
+    - nav_data: Get or set the navigation data of the epoch.
+    - station: Get the station name.
+    - nav_meta: Get the navigation metadata.
+    - obs_meta: Get the observation metadata.
+    - profile: Get or set the profile of the epoch.
+    - is_smoothed: Get or set the smoothed attribute.
+
+Methods:
+    - __getitem__: Retrieve observables for a specific satellite vehicle (SV) by index.
+    - __len__: Return the number of satellite vehicles (SVs) in the epoch.
+    - __repr__: Return a string representation of the Epoch.
 
 Author:
-Name- Nischal Bhattari
-Email- nischalbhattaraipi@gmail.com
+    Nischal Bhattarai
 """
+
 
 import pickle
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path  # type: ignore
+from tempfile import TemporaryDirectory
 from typing import Iterator
 
 import pandas as pd  # type: ignore
 
+from ..download.idownload.rinex.nasa_cddis import NasaCddisV3
 from ..parse import Parser
 from ..parse.iparse import IParseGPSNav, IParseGPSObs
 from .epochfragment import FragNav, FragObs
@@ -35,29 +76,27 @@ class Epoch:
     This class provides functionalities to handle and process data related to a single epoch,
     including observational and navigation data, trimming, purifying, saving, loading, and more.
 
-    Attributes:
-        _obs_frag (FragObs): Observational data fragment for a single epoch.
-        _nav_frag (FragNav): Navigation data fragment for the corresponding epoch.
 
-    Methods:
-        __init__: Initialize an Epoch instance.
-        timestamp: Get the timestamp of the epoch.
-        obs_data: Get the observational data of the epoch.
-        obs_data.setter: Set the observational data of the epoch.
-        nav_data: Get the navigation data of the epoch.
-        nav_data.setter: Set the navigation data of the epoch.
-        trim: Intersect satellite vehicles in observation and navigation data.
-        purify: Remove observations with missing data.
-        common_sv: Get common satellite vehicles between observation and navigation data.
-        __repr__: Return a string representation of the Epoch.
-        __getitem__: Retrieve observables for a specific satellite vehicle by index.
-        __len__: Return the number of satellite vehicles in the epoch.
-        epochify: Generate Epoch instances from observation and navigation data files.
-        save: Save the epoch to a file.
-        load: Load an epoch from a file.
-        load_from_fragment: Load an epoch from fragments.
-        load_from_fragment_path: Load an epoch from fragment paths.
     """
+
+    # Single Frequency Profile
+    SINGLE = {
+        "apply_tropo": True,
+        "apply_iono": True,
+        "mode": "single",
+    }
+    # Dual Frequency Profile
+    DUAL = {
+        "apply_tropo": True,
+        "apply_iono": False,  # Iono free combination is used
+        "mode": "dual",
+    }
+    # Initial Profile [Doesn't apply any corrections]
+    INITIAL = {
+        "apply_tropo": False,
+        "apply_iono": False,
+        "mode": "single",
+    }
 
     def __init__(
         self,
@@ -74,6 +113,9 @@ class Epoch:
             nav_frag (FragNav): A Navigation data fragment i.e navigation data for crossponding epoch.
             trim (bool, optional): Whether to trim the data. Defaults to False.
             purify (bool, optional): Whether to purify the data. Defaults to False.
+
+        Returns:
+            None
         """
         # Store FragObs and FragNav
         self._obs_frag = deepcopy(
@@ -83,15 +125,19 @@ class Epoch:
             nav_frag
         )  # Need to deepcopy to avoid modifying the original object
 
-        # Flags
-        self._is_smoothed = False
-
         # Purify the data
         if purify:
             self.obs_data = self.purify(self.obs_data)
 
+        # Trim the data if required
         if trim:
             self.trim()
+
+        # Set the is_smoothed attribute
+        self._is_smoothed = False
+
+        # Define a profile for the epoch can be [dual , single]
+        self._profile = self.DUAL
 
     @property
     def timestamp(self) -> pd.Timestamp:
@@ -174,23 +220,52 @@ class Epoch:
         return self._obs_frag.metadata
 
     @property
-    def is_smoothed(self) -> bool:
-        """Check if the epoch is smoothed.
+    def profile(self) -> dict:
+        """Get the profile of the epoch.
 
         Returns:
-            bool: True if the epoch is smoothed, False otherwise.
+            dict: The profile of the epoch.
+
         """
-        return self._is_smoothed
+        return self._profile
+
+    @profile.setter
+    def profile(self, value: dict) -> None:
+        """Set the profile of the epoch.
+
+        Args:
+            value (dict): The value to set.
+
+        """
+        # Necessary keys
+        necessary_keys = ["apply_tropo", "apply_iono", "mode"]
+
+        # Check if the value contains the necessary keys
+        if not all(key in value for key in necessary_keys):
+            raise ValueError(
+                f"Profile must contain the following keys: {necessary_keys}. Got {value.keys()} instead."
+            )
+        self._profile = value
+
+    @property
+    def is_smoothed(self) -> bool:
+        """Get the smoothed attribute.
+
+        Returns:
+            bool: True if the epoch has been smoothed, False otherwise.
+
+        """
+        return self.profile.get("smoothed", False)
 
     @is_smoothed.setter
     def is_smoothed(self, value: bool) -> None:
-        """Set the is_smoothed attribute.
+        """Set the smoothed attribute.
 
         Args:
             value (bool): The value to set.
 
         """
-        self._is_smoothed = value
+        self._profile["smoothed"] = value
 
     def trim(self) -> None:
         """Intersect the satellite vehicles in the observation data and navigation data.
@@ -265,34 +340,79 @@ class Epoch:
         return len(self.obs_data)
 
     @staticmethod
-    def epochify(obs: Path, nav: Path, mode: str = "maxsv") -> Iterator["Epoch"]:
+    def _cddis_fetch(date: datetime) -> tuple[pd.Series, pd.DataFrame]:
+        """Fetch the data from CDDIS for the given date.
+
+        Args:
+            date (datetime): The date to fetch the data for.
+
+        Returns:
+            tuple[pd.Series, pd.DataFrame]: A tuple containing the metadata as a Pandas Series and the parsed data as a Pandas DataFrame.
+        """
+        # Fetch the data from CDDIS
+        downloader = NasaCddisV3(logging=True)
+        parser = Parser(iparser=IParseGPSNav())
+
+        # Set up an temporary directory
+
+        with TemporaryDirectory() as temp_dir:
+            # Download the navigation data
+            downloader.download(
+                year=date.year,
+                day=date.timetuple().tm_yday,
+                save_path=Path(temp_dir),
+                num_files=1,
+                match_string="JPL",  # Download from JPL Stations
+            )
+
+            # Get the navigation data file
+            nav_file = list(Path(temp_dir).glob("*GN*"))[0]
+
+            # Parse the navigation data
+            nav_meta, nav_data = parser(nav_file)
+
+        return nav_meta, nav_data
+
+    @staticmethod
+    def epochify(
+        obs: Path, nav: Path | None = None, mode: str = "maxsv"
+    ) -> Iterator["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 
         Args:
             obs (Path): Path to the observation data file.
-            nav (Path): Path to the navigation data file.
+            nav (Path): Path to the navigation data file. Defaults to None.
             mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
 
         Yields:
             Iterator[Epoch]: Epoch instances generated from the provided data files.
         """
         # Parse the observation and navigation data
-        parser = Parser(iparser=IParseGPSNav())
-
-        # Parse the navigation data
-        nav_meta, nav_data = parser(nav)
-
-        if nav_data.empty:
-            raise ValueError("No navigation data found.")
-
-        # Parse the observation data
-        parser.swap(iparser=IParseGPSObs())
+        parser = Parser(iparser=IParseGPSObs())
 
         # Parse the observation data
         obs_meta, data = parser(obs)
 
         if data.empty:
             raise ValueError("No observation data found.")
+
+        if nav is not None:
+            # Parse the observation data
+            parser.swap(iparser=IParseGPSObs())
+            # Parse the navigation data
+            nav_meta, nav_data = parser(nav)
+        else:
+            # Fetch the navigation data from CDDIS
+            try:
+                nav_meta, nav_data = Epoch._cddis_fetch(
+                    date=data.index[0][0]
+                )  # Data is multi-indexed (time, sv)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to fetch navigation data from CDDIS. Got the following error: {e}"
+                )
+        if nav_data.empty:
+            raise ValueError("No navigation data found.")
 
         # Get the observational fragments
         obs_frags = FragObs.fragmentify(
@@ -301,7 +421,9 @@ class Epoch:
 
         # Get the navigation fragments
         nav_frags = FragNav.fragmentify(
-            nav_data=nav_data, parent=nav.name, nav_meta=nav_meta
+            nav_data=nav_data,
+            parent=nav.name if nav is not None else None,  # Guard against None
+            nav_meta=nav_meta,
         )
 
         # Filter at least 4 satellites
@@ -309,17 +431,18 @@ class Epoch:
         nav_frags = [frag for frag in nav_frags if len(frag) >= 4]
 
         # Iterate over the fragments
-        for observational_fragments in obs_frags:
-            nearest_nav = observational_fragments.nearest_nav_fragment(
-                nav_fragments=nav_frags, mode=mode
+        yield from [
+            Epoch.load_from_fragment(
+                obs_frag=observational_fragments, nav_frag=nearest_nav
             )
-            if nearest_nav is None:
-                continue
-
-            yield Epoch.load_from_fragment(
-                obs_frag=observational_fragments,
-                nav_frag=nearest_nav,
+            for observational_fragments in obs_frags
+            if (
+                nearest_nav := observational_fragments.nearest_nav_fragment(
+                    nav_fragments=nav_frags, mode=mode
+                )
             )
+            is not None
+        ]
 
     def save(self, path: str | Path) -> None:
         """Save the epoch to a file.

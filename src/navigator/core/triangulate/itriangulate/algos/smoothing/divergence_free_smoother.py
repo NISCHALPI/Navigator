@@ -6,6 +6,7 @@ Requires the phase measurements in both L1 and L2 frequencies.
 from pandas import Series
 
 from .base_smoother import HatchLikeSmoother
+from ..slip_detection.base_slip_dector import BaseSlipDetector
 
 __all__ = ["DivergenceFreeSmoother"]
 
@@ -27,10 +28,11 @@ class DivergenceFreeSmoother(HatchLikeSmoother):
 
     alpha = 1 / ((L1_FREQ / L2_FREQ) ** 2 - 1)
 
-    def __init__(self, window: int = 100) -> None:
+    def __init__(self, slip_detector: BaseSlipDetector, window: int = 100) -> None:
         """Constructs a DivergenceFreeSmoother object.
 
         Args:
+            slip_detector (BaseSlipDetector): The slip detector to be used for the Divergence-Free Smoother.
             window (int): The window size for the Divergence-Free Smoother. Defaults to 100.
 
         Note:
@@ -39,7 +41,9 @@ class DivergenceFreeSmoother(HatchLikeSmoother):
         Returns:
             None
         """
-        super().__init__(window=window, smoother_type="Divergence-Free")
+        super().__init__(
+            slip_detector=slip_detector, window=window, smoother_type="Divergence-Free"
+        )
 
     def _current_update(self, sv_row: Series) -> float:
         """This method calculates the current update for divergence-free smoothing.
@@ -63,6 +67,17 @@ class DivergenceFreeSmoother(HatchLikeSmoother):
 
         # Compute the divergence-free update
         return C1C - L1C - (2 * self.alpha * (L1C - L2W))
+
+    def epoch_profile_update(self) -> dict[str, bool | str]:
+        """This method returns the profile update for divergence-free smoothing.
+
+        Returns:
+            dict[str, Union[bool, str]]: The profile update for the current epoch according to the smoother.
+        """
+        return {
+            "apply_iono": True,
+            "apply_tropo": True,
+        }
 
 
 # Path: src/navigator/core/triangulate/itriangulate/smoothing/divergence_free_smoother.py

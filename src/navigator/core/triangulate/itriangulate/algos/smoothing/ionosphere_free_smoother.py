@@ -6,6 +6,7 @@ Requires the phase measurements in both L1 and L2 frequencies and code measureme
 from pandas import Series
 
 from .base_smoother import HatchLikeSmoother
+from ..slip_detection.base_slip_dector import BaseSlipDetector
 
 __all__ = ["IonosphereFreeSmoother"]
 
@@ -30,10 +31,11 @@ class IonosphereFreeSmoother(HatchLikeSmoother):
 
     """
 
-    def __init__(self, window: int = 100) -> None:
+    def __init__(self, slip_detector: BaseSlipDetector, window: int = 100) -> None:
         """Constructs a IonosphereFreeSmoother object.
 
         Args:
+            slip_detector (BaseSlipDetector): The slip detector to be used for the Divergence-Free Smoother.
             window (int): The window size for the Divergence-Free Smoother. Defaults to 100.
 
         Note:
@@ -42,7 +44,9 @@ class IonosphereFreeSmoother(HatchLikeSmoother):
         Returns:
             None
         """
-        super().__init__(window=window, smoother_type="IonosphereFree")
+        super().__init__(
+            slip_detector=slip_detector, window=window, smoother_type="IonosphereFree"
+        )
 
     def _ion_free_combination(self, l1: float, l2: float) -> float:
         """This method calculates the ionosphere-free combination of the phase measurements.
@@ -81,6 +85,18 @@ class IonosphereFreeSmoother(HatchLikeSmoother):
         L_IF = self._ion_free_combination(L1C, L2W)
         # The ionosphere-free combination of the phase measurements
         return C_IF - L_IF
+
+    def epoch_profile_update(self) -> dict[str, bool | str]:
+        """This method returns the profile update for the current epoch according Ionosphere-Free Smoother.
+
+        Returns:
+            dict[str, Union[bool, str]]: The profile update for the current epoch according to the smoother.
+        """
+        return {
+            "apply_tropo": True,
+            "apply_iono": False,  # No modeled ionosphere error
+            "mode": "single",  # Ensures not to do the ionosphere-free combination
+        }
 
 
 # Path: src/navigator/core/triangulate/itriangulate/smoothing/ionosphere_free_smoother.py

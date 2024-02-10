@@ -34,10 +34,12 @@ Author:
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from typing import Union
 
 import pandas as pd
 
-from .....epoch import Epoch
+from ......epoch import Epoch
+from ..slip_detection.base_slip_dector import BaseSlipDetector
 
 __all__ = ["BaseSmoother"]
 
@@ -91,17 +93,22 @@ class HatchLikeSmoother(BaseSmoother):
         _smoother_type (str): The type of the smoother.
     """
 
-    def __init__(self, window: int, smoother_type: str) -> None:
+    def __init__(
+        self, window: int, smoother_type: str, slip_detector: BaseSlipDetector
+    ) -> None:
         """Constructs a HatchLikeSmoother object.
 
         Args:
             window (int): The window size for the smoother.
             smoother_type (str): The type of the smoother.
+            slip_detector (BaseSlipDetector): The slip detector for the smoother.
         """
         # The window size for the smoother
         self.window = window
         # Create a SV visibility map
         self._sv_visibility_map = {}
+        # The slip detector for the smoother
+        self._slip_detector = slip_detector
         super().__init__(smoother_type)
 
     def _update_sv_visibility_map(
@@ -145,6 +152,9 @@ class HatchLikeSmoother(BaseSmoother):
         # Attach Smooth flag to the epoch
         current_epoch.is_smoothed = True
 
+        # Attach the profile update for the current epoch
+        current_epoch.profile.update(self.epoch_profile_update())
+
         return current_epoch
 
     def _update(
@@ -172,19 +182,24 @@ class HatchLikeSmoother(BaseSmoother):
         ):
             raise ValueError("The range measurements are not available for smoothing.")
 
+        # Detect the cycle slips
+        cycle_slips = self._slip_detector.update(current_epoch)
+
         for sv, row in current_epoch.obs_data.iterrows():
             # Grab the measurements
             L1C = row["L1C"] * L1_WAVELENGTH
 
             # Hatch Like Update
             curr_update = self._current_update(row)
-            if sv in self._sv_visibility_map:
+
+            # Reset the average parameter if the SV is not visible or there is a cycle slip
+            if sv not in self._sv_visibility_map or cycle_slips[sv]:
+                prev_avg_parameter[sv] = (curr_update, 1.0)
+            elif sv in self._sv_visibility_map:
                 prev_avg_parameter[sv] = self._sv_visibility_map[sv]
                 # Check if the window size is reached
                 if prev_avg_parameter[sv][1] > self.window:
                     prev_avg_parameter[sv] = (prev_avg_parameter[sv][0], self.window)
-            else:
-                prev_avg_parameter[sv] = (curr_update, 1.0)
 
             # Calculate the current count of updates
             N = prev_avg_parameter[sv][1]
@@ -222,12 +237,23 @@ class HatchLikeSmoother(BaseSmoother):
         Returns:
             Epoch: A list of smoothed epochs.
         """
+        # Reset the slip detector
+        self._slip_detector.reset()  # For new smoothing
         # Calculate the smoothed epochs
         smoothed = [self._smoothing_logic(deepcopy(epoch)) for epoch in epoches]
 
         # Reset the sv visibility map for the next smoothing
         self._sv_visibility_map.clear()
         return smoothed
+
+    @abstractmethod
+    def epoch_profile_update(self) -> dict[str, Union[bool, str]]:
+        """This method returns the profile update for the current epoch according to the smoother.
+
+        Returns:
+            dict[str, Union[bool, str]]: The profile update for the current epoch.
+        """
+        pass
 
     @property
     def window(self) -> int:

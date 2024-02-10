@@ -40,7 +40,9 @@ __all__ = ["IParseGPSObs"]
 class IParseGPSObs(IParse):
     """Interface for GPS observational data parsing from RINEX files."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+    ) -> None:
         """Initialize the class."""
         super().__init__(features="gps_obs")
 
@@ -58,7 +60,9 @@ class IParseGPSObs(IParse):
         """
         # Open the RINEX navigation file using the `georinex` library
         # Returns as a `xarray.Dataset`
-        rinex_data = gr.rinexobs3(fn=filename, use="G")
+        rinex_data = gr.load(
+            rinexfn=filename, use="G", meas=["C1C", "L1C", "L2W", "C2W", "C2C", "L2C"]
+        )
 
         # Convert the `xarray.Dataset` to a `pandas.DataFrame` and metadata to a `pandas.Series`
         rinex_data = rinex_data.to_dataframe()
@@ -67,7 +71,7 @@ class IParseGPSObs(IParse):
         metadata = pd.Series(gr.rinexheader(fn=filename))
 
         # Filter the dataframme to drop all null rows
-        rinex_data = rinex_data.dropna(axis=0, thresh=10)
+        rinex_data.dropna(axis=0, thresh=4, inplace=True)
 
         # Return the metadata and data
         return metadata, rinex_data

@@ -13,7 +13,12 @@ Note:
 
 """
 
-from .ionosphere.dual_frequency_corrections import dual_channel_correction
+from .combinations import (
+    geometry_free_combination,
+    ionosphere_free_combination,
+    narrow_lane_combination,
+    wide_lane_combination,
+)
 from .ionosphere.klobuchar_ionospheric_model import klobuchar_ionospheric_correction
 from .linear_iterative_method import least_squares
 from .troposphere.tropospheric_delay import tropospheric_delay_correction

@@ -7,15 +7,17 @@ import pandas as pd
 
 from .....epoch.epoch import Epoch
 from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
-from ....satellite.iephm.sv.tools.elevation_and_azimuthal import elevation_and_azimuthal
+from ....satellite.iephm.sv.tools.elevation_and_azimuthal import (
+    elevation_and_azimuthal,
+)
 from ....satellite.satellite import Satellite
-from ..algos.ionosphere.dual_frequency_corrections import dual_channel_correction
+from ..algos.combinations.range_combinations import ionosphere_free_combination
 from ..algos.ionosphere.klobuchar_ionospheric_model import (
     klobuchar_ionospheric_correction,
 )
 from ..algos.rotations import earth_rotation_correction
+from ..algos.smoothing.base_smoother import BaseSmoother
 from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
-from ..smoothing.base_smoother import BaseSmoother
 from .preprocessor import Preprocessor
 
 __all__ = ["GPSPreprocessor"]
@@ -27,6 +29,8 @@ class GPSPreprocessor(Preprocessor):
     Args:
         Preprocessor (_type_): Abstract class for a data preprocessor.
     """
+
+    PRIOR_KWARGS = "prior"
 
     def __init__(self) -> None:
         """Initializes the preprocessor with the GPS constellation."""
@@ -48,20 +52,26 @@ class GPSPreprocessor(Preprocessor):
 
         # If C1C and C2C are both present, then compute the ionospheric correction wrt C1C and C2C
         if "C1C" in obs_data.columns and "C2C" in obs_data.columns:
-            pseudorange = dual_channel_correction(obs_data["C1C"], obs_data["C2C"])
+            pseudorange = ionosphere_free_combination(
+                obs_data["C1C"].values, obs_data["C2C"].values
+            )
         # If C1W and C2W are both present, then compute the ionospheric correction wrt C1W and C2W
         elif "C1W" in obs_data.columns and "C2W" in obs_data.columns:
             if code_warnings:
                 warn(
                     message="C1W and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
                 )
-            pseudorange = dual_channel_correction(obs_data["C1W"], obs_data["C2W"])
+            pseudorange = ionosphere_free_combination(
+                obs_data["C1W"].values, obs_data["C2W"].values
+            )
         elif "C1C" in obs_data.columns and "C2W" in obs_data.columns:
             if code_warnings:
                 warn(
                     message="C1C and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
                 )
-            pseudorange = dual_channel_correction(obs_data["C1C"], obs_data["C2W"])
+            pseudorange = ionosphere_free_combination(
+                obs_data["C1C"].values, obs_data["C2W"].values
+            )
 
         else:
             raise ValueError(
@@ -477,12 +487,8 @@ class GPSPreprocessor(Preprocessor):
             **kwargs: Additional keyword arguments.
 
         Additional Keyword Arguments:
-            mode (str, optional): Mode flag for the GPS observations ['dual', 'single']. Defaults to "dual".
-            prior (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
-            apply_iono (bool, optional): If True, then ionospheric correction is applied. Defaults to True.
-            verbose (bool, optional): If True, then warning is raised. Defaults to False.
-            init (bool, optional): If True, then initial triangulation mode is used. Defaults to False. [No iono, no tropo, single mode]
+            prior (pd.Series, optional): Prior receiver location in ECEF coordinate. Defaults to None.
+
 
         Returns:
             tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
@@ -505,37 +511,30 @@ class GPSPreprocessor(Preprocessor):
         coords = self._rotate_satellite_coordinates_to_reception_epoch(
             sv_coords=coords,
             pseudorange=obs_data["C1C"],
-            approx_receiver_location=kwargs.get("approx", None),
+            approx_receiver_location=kwargs.get(self.PRIOR_KWARGS, None),
         )
 
-        # Get the appropriate mode for the GPS observations
-        mode = kwargs.get("mode", "dual")
-        approx = kwargs.get("prior", None)
-        apply_tropo = kwargs.get("apply_tropo", True)
-        apply_iono = kwargs.get("apply_iono", True)
+        # Get the kwargs
+        approx = kwargs.get(self.PRIOR_KWARGS, None)
         verbose = kwargs.get("verbose", False)
 
-        # Initial triangulation mode override everything
-        if kwargs.get("init", False):
-            mode = "single"
-            apply_iono = False
-            apply_tropo = False
-
         # If the epoch is smoothed, then apply swap the smoothed key as C1C
-        if epoch.is_smoothed and not kwargs.get("init", False):
+        if epoch.is_smoothed:
             if BaseSmoother.SMOOOTHING_KEY in obs_data.columns:
-                obs_data["C1C"] = obs_data[BaseSmoother.SMOOOTHING_KEY]
+                obs_data["C1C"] = obs_data[
+                    BaseSmoother.SMOOOTHING_KEY
+                ]  # Swap the smoothed key as C1C
 
         # Process the mode flag for the GPS observations
         pseudorange, coords = self._dispatch_mode(
             time=epoch.timestamp,
-            mode=mode,
+            mode=epoch.profile.get("mode", "single"),
             obs_data=obs_data,
             coords=coords,
             approx=approx,
             nav_metadata=epoch.nav_meta,
-            apply_iono=apply_iono,
-            apply_tropo=apply_tropo,
+            apply_iono=epoch.profile.get("apply_iono", False),
+            apply_tropo=epoch.profile.get("apply_tropo", False),
             verbose=verbose,
         )
 

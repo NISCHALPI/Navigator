@@ -1,4 +1,4 @@
-from navigator.core.triangulate.itriangulate.preprocess import GPSPreprocessor
+from navigator.core.triangulate.itriangulate.algos.preprocess import GPSPreprocessor
 import pytest
 from navigator.epoch import Epoch
 from pathlib import Path

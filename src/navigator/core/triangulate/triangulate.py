@@ -294,12 +294,12 @@ class Triangulate(AbstractTriangulate):
         results = []
 
         # Calculate prior approximation
-        prior = epochs[0]
-
+        initial_epoch = deepcopy(epochs[0])
+        initial_epoch.profile = initial_epoch.INITIAL  # Set the profile to initial
         # Have to be careful with the first epoch since it might be smoothed and smoothed constrains might not be available
         # Compute the first epoch
         prior = self._compute(
-            epochs[0],
+            initial_epoch,
             init=True,  # Overrides anything that needs priors
         )
 

@@ -43,6 +43,7 @@ Author:
 
 from pandas import Series
 
+from ..slip_detection.base_slip_dector import BaseSlipDetector
 from .base_smoother import HatchLikeSmoother
 
 # CONSTANTS
@@ -64,10 +65,11 @@ class HatchFilter(HatchLikeSmoother):
         - Carrier-smoothing of code pseudoranges: https://gssc.esa.int/navipedia/index.php?title=Carrier-smoothing_of_code_pseudoranges
     """
 
-    def __init__(self, window: int = 100) -> None:
+    def __init__(self, slip_detector: BaseSlipDetector, window: int = 100) -> None:
         """Constructs a HatchFilter object.
 
         Args:
+            slip_detector (BaseSlipDetector): The slip detector to be used for the Hatch filter.
             window (int): The window size for the Hatch filter. Defaults to 100.
 
         Note:
@@ -76,7 +78,9 @@ class HatchFilter(HatchLikeSmoother):
         Returns:
             None
         """
-        super().__init__(window=window, smoother_type="Hatch")
+        super().__init__(
+            slip_detector=slip_detector, window=window, smoother_type="Hatch"
+        )
 
     def _current_update(self, sv_row: Series) -> float:
         """This method calculates the current update for the Hatch filter.
@@ -92,6 +96,17 @@ class HatchFilter(HatchLikeSmoother):
         L1C = sv_row["L1C"] * L1_WAVELENGTH
 
         return C1C - L1C
+
+    def epoch_profile_update(self) -> dict[str, bool | str]:
+        """This method updates the epoch profile for the Hatch filter.
+
+        Returns:
+            dict[str, Union[bool, str]]: A dictionary containing the updated epoch profile.
+        """
+        return {
+            "apply_tropo": True,
+            "apply_iono": True,
+        }
 
 
 # Path: src/navigator/core/triangulate/itriangulate/smoothing/hatch_filter.py

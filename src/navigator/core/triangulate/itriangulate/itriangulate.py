@@ -27,8 +27,8 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from ....epoch import Epoch
-from .preprocess.gps_preprocessor import GPSPreprocessor
-from .preprocess.preprocessor import Preprocessor
+from .preprocessor.gps_preprocessor import GPSPreprocessor
+from .preprocessor.preprocessor import Preprocessor
 
 __all__ = ["Itriangulate"]
 

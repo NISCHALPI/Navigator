@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from .....epoch import Epoch
+from ......epoch import Epoch
 
 
 class BaseSlipDetector(ABC):
