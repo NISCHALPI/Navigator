@@ -23,8 +23,9 @@ from pandas.core.api import DataFrame, Series
 
 from .....epoch.epoch import Epoch
 from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
-from ..algos.unscented_kalman_method import fx, hx
 from ..itriangulate import Itriangulate
+from .tools.measurement_model import measurement_function as hx
+from .tools.state_transistion import discrete_state_transistion_function as fx
 
 __all__ = ['UnscentedKalmanTriangulationInterface']
 
