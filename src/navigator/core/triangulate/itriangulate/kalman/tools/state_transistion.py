@@ -1,7 +1,7 @@
 """These functions are used to calculate the state transition matrix for kalman filter.
 
 Functions:
-- `discrete_state_transistion_function`: State transition function that converts the state vector into the next state vector in a discrete time system.
+- `constant_velocity_state_transistion`: State transition function that converts the state vector into the next state vector in a discrete time system.
 
 Note:
     Do not optimize the functions using Numba. They become slower.
@@ -9,8 +9,10 @@ Note:
 
 import numpy as np
 
+__all__ = ["constant_velocity_state_transistion"]
 
-def discrete_state_transistion_function(x: np.ndarray, dt: float) -> np.ndarray:
+
+def constant_velocity_state_transistion(x: np.ndarray, dt: float) -> np.ndarray:
     """State transition function that converts the state vector into the next state vector in a discrete time system.
 
     State vector:
@@ -26,7 +28,7 @@ def discrete_state_transistion_function(x: np.ndarray, dt: float) -> np.ndarray:
         np.ndarray: Next state vector.
     """
     # The unit velocity transition matrix
-    A = A = np.eye(2, dtype=np.float64)
+    A = np.eye(2, dtype=np.float64)
     A[0, 1] = dt
 
     # The state transition matrix

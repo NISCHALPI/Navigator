@@ -5,8 +5,8 @@ Requires the phase measurements in both L1 and L2 frequencies and code measureme
 
 from pandas import Series
 
-from .base_smoother import HatchLikeSmoother
 from ..slip_detection.base_slip_dector import BaseSlipDetector
+from .base_smoother import HatchLikeSmoother
 
 __all__ = ["IonosphereFreeSmoother"]
 

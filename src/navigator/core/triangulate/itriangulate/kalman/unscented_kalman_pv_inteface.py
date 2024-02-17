@@ -25,7 +25,7 @@ from .....epoch.epoch import Epoch
 from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 from ..itriangulate import Itriangulate
 from .tools.measurement_model import measurement_function as hx
-from .tools.state_transistion import discrete_state_transistion_function as fx
+from .tools.state_transistion import constant_velocity_state_transistion as fx
 
 __all__ = ['UnscentedKalmanTriangulationInterface']
 

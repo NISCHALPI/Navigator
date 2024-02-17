@@ -9,34 +9,49 @@ Measurement Functions:
 Note:
     Do not optimize the functions using Numba. They become slower.
 """
+
+import numba as nb
 import numpy as np
 
 __all__ = ["measurement_function", "jacobian_measurement_function"]
 
 
-def measurement_function(x: np.ndarray, sv_location: np.ndarray) -> np.ndarray:
+@nb.njit(
+    nb.float64[:](nb.float64[:], nb.float64[:, :]),
+    fastmath=True,
+    error_model="numpy",
+    parallel=True,
+)
+def measurement_function(state: np.ndarray, sv_location: np.ndarray) -> np.ndarray:
     """Nonlinear measurement function for the GPS Kalman filter problem.
 
     State vector:
-        x = [x, x_dot, y, y_dot, z, z_dot, t, t_dot]
+        state = [x, x_dot, y, y_dot, z, z_dot, t, t_dot]
 
         where x, y, z are the position coordinates in the ECEF frame, t is the clock bias in meters.
 
     Args:
-        x (np.ndarray): Current state vector.
+        state (np.ndarray): Current state vector.
         sv_location (np.ndarray): Location of the satellite in the ECEF frame.(N, 3)
 
     Returns:
         np.ndarray: Pseudorange measurement for satellite.
     """
-    # Grab the dt from the state vector
-    position = x[[0, 2, 4]]
-    dt = x[6]
+    # Grab the range from the state vector
+    position = np.array([state[0], state[2], state[4]])
+    dt = state[6]
 
     # Compute the pseudorange
-    return np.sqrt(np.power((sv_location - position), 2).sum(axis=1)) + dt
+    return np.sqrt(((position - sv_location) ** 2).sum(axis=1)) + dt
 
 
+@nb.njit(
+    nb.float64[:, :](nb.float64[:], nb.float64[:, :]),
+    fastmath=True,
+    error_model="numpy",
+    parallel=True,
+    cache=True,
+)
 def jacobian_measurement_function(
     x: np.ndarray,
     sv_location: np.ndarray,
@@ -58,18 +73,22 @@ def jacobian_measurement_function(
         np.ndarray: Linearized observation matrix. (N, 8)
     """
     # Grab the range from the state vector
-    position = x[:3]
-    x[6]
+    position = np.array([x[0], x[2], x[4]])
 
-    # Compute the Jacobian matrix
-    # Initialize the Jacobian matrix
-    H = np.zeros((len(sv_location), 8), dtype=np.float64)
+    # # Compute the Jacobian matrix
+    # # Initialize the Jacobian matrix
+    H = np.zeros((sv_location.shape[0], 8), dtype=np.float64)
+
     # Compute the pseudorange for each satellite from present state vector
-    pseudorange = np.sqrt(np.power((sv_location - position), 2).sum(axis=1))
+    pseudorange = np.sqrt(((sv_location - position) ** 2).sum(axis=1))
 
     # Add the range component
-    H[:, [0, 2, 4]] = (position - sv_location) / pseudorange[:, None]
-    # Add the clock bias component
+    derivative = (position - sv_location) / pseudorange.reshape(-1, 1)
+
+    # Attach the derivative to the Jacobian matrix
+    H[:, 0] = derivative[:, 0]
+    H[:, 2] = derivative[:, 1]
+    H[:, 4] = derivative[:, 2]
     H[:, 6] = 1
 
     return H

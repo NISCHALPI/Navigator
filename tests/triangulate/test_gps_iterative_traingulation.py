@@ -24,16 +24,9 @@ def test_traingulation_gps(epoch):
     coords = []
 
     # Trianguate all the epochs
-    prior = triangulator(epoch=epoches[0], apply_tropo=False, apply_iono=False)
-    for eph in epoches:
-        series = triangulator(
-            epoch=eph,
-            apply_tropo=True,
-            apply_iono=True,
-            prior=prior,
-        )
-        prior = series
-        coords.append(np.array([series["x"], series["y"], series["z"]]))
+    df = triangulator.triangulate_time_series(epoches)
+
+    coords = df[["x", "y", "z"]].values
 
     # Take the average of the coords
     coords = np.array(coords)

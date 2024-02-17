@@ -52,7 +52,6 @@ Author:
     Nischal Bhattarai
 """
 
-
 import pickle
 from copy import deepcopy
 from datetime import datetime
@@ -375,7 +374,7 @@ class Epoch:
 
     @staticmethod
     def epochify(
-        obs: Path, nav: Path | None = None, mode: str = "maxsv"
+        obs: Path | str, nav: Path | str | None = None, mode: str = "maxsv"
     ) -> Iterator["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 
@@ -387,6 +386,9 @@ class Epoch:
         Yields:
             Iterator[Epoch]: Epoch instances generated from the provided data files.
         """
+        # Convert the paths to Path objects
+        obs = Path(obs)
+        nav = Path(nav) if nav is not None else None
         # Parse the observation and navigation data
         parser = Parser(iparser=IParseGPSObs())
 

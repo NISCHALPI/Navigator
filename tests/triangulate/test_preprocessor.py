@@ -1,4 +1,6 @@
-from navigator.core.triangulate.itriangulate.algos.preprocess import GPSPreprocessor
+from navigator.core.triangulate.itriangulate.preprocessor.gps_preprocessor import (
+    GPSPreprocessor,
+)
 import pytest
 from navigator.epoch import Epoch
 from pathlib import Path
@@ -17,10 +19,10 @@ def test_gps_preprocessor(epoch):
     # Preprocess the epoch
     preprocessor = GPSPreprocessor()
 
+    # Do a initial profile so that no prior data is used
+    epoches[0].profile = epoches[0].INITIAL
     # Calculate the pseudoranges and sat_pos
-    pseudoranges, sat_pos = preprocessor(
-        epoches[0], apply_tropo=False, apply_iono=False
-    )
+    pseudoranges, sat_pos = preprocessor(epoches[0])
 
     # Check that the pseudoranges and sat_pos are the correct shape
     assert isinstance(pseudoranges, pd.Series)

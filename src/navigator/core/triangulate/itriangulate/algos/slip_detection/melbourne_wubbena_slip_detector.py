@@ -6,7 +6,7 @@ from .base_slip_dector import BaseSlipDetector
 class MelbourneWubbenaSlipDetector(BaseSlipDetector):
     """The Melbourne-Wubbena slip detector class."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the Melbourne-Wubbena slip detector."""
         super().__init__(detector="Melbourne-Wubbena")
 
