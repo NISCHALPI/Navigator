@@ -24,8 +24,8 @@ PSD = {
 
 def clock_process_noise_profile(
     dt: float,
-    h_0: float = 2e-19,
-    h_2: float = 2e-20,
+    h_0: float = 2e-21,
+    h_2: float = 2e-23,
 ) -> np.ndarray:
     """This function returns the clock noise profile.
 

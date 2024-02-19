@@ -35,8 +35,8 @@ def octa_state_process_noise_profile(
     S_y: float,
     S_z: float,
     dt: float,
-    h_0: float = 2e-19,
-    h_2: float = 2e-20,
+    h_0: float = 2e-21,
+    h_2: float = 2e-23,
 ) -> np.ndarray:
     """The process noise profile for the Octa-State vector.
 

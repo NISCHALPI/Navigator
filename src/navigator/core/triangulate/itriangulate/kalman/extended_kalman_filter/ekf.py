@@ -37,6 +37,7 @@ Note:
 Author:
     Nischal Bhattarai (nischalbhattaraipi@gmail.com)
 """
+
 import numpy as np
 
 from .ekf_functional_interface import ekf_predict_covariance_update, ekf_update

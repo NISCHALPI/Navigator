@@ -41,6 +41,9 @@ import tqdm
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...epoch import Epoch
 from ...utility.igs_network import IGSNetwork
+from .itriangulate.iterative.iterative_traingulation_interface import (
+    IterativeTriangulationInterface,
+)
 from .itriangulate.itriangulate import Itriangulate
 
 __all__ = ["AbstractTriangulate", "Triangulate"]
@@ -148,6 +151,33 @@ class AbstractTriangulate(ABC):
             raise TypeError("itraingulate must be an instance of Itriangulate")
 
         self._interface = interface
+
+    @staticmethod
+    def _get_initial_approx_using_wls(
+        epoch: Epoch,
+        **kwargs,
+    ) -> pd.Series:
+        """Computes the initial approximation for the reciever position using a weighted least squares method.
+
+        This is needed for most triangulation algorithms to provide an initial approximation for the receiver position to apply the
+        approximate location dependedn error model. This method computes the initial approximation using a weighted least squares method
+        that is crude since no error model is applied.
+
+        Args:
+            epoch (Epoch): Epoch containing observation data and navigation data.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            pd.Series: The initial approximation.
+        """
+        # Copy  the epoch to avoid modifying the original
+        epoch_inital = deepcopy(epoch)
+        # Set the initial  epoch profile
+        epoch_inital.profile = (
+            epoch_inital.INITIAL
+        )  # Initial profile doesn;t need any prior approximation of user position since no error model is applied
+        # Compute the initial approximation using the weighted least squares method
+        return IterativeTriangulationInterface()._compute(epoch=epoch_inital, **kwargs)
 
 
 class Triangulate(AbstractTriangulate):
@@ -293,16 +323,8 @@ class Triangulate(AbstractTriangulate):
         # Compute the triangulated location for each epoch
         results = []
 
-        # Calculate prior approximation
-        initial_epoch = deepcopy(epochs[0])
-        initial_epoch.profile = initial_epoch.INITIAL  # Set the profile to initial
-
-        # Have to be careful with the first epoch since it might be smoothed and smoothed constrains might not be available
-        # Compute the first epoch
-        prior = self._compute(
-            initial_epoch,
-            init=True,  # Overrides anything that needs priors
-        )
+        # Get the initial approximation using the first epoch
+        prior = self._get_initial_approx_using_wls(epochs[0])
 
         with tqdm.tqdm(total=len(epochs), desc="Triangulating") as pbar:
             for e in epochs:

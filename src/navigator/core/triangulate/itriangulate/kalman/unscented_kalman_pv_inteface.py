@@ -125,10 +125,12 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
         # Initialize the clock noise covariance matrix
         Q[-2:, -2:] = np.array(
             [[self.S_f * self.dt, 0], [0, 0]], dtype=np.float64
-        ) + Q_discrete_white_noise(dim=2, dt=30, var=self.S_g)
+        ) + Q_discrete_white_noise(dim=2, dt=self.dt, var=self.S_g)
 
-        # Set the process noise covariance matrix
         self.ukf.Q = Q
+
+        # # Set the process noise covariance matrix
+        # self.ukf.Q = octa_state_process_noise_profile(0, 0, 0, dt=30)
 
         # Set the measurement noise covariance matrix
         self.ukf.R = np.eye(self.num_satellite, dtype=np.float64) * self.simga_r**2
@@ -156,7 +158,6 @@ class UnscentedKalmanTriangulationInterface(Itriangulate):
             )
 
         # Remove the extra satellites from the epoch
-
         epoch.obs_data = epoch.obs_data.iloc[: self.num_satellite]
         epoch.trim()  # Remove the extra satellites from the navigation data
 
