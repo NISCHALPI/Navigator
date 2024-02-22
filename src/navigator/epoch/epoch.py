@@ -374,7 +374,7 @@ class Epoch:
 
     @staticmethod
     def epochify(
-        obs: Path | str, nav: Path | str | None = None, mode: str = "maxsv"
+        obs: Path | str, nav: Path | str | None = None, mode: str = "maxsv", **kwargs
     ) -> Iterator["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 
@@ -382,6 +382,7 @@ class Epoch:
             obs (Path): Path to the observation data file.
             nav (Path): Path to the navigation data file. Defaults to None.
             mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
+            **kwargs: Additional keyword arguments to pass to the parser.
 
         Yields:
             Iterator[Epoch]: Epoch instances generated from the provided data files.
@@ -393,7 +394,7 @@ class Epoch:
         parser = Parser(iparser=IParseGPSObs())
 
         # Parse the observation data
-        obs_meta, data = parser(obs)
+        obs_meta, data = parser(obs, **kwargs)
 
         if data.empty:
             raise ValueError("No observation data found.")

@@ -54,6 +54,32 @@ class IterativeTriangulationInterface(Itriangulate):
         """
         super().__init__(feature="GPS(Iterative)")
 
+    def _get_coords_and_covar_matrix(
+        self, epoch: Epoch, **kwargs
+    ) -> pd.DataFrame | pd.Series:
+        """Get the satellite coordinates and the covariance matrix.
+
+        Args:
+            epoch (Epoch): Epoch containing observation data and navigation data.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            pd.DataFrame | pd.Series: The satellite coordinates and the covariance matrix and UREA.
+        """
+        pseuorange, coords = self._preprocess(epoch=epoch, **kwargs)
+
+        # Send to the least squares solver to compute the solution and DOPs
+        solution, covar, sigma = least_squares(
+            pseudorange=pseuorange.to_numpy(dtype=np.float64).reshape(-1, 1),
+            sv_pos=coords[["x", "y", "z"]].to_numpy(
+                dtype=np.float64
+            ),  # Get the satellite position in ECEF
+            weight=kwargs.get("weight", np.eye(coords.shape[0], dtype=np.float64)),
+            eps=1e-6,
+        )
+
+        return solution, covar, sigma
+
     def _compute(
         self,
         epoch: Epoch,
@@ -78,17 +104,9 @@ class IterativeTriangulationInterface(Itriangulate):
         Returns:
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """
-        # Preprocess the observation and navigation data
-        pseduorange, coords = self._preprocess(epoch=epoch, **kwargs)
-
-        # Send to the least squares solver to compute the solution and DOPs
-        solution, covar, sigma = least_squares(
-            pseudorange=pseduorange.to_numpy(dtype=np.float64).reshape(-1, 1),
-            sv_pos=coords[["x", "y", "z"]].to_numpy(
-                dtype=np.float64
-            ),  # Get the satellite position in ECEF
-            weight=kwargs.get("weight", np.eye(coords.shape[0], dtype=np.float64)),
-            eps=1e-6,
+        # Get the satellite coordinates and the covariance matrix
+        solution, covar, sigma = self._get_coords_and_covar_matrix(
+            epoch=epoch, **kwargs
         )
 
         # Calculate Q

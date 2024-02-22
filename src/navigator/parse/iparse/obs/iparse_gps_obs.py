@@ -46,7 +46,9 @@ class IParseGPSObs(IParse):
         """Initialize the class."""
         super().__init__(features="gps_obs")
 
-    def parse(self, filename: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(
+        self, filename: str | Path, **kwargs
+    ) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse GPS observational data from a RINEX file.
 
         This method parses GPS observational data from a RINEX file using the 'georinex' library, converts it to a
@@ -54,6 +56,7 @@ class IParseGPSObs(IParse):
 
         Args:
             filename (str | Path): The path to the RINEX file to parse.
+            kwargs: Additional keyword arguments to pass to the parser.
 
         Returns:
             Tuple[pd.Series, pd.DataFrame]: A tuple containing the metadata as a Pandas Series and the parsed data as a Pandas DataFrame.
@@ -61,7 +64,10 @@ class IParseGPSObs(IParse):
         # Open the RINEX navigation file using the `georinex` library
         # Returns as a `xarray.Dataset`
         rinex_data = gr.load(
-            rinexfn=filename, use="G", meas=["C1C", "L1C", "L2W", "C2W", "C2C", "L2C"]
+            rinexfn=filename,
+            use="G",
+            meas=["C1C", "L1C", "L2W", "C2W", "C2C", "L2C"],
+            **kwargs,
         )
 
         # Convert the `xarray.Dataset` to a `pandas.DataFrame` and metadata to a `pandas.Series`

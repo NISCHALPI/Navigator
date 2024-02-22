@@ -13,6 +13,7 @@ Note:
     These functions are not intended for further modification or optimization using Numba, as their design already maximizes computational efficiency.
 
 """
+
 import numba as nb
 import numpy as np
 
@@ -89,3 +90,39 @@ def ekf_update(
     P = (np.eye(K.shape[0]) - K @ H) @ P_prior
 
     return x, P
+
+
+@nb.njit(
+    nb.types.Tuple((nb.float64[:], nb.float64[:, :]))(
+        nb.float64[:],
+        nb.float64[:],
+        nb.float64[:, :],
+        nb.float64[:, :],
+        nb.float64[:, :],
+    ),
+    fastmath=True,
+    error_model="numpy",
+    parallel=True,
+    cache=True,
+)
+def kalman_gain(
+    P_prior: np.ndarray,
+    H: np.ndarray,
+    R: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the Kalman gain for the Extended Kalman Filter (EKF).
+
+    Args:
+        P_prior (np.ndarray): Prior state covariance matrix.
+        H (np.ndarray): Measurement matrix.
+        R (np.ndarray): Measurement noise covariance matrix.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Kalman gain and innovation covariance.
+    """
+    # Innovation covariance
+    S = H @ P_prior @ H.T + R
+    # Compute the Kalman gain
+    K = P_prior @ H.T @ np.linalg.inv(S)
+
+    return K, S

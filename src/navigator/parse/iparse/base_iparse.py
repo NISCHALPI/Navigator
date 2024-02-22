@@ -73,11 +73,12 @@ class IParse(ABC):
         return f"Iparser({self._features})" if self._features else "Iparser()"
 
     @abstractmethod
-    def parse(self, filename: str) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(self, filename: str, **kwargs) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """[Abstract Method] Parse data from a file.
 
         Args:
             filename (str): The path to the file to be parsed.
+            kwargs: Additional keyword arguments to pass to the parser.
 
         Returns:
             tp.Tuple[pd.Series, pd.DataFrame]: A tuple containing parsed metadata (as a pd.Series) and data (as a pd.DataFrame).
@@ -85,14 +86,15 @@ class IParse(ABC):
         """
         pass
 
-    def __call__(self, filepath: Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def __call__(self, filepath: Path, **kwargs) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Call method for parsing data from a file using the `_parse` method.
 
         Args:
             filepath (Path): The path to the file to be parsed.
+            kwargs: Additional keyword arguments to pass to the parser.
 
         Returns:
             Any: The result of the parsing operation, typically a tuple containing metadata and data.
 
         """
-        return self.parse(filepath)
+        return self.parse(filepath, **kwargs)

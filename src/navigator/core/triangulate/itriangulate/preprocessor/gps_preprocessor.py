@@ -215,6 +215,7 @@ class GPSPreprocessor(Preprocessor):
         """
         # Compute the tropospheric correction
         corr = []
+
         for index, row in sv_coords.iterrows():
             corr.append(
                 tropospheric_delay_correction(

@@ -149,11 +149,14 @@ class AbstractParser(ABC):
     # TO DO : def _dispatch(self) -> None:
 
     @abstractmethod
-    def parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(
+        self, filepath: str | Path, **kwargs
+    ) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse data from a file using the provided IParse interface.
 
         Args:
             filepath (str | Path): Path to the file to parse.
+            kwargs: Additional keyword arguments to pass to the iparser.
 
         Returns:
             tp.Tuple[pd.Series, pd.DataFrame]: Tuple of parsed data (metadata, data).
@@ -163,19 +166,23 @@ class AbstractParser(ABC):
         self._check_file_integrity(filepath)
 
         # Parse data
-        return self.iparser.parse(filepath)
+        return self.iparser.parse(filepath, **kwargs)
 
-    def __call__(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def __call__(
+        self, filepath: str | Path, **kwargs
+    ) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Call method for parsing data from a file.
 
         Args:
             filepath (str | Path): Path to the file to parse.
+            kwargs: Additional keyword arguments to pass to the parser.
+
 
         Returns:
             Any: The parsed data.
 
         """
-        return self.parse(filepath)
+        return self.parse(filepath, **kwargs)
 
     def __repr__(self) -> str:
         """Return a string representation of the AbstractParser instance.
@@ -249,13 +256,17 @@ class Parser(AbstractParser):
         super().__init__(iparser, logger, dispatcher)
         return
 
-    def parse(self, filepath: str | Path) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(
+        self, filepath: str | Path, **kwargs
+    ) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """Parse data from a file using the provided IParse interface.
 
         Args:
             filepath (str | Path): Path to the file to parse.
+            kwargs: Additional keyword arguments to pass to the iparser.
+
 
         Returns:
             tp.Tuple[pd.Series, pd.DataFrame]: Tuple of parsed data (metadata, data).
         """
-        return super().parse(filepath)
+        return super().parse(filepath, **kwargs)
