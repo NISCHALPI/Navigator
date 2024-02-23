@@ -38,17 +38,19 @@ Author:
     Nischal Bhattarai (nischalbhattaraipi@gmail.com)
 """
 
-
 import numpy as np
 
-from ......utility.tracker import HistoryTracker
+from ...utility.tracker.history_tracker import HistoryTracker
 from .ekf_functional_interface import (
     ekf_predict_covariance_update,
     ekf_update,
     kalman_gain,
 )
 
-__all__ = ["ExtendedKalmanFilter"]
+__all__ = [
+    "ExtendedKalmanFilter",
+    "InnovationBasedAdaptiveExtendedKalmanFilter",
+]
 
 
 class ExtendedKalmanFilter:
@@ -243,13 +245,13 @@ class ExtendedKalmanFilter:
         """
         # Compute the measurement residual
         y = y.flatten()
-        y = y - hx(self._x_prior, **hx_kwargs)
+        y_hat = y - hx(self._x_prior, **hx_kwargs)
 
         # Compute the measurement residual covariance
         H = HJacobian(self._x_prior, **HJ_kwargs)
 
         self._x_post, self._P = ekf_update(
-            y_hat=y.astype(np.float64),
+            y_hat=y_hat.astype(np.float64),
             x_prior=self._x_prior.astype(np.float64),
             P_prior=self._P.astype(np.float64),
             H=H.astype(np.float64),
@@ -262,7 +264,7 @@ class ExtendedKalmanFilter:
         # Increment the update counter
         self.update_counter += 1
 
-        return np.linalg.norm(y)
+        return np.linalg.norm(y_hat)
 
     def predict_update(
         self,
@@ -467,7 +469,7 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         dim_x: int,
         dim_y: int,
         innovation_window: int = 10,
-        adjust_after: int = 1,
+        adjust_after: int = 50,
     ) -> None:
         """Initialize the IAEKF.
 
@@ -475,7 +477,7 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
             dim_x (int): Dimension of the state vector.
             dim_y (int): Dimension of the measurement vector.
             innovation_window (int): Innovation window.
-            adjust_after (int): Number of updates before the adaptive process is triggered. Default is 1.
+            adjust_after (int): Number of updates before the adaptive process is triggered. Default is 50.
 
         Raises:
             ValueError: If the state vector dimension or the measurement vector dimension is less than 1.
@@ -498,8 +500,11 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         if innovation_window < 1:
             raise ValueError("Innovation window must be greater than 0")
 
-        if adjust_after < 1:
-            raise ValueError("Adjust after must be greater than 0")
+        if adjust_after < innovation_window:
+            raise ValueError(
+                """The number of updates before the adaptive process is triggered must be greater than the innovation window since
+                the first n covariance matrices must accumulate before the adaptive process is triggered."""
+            )
 
         # Initialize the innovation window
         self.N = innovation_window
@@ -508,19 +513,19 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         # Track innovation covar history
         self.innovation_covar_tracker = HistoryTracker(self.N)
 
-    @property
-    def CM(self) -> np.ndarray:
+    def CovInnov(self) -> np.ndarray:
         """Return the mean innovation covariance matrix.
 
         Returns:
             np.ndarray: Mean innovation covariance matrix
         """
         if self.innovation_covar_tracker.is_full:
-            return self.innovation_covar_tracker.mean()
+            # Return the mean innovation covariance matrix
+            return np.mean(self.innovation_covar_tracker.get(), axis=0)
 
         raise ValueError("Innovation covariance matrix tracker is not full")
 
-    def predict(self, F: np.ndarray, u: np.ndarray = None) -> None:
+    def predict(self, F: np.ndarray, u: np.ndarray = None) -> None:  # noqa : ARG002
         return NotImplementedError(
             """The predict method is not implemented for the Innovation-Based Adaptive Extended Kalman Filter.
             Use the predict_update method instead to perform the predict and update steps together.
@@ -542,12 +547,12 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
             """
         )
 
-    def non_linear_predict(
+    def non_linear_predict(  # noqa
         self,
-        fx: callable,
-        FJacobian: callable,
-        fx_kwargs: dict = {},
-        FJacobian_kwargs: dict = {},
+        fx: callable,  # noqa : ARG002
+        FJacobian: callable,  # noqa : ARG002
+        fx_kwargs: dict = {},  # noqa : ARG002
+        FJacobian_kwargs: dict = {},  # noqa : ARG002
     ) -> None:
         return NotImplementedError(
             """The non_linear_predict method is not implemented for the Innovation-Based Adaptive Extended Kalman Filter.
@@ -588,15 +593,21 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         """
         # Compute the priori state estimate
         x_prior = F @ self._x_post
+        if u is not None:
+            x_prior += u  # Add the control input if it is provided
+
         p_prior = ekf_predict_covariance_update(
             F=F.astype(np.float64),
-            P=self._P.astype(np.float64),
+            P_posterior=self._P.astype(np.float64),
             Q=self._Q.astype(np.float64),
         )
 
         # Compute the measurement residual
         y = y.flatten()
-        y = y - hx(x_prior, **hx_kwargs)
+        y_hat = y - hx(x_prior, **hx_kwargs)
+        y_hat = y_hat.astype(
+            np.float64
+        )  # Convert to float64 for better numerical stability
 
         # Compute the jacbian matrix
         H = HJacobian(x_prior, **HJ_kwargs)
@@ -605,9 +616,9 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         # if the after the adjust_after updates
         if self.update_counter > self.adjust_after:
             # Compute the mean
-            Mk = self.CM
+            Mk = self.CovInnov()
             # Compute the kalman gain
-            K = kalman_gain(
+            K, _ = kalman_gain(
                 self._P.astype(np.float64), H.astype(np.float64), Mk.astype(np.float64)
             )
             # Adjust the process noise covariance matrix
@@ -617,7 +628,7 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
 
         # Update the state vector
         self._x_post, self._P = ekf_update(
-            y_hat=y.astype(np.float64),
+            y_hat=y_hat.astype(np.float64),
             x_prior=x_prior.astype(np.float64),
             P_prior=p_prior.astype(np.float64),
             H=H.astype(np.float64),
@@ -632,6 +643,5 @@ class InnovationBasedAdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
 
         # Track the innovation covariance matrix
         # Add the innovation covariance matrix to the tracker
-        self.innovation_covar_tracker.add(np.outer(y, y))
-
-        return np.linalg.norm(y)
+        self.innovation_covar_tracker.add(np.outer(y_hat, y_hat.T))
+        return np.linalg.norm(y_hat)

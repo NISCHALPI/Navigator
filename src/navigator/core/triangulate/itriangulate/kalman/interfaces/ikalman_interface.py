@@ -1,7 +1,7 @@
 """This module contains the triangulation interface for the Kalman filter for GPS/GNSS triangulation.
 
 Classes:
-    KalmanTriangulationInterface
+    IKalman - The interface for the Kalman filter for GPS/GNSS triangulation.
 
 This interface is generic and can be used with any state definition and measurement models. All the Kalman filters implemented in this package should inherit from this interface.
 
@@ -13,16 +13,18 @@ from copy import deepcopy
 import numpy as np
 from pandas.core.api import DataFrame, Series
 
-from .....epoch.epoch import Epoch
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
-from ....satellite.iephm.sv.tools.elevation_and_azimuthal import elevation_and_azimuthal
-from ..iterative.iterative_traingulation_interface import (
+from ......epoch.epoch import Epoch
+from ......utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
+from .....satellite.iephm.sv.tools.elevation_and_azimuthal import (
+    elevation_and_azimuthal,
+)
+from ...iterative.iterative_traingulation_interface import (
     IterativeTriangulationInterface,
 )
-from ..itriangulate import Itriangulate
+from ...itriangulate import Itriangulate
 
 
-class KalmanTriangulationInterface(Itriangulate, ABC):
+class IKalman(Itriangulate, ABC):
     """This class provides the interface for the Kalman filter for GPS/GNSS triangulation."""
 
     def __init__(self, num_sv: int, dt: float, interface_id: str) -> None:

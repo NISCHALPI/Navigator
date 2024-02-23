@@ -1,42 +1,54 @@
-"""Unscented Kalman Method for Triangulation.
+"""This module contains the ITriangulate interface for the extended Kalman filter.
 
-This module implements the Unscented Kalman Method (UKM) for triangulation, specifically designed for the pseudorange GPS problem. UKM is a variant of the Kalman Filter that employs the Unscented Transform to estimate the next state vector. Given the non-linearity in the measurement function of the GPS problem, UKM is preferred over the traditional Kalman Filter. The dynamic model assumed here is a constant velocity model.
+Classes:
+    ExtendedKalmanInterface
 
-The state vector is defined as follows:
-x = [x, x_dot, y, y_dot, z, z_dot, t, t_dot]
+State Definitions:
+    state = [x,x_dot, y, y_dot,  z, z_dot, cdt, cdt_dot]
 
-Functions:
-- `fx`: State transition function that converts the state vector into the next state vector.
-- `hx`: Measurement function for the pseudorange GPS problem, converting the state vector into a pseudorange measurement vector.
+    where:
+        x, y, z: position in the ECEF frame
+        x_dot, y_dot, z_dot: velocity in the ECEF frame
+        cdt: clock bias in meters
+        cdt_dot: clock drift in meters per second
 
-Filter Backend:
-    filterpy.kalman.UnscentedKalmanFilter
+Measurement Definitions:
+    measurements  =  [Pseudorange]
 
-See Example At:
-    src/docs/intro/unscenetd_kalman_filter_gps.ipynb
+    where:
+        Pseudorange: pseudorange measurement in meters
+
+    Error Model:
+        The tropospheric delay and ionospheric delay are preapplyed to the pseudorange measurement by means of models or range combination.
+
 """
 
 import numpy as np
-from filterpy.kalman import MerweScaledSigmaPoints, UnscentedKalmanFilter
 from pandas.core.api import DataFrame, Series
 
 from ......epoch.epoch import Epoch
-from ..kalman_interface import KalmanTriangulationInterface
+from ......filters.extended.ekf import ExtendedKalmanFilter
 from ..tools.default_noise_models import (
     measurement_noise_profile,
     octa_state_process_noise_profile,
 )
-from ..tools.measurement_model import measurement_function as hx
-from ..tools.state_transistion import constant_velocity_state_transistion as fx
+from ..tools.measurement_model import (
+    jacobian_measurement_function,
+    measurement_function,
+)
+from ..tools.state_transistion import constant_velocity_state_transistion
+from .ikalman_interface import IKalman
 
-__all__ = ['UnscentedKalmanTriangulationInterface']
+
+class ExtendedKalmanInterface(IKalman):
+    """This class provides the interface for the extended Kalman filter.
+
+    The extended Kalman filter is used to estimate the state of the system given a series of measurements.
 
 
-class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
-    """Unscented Kalman Method for Triangulation Interface.
+    Reference:
+        https://apps.dtic.mil/sti/tr/pdf/AD1010622.pdf
 
-    This class implements the Unscented Kalman Filter for triangulation.
-    A constant velocity model is assumed for the state transition function.
     """
 
     state = ["x", "x_dot", "y", "y_dot", "z", "z_dot", "cdt", "cdt_dot"]
@@ -54,26 +66,24 @@ class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
         h_2: float = 2e-23,
         initial_guess: Series = None,
     ) -> None:
-        """Initializes an instance of the Unscented Kalman Method for Triangulation.
+        """Initialize the ExtendedKalmanInterface class.
 
         Args:
-            num_sv (int): The number of satellites to track.
+            num_sv (int): The number of satellites to track  using the extended Kalman filter.
+            sigma_r: The standard deviation of the pseudorange measurement noise.
+            S_x (float): The white noise spectral density for the random walk position error in the x-direction.
+            S_y (float): The white noise spectral density for the random walk position error in the y-direction.
+            S_z (float): The white noise spectral density for the random walk position error in the z-direction.
             dt (float): The sampling time interval in seconds.
-            sigma_r (float): The standard deviation of the measurement noise.
-            S_x (float): The standard deviation of the process noise in the x-direction.
-            S_y (float): The standard deviation of the process noise in the y-direction.
-            S_z (float): The standard deviation of the process noise in the z-direction.
-            h_0 (float): The constant term in the clock bias and drift model.
-            h_2 (float): The quadratic term in the clock bias and drift model.
-            initial_guess (Series): The initial guess for the state vector.
+            h_0 (float, optional): The coefficients of the power spectral density of the clock noise. Defaults to 2e-21.
+            h_2 (float, optional): The coefficients of the power spectral density of the clock noise. Defaults to 2e-23.
+            initial_guess (Series, optional): The initial guess for the state vector. Defaults to None.
 
-        Raises:
-            ValueError: If the number of satellites to track is less than 2.
-            ValueError: If the sampling time interval is less than or equal to 0.
+        Returns:
+            None
         """
-        super().__init__(num_sv=num_sv, dt=dt, interface_id="UncentedKalmanInterface")
+        super().__init__(num_sv=num_sv, dt=dt, interface_id="ExtendedKalmanFilter")
 
-        # Set the measurement noise standard deviation
         # The standard deviation of the pseudorange measurement noise
         if sigma_r <= 0:
             raise ValueError(
@@ -98,19 +108,14 @@ class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
 
         self.h_0, self.h_2 = h_0, h_2
 
-        # Initialize the Unscented Kalman Filter
-        self.filter = UnscentedKalmanFilter(
-            dim_x=len(self.state),  # Number of state variables
-            dim_z=self.num_sv,  # Number of measurement variables
-            dt=dt,  # Sampling time interval
-            fx=fx,  # State transition function
-            hx=hx,  # Measurement function
-            points=MerweScaledSigmaPoints(
-                n=len(self.state), alpha=0.1, beta=2.0, kappa=-1
-            ),
+        # Initialize the extended Kalman filter
+        self.filter = ExtendedKalmanFilter(
+            dim_x=len(self.state),
+            dim_y=self.num_sv,
+            innovation_window=30,
+            adjust_after=500,
         )
-
-        # Initialize the Unscented Kalman Filter
+        # Add the process noise profile
         self.filter.Q = octa_state_process_noise_profile(
             S_x=self.S_x,
             S_y=self.S_y,
@@ -119,8 +124,7 @@ class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
             h_2=self.h_2,
             dt=self.dt,
         )
-
-        # Set the measurement noise covariance matrix
+        # Add the measurement noise profile
         self.filter.R = measurement_noise_profile(self.sigma_r, self.num_sv)
 
         # Set the initial guess for the state vector
@@ -142,7 +146,7 @@ class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
             state (np.ndarray): The state vector.
 
         Returns:
-            Series: A pandas series containing the state vector.
+            Series: A pandas series containing the output provided to the user.
         """
         lat, lon, height = self._clipped_geocentric_to_ellipsoidal(
             state[0], state[2], state[4]
@@ -176,13 +180,22 @@ class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
         Returns:
             np.ndarray: The state vector after the predict and update loop.
         """
-        self.filter.predict()
-        self.filter.update(
-            z=ranges,  # The range measurements
-            sv_location=sv_coords,  # The coordinates of the satellites
-        )
+        # Predict the state and covariance matrix
+        # Predict the state and covariance matrix
+        # Note: Data Structures passed to the filter are numpy arrays not pandas series or dataframes
 
-        return self.filter.x_post
+        residual = self.filter.predict_update(
+            y=ranges,
+            F=constant_velocity_state_transistion(
+                x=np.eye(len(self.state)), dt=self.dt
+            ),  # This is a trick to get the state transition matrix  instead of the state transition function
+            hx=measurement_function,
+            HJacobian=jacobian_measurement_function,
+            hx_kwargs={"sv_location": sv_coords},
+            HJ_kwargs={"sv_location": sv_coords},
+            u=None,  # No control input for GPS problems
+        )
+        return self.filter._x_post, residual
 
     def epoch_profile(self) -> str:
         """Get the epoch profile for the respective Kalman filter.
@@ -228,9 +241,17 @@ class UnscentedKalmanTriangulationInterface(KalmanTriangulationInterface):
             observer_position=self.filter.x[[0, 2, 4]],
         )
 
-        return self.process_state(
-            self.predict_update_loop(
-                ranges=pseudorange.values,
-                sv_coords=sv_coordinates[["x", "y", "z"]].values,
-            )
+        # Run the predict and update loop
+        # Note : pass the numpy arrays to the filter instead of the pandas series or dataframes
+        rawstate, residual = self.predict_update_loop(
+            ranges=pseudorange.values,
+            sv_coords=sv_coordinates[["x", "y", "z"]].values,
         )
+
+        # Process the state
+        state = self.process_state(state=rawstate)
+
+        # Add the residual to processed state
+        state["residual"] = residual
+
+        return state

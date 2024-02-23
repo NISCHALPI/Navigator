@@ -93,9 +93,7 @@ def ekf_update(
 
 
 @nb.njit(
-    nb.types.Tuple((nb.float64[:], nb.float64[:, :]))(
-        nb.float64[:],
-        nb.float64[:],
+    nb.types.Tuple((nb.float64[:, :], nb.float64[:, :]))(
         nb.float64[:, :],
         nb.float64[:, :],
         nb.float64[:, :],

@@ -8,7 +8,7 @@ Usage:
        To track the history of the state vector of the object.
     
 """
-import statistics
+
 from queue import Queue
 from typing import Any
 
@@ -36,7 +36,7 @@ class HistoryTracker:
         self.max_history = max_history
         self.history = Queue(max_history)
 
-    def add(self, data: Any) -> None:
+    def add(self, data: Any) -> None:  # noqa : ANN
         """Add the data to the history.
 
         Args:
@@ -67,14 +67,6 @@ class HistoryTracker:
         """
         self.history = Queue(self.max_history)
 
-    def mean(self) -> Any:  # noqa
-        """Get the mean of the history.
-
-        Returns:
-            Any: The mean of the history.
-        """
-        return statistics.mean(self.history.queue)
-
     def peek(self) -> Any:  # noqa
         """Peek the last element of the history.
 
@@ -82,6 +74,30 @@ class HistoryTracker:
             Any: The last element of the history.
         """
         return self.history.queue[-1]
+
+    def is_full(self) -> bool:
+        """Check if the history is full.
+
+        Returns:
+            bool: True if the history is full, otherwise False.
+        """
+        return self.history.full()
+
+    def is_empty(self) -> bool:
+        """Check if the history is empty.
+
+        Returns:
+            bool: True if the history is empty, otherwise False.
+        """
+        return self.history.empty()
+
+    def __repr__(self) -> str:
+        """Get the string representation of the history.
+
+        Returns:
+            str: The string representation of the history.
+        """
+        return f"HistoryTracker(max_history={self.max_history})"
 
     def __len__(self) -> int:
         """Get the length of the history.

@@ -1,4 +1,4 @@
-from navigator.core.triangulate.itriangulate.kalman.extended_kalman_filter.ekf import (
+from navigator.filters import (
     ExtendedKalmanFilter,
 )
 import numpy as np
