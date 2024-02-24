@@ -120,7 +120,7 @@ class LegacySP3Matcher(Matcher):
         """Initialize the Matcher for SP3 files."""
         super().__init__(pattern=self.sp3_pattern)
 
-    def extract_metadata(self, filename: str) -> dict:
+    def extract_metadata(self, filename: str) -> dict | None:
         """Extract metadata from the filename.
 
         Args:

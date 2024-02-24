@@ -29,6 +29,7 @@ matplotlib = "^3.8.0"
 notebook = "^6.4.4"
 rise = "^5.6.1"
 assertpy = "^1.1"
+pytorch-lightning = "^2.2.0.post0"
 
 
 
@@ -79,3 +80,6 @@ include = ["./src/navigator"]
 pythonpath = [
   "src"
 ]
+
+[tool.mypy]
+disable_error_code = "import-untyped"

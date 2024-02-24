@@ -37,7 +37,7 @@ Example Usage:
 
 from abc import ABC, abstractmethod
 
-import pandas as pd
+import pandas as pd  # type: ignore
 
 __all__ = ["AbstractIephemeris"]
 

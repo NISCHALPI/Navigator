@@ -4,7 +4,7 @@ import typing as tp
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import pandas as pd
+import pandas as pd  # type: ignore
 
 __all__ = ["IParse"]
 
@@ -73,11 +73,11 @@ class IParse(ABC):
         return f"Iparser({self._features})" if self._features else "Iparser()"
 
     @abstractmethod
-    def parse(self, filename: str, **kwargs) -> tp.Tuple[pd.Series, pd.DataFrame]:
+    def parse(self, filename: Path, **kwargs) -> tp.Tuple[pd.Series, pd.DataFrame]:
         """[Abstract Method] Parse data from a file.
 
         Args:
-            filename (str): The path to the file to be parsed.
+            filename (path): The path to the file to be parsed.
             kwargs: Additional keyword arguments to pass to the parser.
 
         Returns:

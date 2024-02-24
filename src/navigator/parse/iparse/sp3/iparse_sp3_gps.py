@@ -14,6 +14,7 @@ Example:
     ```
 """
 
+from pathlib import Path
 from typing import Tuple
 
 import georinex as gr
@@ -50,17 +51,20 @@ class IParseSP3GPS(IParse):
         """Initializes the IParseSP3GPS class."""
         super().__init__("SP3-GPS")
 
-    def parse(self, filename: str) -> Tuple[Series, DataFrame]:
+    def parse(self, filename: Path, **kwargs) -> Tuple[Series, DataFrame]:
         """Parses the SP3 file to extract GPS position and clock data.
 
         Args:
             filename: The filename of the SP3 file.
+            **kwargs: Additional keyword arguments to be passed to the georinex.load_sp3 function.
 
         Returns:
             Tuple[Series, DataFrame]: A tuple containing the metadata and data extracted from the SP3 file.
         """
         # Read SP3 file
-        df = gr.load_sp3(fn=filename, outfn=None).to_dataframe().reset_index(2)
+        df = (
+            gr.load_sp3(fn=filename, outfn=None, **kwargs).to_dataframe().reset_index(2)
+        )
 
         # Pivot the dataframe with ECEF coordinates
         df = df.pivot(columns='ECEF')

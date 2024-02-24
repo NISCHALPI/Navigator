@@ -83,7 +83,7 @@ class AbstractDirectory(ABC):
 
     def print(self) -> None:
         """Print the directory tree structure."""
-        self._print_directory_tree(self.directory_path)
+        self._print_directory_tree(str(self.directory_path))
 
     def __repr__(self) -> str:
         """Return a string representation of the AbstractDirectory object."""

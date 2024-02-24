@@ -1,1 +1,1 @@
-from .dynamic_docstring import dynamic_docstring
+"""Miscellaneous utility functions."""
