@@ -259,7 +259,7 @@ class Triangulate(AbstractTriangulate):
         computed = self._compute(epoch, *args, **kwargs)
 
         # Calculate the difference between the computed and actual locations
-        computed['diff'] = np.linalg.norm(computed[['x', 'y', 'z']] - actual)
+        computed["diff"] = np.linalg.norm(computed[["x", "y", "z"]] - actual)
         return computed
 
     def igs_real_coords(
@@ -293,7 +293,7 @@ class Triangulate(AbstractTriangulate):
         Returns:
             np.ndarray: The computed triangulated location.
         """
-        return self._compute(epoch, *args, **kwargs)[['x', 'y', 'z']].to_numpy()
+        return self._compute(epoch, *args, **kwargs)[["x", "y", "z"]].to_numpy()
 
     def triangulate_time_series(
         self,

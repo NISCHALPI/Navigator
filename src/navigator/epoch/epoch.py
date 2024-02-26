@@ -97,6 +97,9 @@ class Epoch:
         "mode": "single",
     }
 
+    ALLOWED_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
+    MANDATORY_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
+
     def __init__(
         self,
         obs_frag: FragObs,
@@ -236,13 +239,10 @@ class Epoch:
             value (dict): The value to set.
 
         """
-        # Necessary keys
-        necessary_keys = ["apply_tropo", "apply_iono", "mode"]
-
         # Check if the value contains the necessary keys
-        if not all(key in value for key in necessary_keys):
+        if not all(key in value for key in Epoch.MANDATORY_PROFILE_KEYS):
             raise ValueError(
-                f"Profile must contain the following keys: {necessary_keys}. Got {value.keys()} instead."
+                f"Profile must contain the following keys: {Epoch.MANDATORY_PROFILE_KEYS}. Got {value.keys()} instead."
             )
         self._profile = value
 

@@ -261,7 +261,7 @@ class Satellite(AbstractSatellite):
 
         # Get the figure
         fig = plt.figure(figsize=(10, 8), dpi=300)
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection="3d")
 
         for i in range(trajectory.shape[0]):  # For each satellite
             ax.plot(

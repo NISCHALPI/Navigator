@@ -52,7 +52,7 @@ from ....utility.ftpserver import FTPFSServer
 from ....utility.logger.logger import get_logger
 from ....utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
 
-__all__ = ['NasaCddisV3']
+__all__ = ["NasaCddisV3"]
 
 
 class NasaCddisV3:

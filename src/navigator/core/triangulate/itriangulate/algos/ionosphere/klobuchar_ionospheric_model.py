@@ -34,7 +34,7 @@ Note:
 import numba as nb
 import numpy as np
 
-__all__ = ['klobuchar_ionospheric_correction']
+__all__ = ["klobuchar_ionospheric_correction"]
 
 # CONSTANTS
 L1_FREQUENCY = 1.57542e9  # Hz

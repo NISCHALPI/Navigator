@@ -11,7 +11,7 @@ def test_epochify(obsfilepath, navfilepath):
     nav_path = Path(navfilepath)
 
     # Epochify the data
-    epochified = list(Epoch.epochify(obs_path, nav_path, mode='maxsv'))
+    epochified = list(Epoch.epochify(obs_path, nav_path, mode="maxsv"))
 
     # Check the length of the epochified data
     assert len(epochified) == 120
@@ -32,7 +32,7 @@ def test_mode(obsfilepath, navfilepath):
     nav = Path(navfilepath)
 
     with pytest.raises(ValueError):
-        list(Epoch.epochify(obs=obs, nav=nav, mode='invalid_mode'))
+        list(Epoch.epochify(obs=obs, nav=nav, mode="invalid_mode"))
 
 
 def test_epochify_different_modes(obsfilepath, navfilepath):
@@ -41,9 +41,9 @@ def test_epochify_different_modes(obsfilepath, navfilepath):
     nav = Path(navfilepath)
 
     # Test mode 'meansv'
-    epochified_mean = list(Epoch.epochify(obs=obs, nav=nav, mode='nearest'))
+    epochified_mean = list(Epoch.epochify(obs=obs, nav=nav, mode="nearest"))
     assert len(epochified_mean) == 120
 
     # Test mode 'maxsv'
-    epochified_max = list(Epoch.epochify(obs=obs, nav=nav, mode='maxsv'))
+    epochified_max = list(Epoch.epochify(obs=obs, nav=nav, mode="maxsv"))
     assert len(epochified_max) == 120

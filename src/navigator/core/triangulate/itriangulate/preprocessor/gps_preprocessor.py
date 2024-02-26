@@ -155,7 +155,7 @@ class GPSPreprocessor(Preprocessor):
         else:
             # Check if ['x', 'y', 'z'] are present in the approx_receiver_location
             if not all(
-                [coord in approx_receiver_location.index for coord in ['x', 'y', 'z']]
+                [coord in approx_receiver_location.index for coord in ["x", "y", "z"]]
             ):
                 raise ValueError(
                     "Invalid approx_receiver_location. Must contain ['x', 'y', 'z'] coordinates."
@@ -163,12 +163,12 @@ class GPSPreprocessor(Preprocessor):
             # Compute the dt using method in Equation 5.13 in ESA GNSS Book
             # https://gssc.esa.int/navipedia/GNSS_Book/ESA_GNSS-Book_TM-23_Vol_I.pdf
             dt = (
-                sv_coords[['x', 'y', 'z']] - approx_receiver_location[['x', 'y', 'z']]
+                sv_coords[["x", "y", "z"]] - approx_receiver_location[["x", "y", "z"]]
             ).apply(lambda row: row.dot(row) ** 0.5 / 299792458, axis=1)
 
         # Rotate the satellite coordinates to the reception epoch
-        sv_coords[['x', 'y', 'z']] = earth_rotation_correction(
-            sv_position=sv_coords[['x', 'y', 'z']].to_numpy(dtype=np.float64),
+        sv_coords[["x", "y", "z"]] = earth_rotation_correction(
+            sv_position=sv_coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
             dt=dt.to_numpy(dtype=np.float64).ravel(),
         )
 
@@ -188,8 +188,8 @@ class GPSPreprocessor(Preprocessor):
         """
         # Compute the azimuth and elevation of the satellites
         E, A = elevation_and_azimuthal(
-            sv_coords[['x', 'y', 'z']].values,
-            approx_receiver_location[['x', 'y', 'z']].values,
+            sv_coords[["x", "y", "z"]].values,
+            approx_receiver_location[["x", "y", "z"]].values,
         )
 
         # Attach the azimuth and elevation to the satellite coordinates

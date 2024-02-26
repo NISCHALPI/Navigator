@@ -5,8 +5,8 @@ from pathlib import Path
 import click
 
 from ...epoch.epoch_directory import EpochDirectory
-from ..data_tools.standerd_directory import StanderdDirectory
 from ..logger.logger import get_logger
+from ..rinex_data_tools.standerd_directory import StanderdDirectory
 
 
 @click.group(invoke_without_command=True, no_args_is_help=True)
@@ -38,8 +38,8 @@ def main(ctx: click.Context, verbose: bool) -> None:
 @main.command()
 @click.pass_context
 @click.option(
-    '-dp',
-    '--data-path',
+    "-dp",
+    "--data-path",
     required=True,
     type=click.Path(
         exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path
@@ -68,8 +68,8 @@ def standerize(ctx: click.Context, data_path: Path) -> None:
 @main.command()
 @click.pass_context
 @click.option(
-    '-dp',
-    '--data-path',
+    "-dp",
+    "--data-path",
     required=True,
     type=click.Path(
         exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path
@@ -77,8 +77,8 @@ def standerize(ctx: click.Context, data_path: Path) -> None:
     help="Path to RINEX directory containing RINEX files.",
 )
 @click.option(
-    '-ep',
-    '--epoch-dir-path',
+    "-ep",
+    "--epoch-dir-path",
     required=True,
     type=click.Path(
         exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path
@@ -86,8 +86,8 @@ def standerize(ctx: click.Context, data_path: Path) -> None:
     help="Path to directory to save epochified RINEX files.",
 )
 @click.option(
-    '-p',
-    '--process',
+    "-p",
+    "--process",
     required=False,
     type=click.IntRange(min=1),
     default=1,

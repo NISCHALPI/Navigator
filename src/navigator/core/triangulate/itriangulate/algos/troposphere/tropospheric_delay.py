@@ -17,7 +17,7 @@ import numpy as np
 from .egnos_tropospheric_correction_model import EgnosTroposphericModel
 from .neil_mapping import NeilMapping
 
-__all__ = ['tropospheric_delay_correction']
+__all__ = ["tropospheric_delay_correction"]
 
 
 def tropospheric_delay_correction(

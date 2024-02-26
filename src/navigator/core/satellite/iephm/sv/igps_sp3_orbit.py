@@ -119,15 +119,15 @@ class IGPSSp3(AbstractIephemeris):
         t0 = subset.index[0]
 
         # Time difference between the subset and the given time
-        subset['time_elapsed'] = (subset.index.to_series()).apply(
+        subset["time_elapsed"] = (subset.index.to_series()).apply(
             lambda x: (x - t0).total_seconds()
         )
 
         # Fit a 11 degree polynomial to the x,y,z data
-        x = subset['x']
-        y = subset['y']
-        z = subset['z']
-        t_x = subset['time_elapsed']
+        x = subset["x"]
+        y = subset["y"]
+        z = subset["z"]
+        t_x = subset["time_elapsed"]
 
         # Fit a 11 degree polynomial to the x,y,z data
         x_poly = Polynomial.fit(t_x, x, 10)

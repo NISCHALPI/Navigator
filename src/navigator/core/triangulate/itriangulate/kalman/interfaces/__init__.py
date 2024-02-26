@@ -5,5 +5,5 @@ Classes:
 
 """
 
-from .extend_kalman_interface import ExtendedKalmanInterface
-from .unscented_kalman_inteface import UnscentedKalmanTriangulationInterface
+from .spp_extend_kalman_interface import ExtendedKalmanInterface
+from .spp_unscented_kalman_inteface import UnscentedKalmanTriangulationInterface
