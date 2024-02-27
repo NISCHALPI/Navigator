@@ -82,6 +82,10 @@ class EpochCollection:
     def __init__(self, epochs: List[Epoch], profile: dict[str] = Epoch.DUAL) -> None:
         """Initializes the class with a list of Epoch objects.
 
+        This class provides a flexible and efficient way to manage a sequence of Epoch objects,
+        each capturing distinct points in time related to satellite tracking.
+
+
         Args:
             epochs (List[Epoch]): A list of Epoch objects.
             profile (dict, optional): The profile of the collection of epochs. Defaults to Epoch.DUAL.
@@ -208,7 +212,8 @@ class EpochCollection:
             # Update the start index for the next segment
             start = metadata["resume_from"]
 
-        return continuous_tracks
+        # Sort the continuous tracks in descending order
+        return sorted(continuous_tracks, reverse=True)
 
     def append(self, epoch: Epoch) -> None:
         """Appends a new Epoch object to the collection.
@@ -291,7 +296,7 @@ class EpochCollection:
     def __iter__(self) -> Iterator[Epoch]:
         """Returns an iterator over the Epoch objects."""
         # Update the profile of the epochs with the profile of the collection
-        for epoch in self._epoch:
+        for epoch in self._epochs:
             epoch.profile = self._profile
             yield epoch
 

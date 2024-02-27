@@ -25,16 +25,16 @@ from pandas.core.api import DataFrame, Series
 
 from ......epoch.epoch import Epoch
 from ...algos.combinations import ionosphere_free_combination
-from ..tools.ppp.measurement import ppp_measurement_model as hx
-from ..tools.ppp.noise import ppp_process_noise
-from ..tools.ppp.state_transistion import ppp_state_transistion_matrix as fx
-from ..tools.spp.default_noise_models import octa_state_process_noise_profile
+from ..tools.code_based.default_noise_models import octa_state_process_noise_profile
+from ..tools.phase_based.measurement import ppp_measurement_model
+from ..tools.phase_based.noise import ppp_process_noise
+from ..tools.phase_based.state_transistion import ppp_state_transistion_matrix
 from .ikalman_interface import IKalman
 
-__all__ = ["PPPUnscentedKalmanTriangulationInterface"]
+__all__ = ["PhaseBasedUnscentedKalmanTriangulationInterface"]
 
 
-class PPPUnscentedKalmanTriangulationInterface(IKalman):
+class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
     """Unscented Kalman Method for Triangulation Interface.
 
     This class implements the Unscented Kalman Filter for triangulation.
@@ -46,19 +46,20 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
     L1_PHASE_ON = "L1C"
     L2_PHASE_ON = "L2W"
 
+    L1_WAVELENGTH = 0.1902936727983649
+    L2_WAVELENGTH = 0.2442102134245683
+
     state = [
-        "x",
-        "x_dot",
-        "y",
-        "y_dot",
-        "z",
-        "z_dot",
-        "cdt",
-        "cdt_dot",
-        "t_wet",
-        "lambda_N",
-        "delta_code",
-        "delta_phase",
+        "x",  # x position
+        "x_dot",  # x velocity
+        "y",  # y position
+        "y_dot",  # y velocity
+        "z",  # z position
+        "z_dot",  # z velocity
+        "cdt",  # clock bias
+        "cdt_dot",  # clock drift
+        "t_wet",  # wet tropospheric delay
+        "lambda_N",  # integer ambiguity of num_sv satellites i.e num_sv integer ambiguity
     ]
     measurement = ["pseudorange", "carrier_phase"]
 
@@ -122,16 +123,19 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
 
         self.h_0, self.h_2 = h_0, h_2
 
+        # Set the state transition function
+        self.F = ppp_state_transistion_matrix(dt=self.dt, num_sv=self.num_sv)
+
         # Initialize the Unscented Kalman Filter
         self.filter = UnscentedKalmanFilter(
-            dim_x=len(self.state),  # Number of state variables
+            dim_x=(9 + 1 * self.num_sv),  # Number of state variables
             dim_z=self.num_sv
             * 2,  # Number of measurement variables count twice since we have code and phase measurements
             dt=dt,  # Sampling time interval
-            fx=fx,  # State transition function
-            hx=hx,  # Measurement function
+            hx=ppp_measurement_model,  # Measurement function
+            fx=self.fx,  # State transition function
             points=MerweScaledSigmaPoints(
-                n=len(self.state), alpha=0.1, beta=2.0, kappa=-1
+                n=(9 + 1 * self.num_sv), alpha=0.1, beta=2.0, kappa=-1
             ),
         )
 
@@ -139,16 +143,19 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
         self.filter.Q = ppp_process_noise(
             sigma_trop=sigma_tropr,
             sigma_bias=sigma_bias,
+            num_sv=self.num_sv,
         )
-        self.filter.Q[:8, :8] = octa_state_process_noise_profile(
-            S_x=self.S_x,
-            S_y=self.S_y,
-            S_z=self.S_z,
-            dt=self.dt,
-        )
+        # self.filter.Q[:8, :8] = octa_state_process_noise_profile(
+        #     S_x=self.S_x,
+        #     S_y=self.S_y,
+        #     S_z=self.S_z,
+        #     dt=self.dt,
+        # )
 
         # Set the measurement noise covariance matrix
-        self.filter.R = np.eye(self.num_sv * 2) * sigma_r**2
+        self.filter.R = np.eye(self.num_sv * 2) * self.sigma_r**2
+        # Set the phase measurement noise covariance matrix
+        self.filter.R[self.num_sv :, self.num_sv :] /= 1000
 
         # Set the initial guess for the state vector
         if initial_guess is not None:
@@ -157,10 +164,23 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
             )
             self.filter.x[[0, 2, 4]] = initial_guess[["x", "y", "z"]].values
 
-        # Set the initial guess for the state covariance matrix
-        self.filter.P *= 1000
-        # Set the Initial Process Noise of Clock Estimate
-        self.filter.P[6, 6] = 2 * self.filter.Q[6, 6]
+        # # Set the initial guess for the state covariance matrix
+        # self.filter.P
+
+        # Initialize the initial sv_map
+        self.sv_map = {}
+
+    def fx(self, x: np.ndarray, dt: float) -> np.ndarray:
+        """State transition function that converts the state vector into the next state vector.
+
+        Args:
+            x (np.ndarray): The state vector.
+            dt (float): The sampling time interval in seconds.
+
+        Returns:
+            np.ndarray: The next state vector.
+        """
+        return self.F @ x
 
     def process_state(self, state: np.ndarray) -> Series:
         """Process the state vector.
@@ -174,8 +194,8 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
         lat, lon, height = self._clipped_geocentric_to_ellipsoidal(
             state[0], state[2], state[4]
         )
-
-        return Series(
+        # Return the state vector as a pandas series
+        return_val = Series(
             {
                 "x": state[0],
                 "y": state[2],
@@ -189,11 +209,14 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
                 "cdt": state[6],
                 "cdt_dot": state[7],
                 "t_wet": state[8],
-                "lambda_N": state[9],
-                "delta_code": state[10],
-                "delta_phase": state[11],
             }
         )
+
+        # Update the integer ambiguity, code and phase bias
+        for i in range(self.num_sv):
+            return_val[f"lambda_N{i}"] = state[9 + i]
+
+        return return_val
 
     def predict_update_loop(
         self, psedurange: np.ndarray, sv_coords: np.ndarray
@@ -209,7 +232,7 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
             np.ndarray: The state vector after the predict and update loop.
         """
         self.filter.predict()
-        self.filter.update(z=psedurange, sv_matrix=sv_coords)
+        self.filter.update(z=psedurange, sv_matrix=sv_coords, num_sv=self.num_sv)
         return self.filter.x_post
 
     def epoch_profile(self) -> str:
@@ -222,6 +245,30 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
             str: The epoch profile that is updated for each epoch.
         """
         return {"apply_tropo": False, "mode": "single", "apply_iono": False}
+
+    def _get_pseudorange(self, epoch: Epoch) -> np.ndarray:
+        """Get the IF free pseudorange measurements for the current epoch.
+
+        Args:
+            epoch (Epoch): The epoch to be processed.
+
+        Returns:
+            np.ndarray: The pseudorange measurements for the current epoch.
+        """
+        # Get the ionosphere free combination
+        l1, l2 = epoch.obs_data[self.L1_PHASE_ON], epoch.obs_data[self.L2_PHASE_ON]
+        c1, c2 = epoch.obs_data[self.L1_CODE_ON], epoch.obs_data[self.L2_CODE_ON]
+
+        # Scale the phase measurements to meters
+        l1 = l1 * self.L1_WAVELENGTH
+        l2 = l2 * self.L2_WAVELENGTH
+
+        # Get the ionosphere free combination
+        ifl = ionosphere_free_combination(l1.to_numpy(), l2.to_numpy())
+        ifc = ionosphere_free_combination(c1.to_numpy(), c2.to_numpy())
+
+        # Stack and return the measurements
+        return np.hstack((ifl, ifc))
 
     def _compute(
         self,
@@ -239,43 +286,28 @@ class PPPUnscentedKalmanTriangulationInterface(IKalman):
         Returns:
             Series | DataFrame: A pandas series containing the triangulated position, DOPS, and clock bias and drift.
         """
-        # Add the needed epoch profile to the epoch before processing
-        epoch.profile = self.epoch_profile()
+        # Initialize the sv map
+        if len(self.sv_map) == 0:
+            self.sv_map = epoch.common_sv
 
-        # Get the range and sv_coordinates
-        pseudorange, sv_coordinates = self._preprocess(
-            epoch=epoch,
-            **kwargs,
-        )
-
-        # Get the first n_sv satellites
-        sv_coordinates = sv_coordinates.head(self.num_sv)
-        # Get the crossponding observations measurements
-        obs_data = epoch.obs_data.loc[sv_coordinates.index]
-
-        # Get the phase and rangle measurements
-        c1c = obs_data[self.L1_CODE_ON]
-        c2w = obs_data[self.L2_CODE_ON]
-        l1c = obs_data[self.L1_PHASE_ON] * (
-            299792458 / 1575.42e6
-        )  # L1 frequency to convert to meters
-        l2w = obs_data[self.L2_PHASE_ON] * (
-            299792458 / 1227.60e6
-        )  # L2 frequency to convert to meters
-
-        # Make a phase and code ion free combination
-        il1 = ionosphere_free_combination(
-            np.array(l1c, dtype=np.float64), np.array(l2w, dtype=np.float64)
-        )
-        ic1 = ionosphere_free_combination(
-            np.array(c1c, dtype=np.float64), np.array(c2w, dtype=np.float64)
-        )
-        # Concanaate the measurements
-        pseudorange = np.concatenate([ic1, il1], axis=0)
-
-        return self.process_state(
-            self.predict_update_loop(
-                psedurange=pseudorange,
-                sv_coords=sv_coordinates[["x", "y", "z"]].values,
+        # If the satellite is not in the sv_map, raise error since this can only be used
+        # for continuous tracking of the same satellites
+        if not all([sat in self.sv_map for sat in epoch.common_sv]):
+            raise ValueError(
+                "The satellites in the current epoch must be the same as the previous epoch since continuous tracking is assumed."
             )
+
+        # Get the pseudorange measurements
+        pseudorange = self._get_pseudorange(epoch)
+
+        # Get the satellite coordinates
+        epoch.profile = epoch.INITIAL
+        _, sv_coords = self._preprocess(epoch)
+
+        # Run the predict and update loop
+        state = self.predict_update_loop(
+            pseudorange, sv_coords[["x", "y", "z"]].to_numpy()
         )
+
+        # Process the state vector
+        return self.process_state(state)
