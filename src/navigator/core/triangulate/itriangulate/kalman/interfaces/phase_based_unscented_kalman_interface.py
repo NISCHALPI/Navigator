@@ -24,11 +24,10 @@ from filterpy.kalman import MerweScaledSigmaPoints, UnscentedKalmanFilter
 from pandas.core.api import DataFrame, Series
 
 from ......epoch.epoch import Epoch
-from ...algos.combinations import ionosphere_free_combination
-from ..tools.code_based.default_noise_models import octa_state_process_noise_profile
-from ..tools.phase_based.measurement import ppp_measurement_model
-from ..tools.phase_based.noise import ppp_process_noise
-from ..tools.phase_based.state_transistion import ppp_state_transistion_matrix
+from ......utility.transforms.coordinate_transforms import ellipsoidal_to_geocentric
+from ..tools.phase_based.measurement import phase_measurement_model
+from ..tools.phase_based.noise import phase_process_noise_profile
+from ..tools.phase_based.state_transistion import phase_state_transistion_matrix
 from .ikalman_interface import IKalman
 
 __all__ = ["PhaseBasedUnscentedKalmanTriangulationInterface"]
@@ -41,25 +40,17 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
     A constant velocity model is assumed for the state transition function.
     """
 
-    L1_CODE_ON = "C1C"
-    L2_CODE_ON = "C2W"
-    L1_PHASE_ON = "L1C"
-    L2_PHASE_ON = "L2W"
-
-    L1_WAVELENGTH = 0.1902936727983649
-    L2_WAVELENGTH = 0.2442102134245683
-
     state = [
-        "x",  # x position
-        "x_dot",  # x velocity
-        "y",  # y position
-        "y_dot",  # y velocity
-        "z",  # z position
-        "z_dot",  # z velocity
-        "cdt",  # clock bias
-        "cdt_dot",  # clock drift
-        "t_wet",  # wet tropospheric delay
-        "lambda_N",  # integer ambiguity of num_sv satellites i.e num_sv integer ambiguity
+        "lat",
+        "lat_dot",
+        "lon",
+        "lon_dot",
+        "height",
+        "height_dot",
+        "cdt",
+        "cdt_dot",
+        "t_wet",
+        "Bias",  # bias term containing the integer ambiguity, as well as the code and phase biases
     ]
     measurement = ["pseudorange", "carrier_phase"]
 
@@ -67,14 +58,15 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
         self,
         num_sv: int,
         dt: float,
-        sigma_r: float = 6,
-        S_x: float = 0.8,
-        S_y: float = 0.8,
-        S_z: float = 0.8,
+        S_lat: float = 1e-5,
+        S_lon: float = 1e-5,
+        S_h: float = 10,
+        S_wet: float = 0.1,
+        S_b: float = 100,
+        S_code: float = 5,
+        S_phase: float = 1,
         h_0: float = 2e-21,
         h_2: float = 2e-23,
-        sigma_tropr: float = 10,
-        sigma_bias: float = 10,
         initial_guess: Series = None,
     ) -> None:
         """Initializes an instance of the Unscented Kalman Method for Triangulation.
@@ -83,13 +75,15 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
             num_sv (int): The number of satellites to track.
             dt (float): The sampling time interval in seconds.
             sigma_r (float): The standard deviation of the measurement noise.
-            S_x (float): The standard deviation of the process noise in the x-direction.
-            S_y (float): The standard deviation of the process noise in the y-direction.
-            S_z (float): The standard deviation of the process noise in the z-direction.
+            S_lat (float): The white noise spectral density for the random walk position error in the latitude direction.
+            S_lon (float): The white noise spectral density for the random walk position error in the longitude direction.
+            S_h (float): The white noise spectral density for the random walk position error in the height direction.
             h_0 (float): The constant term in the clock bias and drift model.
             h_2 (float): The quadratic term in the clock bias and drift model.
-            sigma_tropr (float): The standard deviation of the tropospheric delay.
-            sigma_bias (float): The standard deviation of the code and phase biases.
+            S_wet (float): The white noise spectral density for the random walk position error in the wet tropospheric delay.
+            S_b (float): The white noise spectral density for the random walk position error in the phase bias.
+            S_code (float): The standard deviation of the pseudorange measurement noise.
+            S_phase (float): The standard deviation of the phase measurement noise.
             initial_guess (Series): The initial guess for the state vector.
 
         Raises:
@@ -100,20 +94,20 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
 
         # Set the measurement noise standard deviation
         # The standard deviation of the pseudorange measurement noise
-        if sigma_r <= 0:
+        if S_code < 0 or S_phase < 0:
             raise ValueError(
-                "The standard deviation of the pseudorange measurement noise must be positive."
+                "The standard deviation of the pseudorange measurement or phase noise must be non-negative."
             )
 
-        self.sigma_r = sigma_r
+        self.S_code, self.S_phase = S_code, S_phase
 
         # The white noise spectral density for the random walk position error in the x-direction
-        if S_x < 0 or S_y < 0 or S_z < 0:
+        if S_lat < 0 or S_lon < 0 or S_h < 0 or S_wet < 0 or S_b < 0:
             raise ValueError(
                 "The white noise spectral density for the random walk position error must be non-negative."
             )
-
-        self.S_x, self.S_y, self.S_z = S_x, S_y, S_z
+        self.S_lat, self.S_lon, self.S_h = S_lat, S_lon, S_h
+        self.S_wet, self.S_b = S_wet, S_b
 
         # The coefficients of the power spectral density of the clock noise
         if h_0 <= 0 or h_2 <= 0:
@@ -124,7 +118,7 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
         self.h_0, self.h_2 = h_0, h_2
 
         # Set the state transition function
-        self.F = ppp_state_transistion_matrix(dt=self.dt, num_sv=self.num_sv)
+        self.F = phase_state_transistion_matrix(dt=self.dt, num_sv=self.num_sv)
 
         # Initialize the Unscented Kalman Filter
         self.filter = UnscentedKalmanFilter(
@@ -132,7 +126,7 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
             dim_z=self.num_sv
             * 2,  # Number of measurement variables count twice since we have code and phase measurements
             dt=dt,  # Sampling time interval
-            hx=ppp_measurement_model,  # Measurement function
+            hx=phase_measurement_model,  # Measurement function
             fx=self.fx,  # State transition function
             points=MerweScaledSigmaPoints(
                 n=(9 + 1 * self.num_sv), alpha=0.1, beta=2.0, kappa=-1
@@ -140,32 +134,47 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
         )
 
         # Initialize the Unscented Kalman Filter
-        self.filter.Q = ppp_process_noise(
-            sigma_trop=sigma_tropr,
-            sigma_bias=sigma_bias,
+        self.filter.Q = phase_process_noise_profile(
+            dt=self.dt,
             num_sv=self.num_sv,
+            S_lat=self.S_lat,
+            S_lon=self.S_lon,
+            S_h=self.S_h,
+            S_wet=self.S_wet,
+            S_b=self.S_b,
+            h_0=self.h_0,
+            h_2=self.h_2,
         )
-        # self.filter.Q[:8, :8] = octa_state_process_noise_profile(
-        #     S_x=self.S_x,
-        #     S_y=self.S_y,
-        #     S_z=self.S_z,
-        #     dt=self.dt,
-        # )
 
         # Set the measurement noise covariance matrix
-        self.filter.R = np.eye(self.num_sv * 2) * self.sigma_r**2
+        self.filter.R = np.eye(self.num_sv * 2) * self.S_code**2
+        self.filter.R[self.num_sv :, self.num_sv :] = (
+            np.eye(self.num_sv) * self.S_phase**2
+        )
+
         # Set the phase measurement noise covariance matrix
         self.filter.R[self.num_sv :, self.num_sv :] /= 1000
+
+        # Initialize the state vector
+        # Use lat long of washington DC as the initial guess
+        self.filter.x[[0, 2, 4]] = np.array([38.89511, -77.03637, 0])
+        self.filter.x[[1, 3, 5]] = np.array([0, 0, 0])  # No initial velocity
+        self.filter.x[6] = 1e-5 * 299792458  # Initial guess for the clock bias
+        self.filter.x[7] = 0  # Initial guess for the clock drift
 
         # Set the initial guess for the state vector
         if initial_guess is not None:
             self.filter.x[6] = (
                 initial_guess["cdt"] if "cdt" in initial_guess else 1e-5 * 299792458
             )
-            self.filter.x[[0, 2, 4]] = initial_guess[["x", "y", "z"]].values
+            self.filter.x[[0, 2, 4]] = initial_guess[["lat", "lon", "height"]].values
 
-        # # Set the initial guess for the state covariance matrix
-        # self.filter.P
+        # Set the initial guess for the state covariance matrix
+        self.filter.P = np.eye(9 + 1 * self.num_sv) * 10
+        # Set the initial guess for the state covariance matrix
+        self.filter.P[[0, 2, 4], [0, 2, 4]] = np.array([S_lat, S_lon, S_h])
+        self.filter.P[[1, 3, 5], [1, 3, 5]] = np.array([S_lat, S_lon, S_h]) * 0.1
+        self.filter.P[6, 6] = 1e-5 * 299792458
 
         # Initialize the initial sv_map
         self.sv_map = {}
@@ -191,21 +200,19 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
         Returns:
             Series: A pandas series containing the state vector.
         """
-        lat, lon, height = self._clipped_geocentric_to_ellipsoidal(
-            state[0], state[2], state[4]
-        )
+        x, y, z = ellipsoidal_to_geocentric(lat=state[0], lon=state[2], height=state[4])
         # Return the state vector as a pandas series
         return_val = Series(
             {
-                "x": state[0],
-                "y": state[2],
-                "z": state[4],
-                "lat": lat,
-                "lon": lon,
-                "height": height,
-                "x_dot": state[1],
-                "y_dot": state[3],
-                "z_dot": state[5],
+                "x": x,
+                "y": y,
+                "z": z,
+                "lat": state[0],
+                "lon": state[2],
+                "height": state[4],
+                "lat_dot": state[1],
+                "lon_dot": state[3],
+                "height_dot": state[5],
                 "cdt": state[6],
                 "cdt_dot": state[7],
                 "t_wet": state[8],
@@ -214,12 +221,12 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
 
         # Update the integer ambiguity, code and phase bias
         for i in range(self.num_sv):
-            return_val[f"lambda_N{i}"] = state[9 + i]
+            return_val[f"B{i}"] = state[9 + i]
 
         return return_val
 
     def predict_update_loop(
-        self, psedurange: np.ndarray, sv_coords: np.ndarray
+        self, psedurange: Series, sv_coords: DataFrame, day_of_year: int
     ) -> np.ndarray:
         """Runs the predict and update loop of the Kalman filter.
 
@@ -227,12 +234,18 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
             psedurange (np.ndarray): The pseudorange measurements.
             phase (np.ndarray): The carrier phase measurements.
             sv_coords (np.ndarray): The coordinates of the satellites.
+            day_of_year (int): The day of the year.
 
         Returns:
             np.ndarray: The state vector after the predict and update loop.
         """
         self.filter.predict()
-        self.filter.update(z=psedurange, sv_matrix=sv_coords, num_sv=self.num_sv)
+        self.filter.update(
+            z=psedurange.to_numpy(),
+            sv_frame=sv_coords,
+            num_sv=self.num_sv,
+            day_of_year=day_of_year,
+        )
         return self.filter.x_post
 
     def epoch_profile(self) -> str:
@@ -244,31 +257,7 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
         Returns:
             str: The epoch profile that is updated for each epoch.
         """
-        return {"apply_tropo": False, "mode": "single", "apply_iono": False}
-
-    def _get_pseudorange(self, epoch: Epoch) -> np.ndarray:
-        """Get the IF free pseudorange measurements for the current epoch.
-
-        Args:
-            epoch (Epoch): The epoch to be processed.
-
-        Returns:
-            np.ndarray: The pseudorange measurements for the current epoch.
-        """
-        # Get the ionosphere free combination
-        l1, l2 = epoch.obs_data[self.L1_PHASE_ON], epoch.obs_data[self.L2_PHASE_ON]
-        c1, c2 = epoch.obs_data[self.L1_CODE_ON], epoch.obs_data[self.L2_CODE_ON]
-
-        # Scale the phase measurements to meters
-        l1 = l1 * self.L1_WAVELENGTH
-        l2 = l2 * self.L2_WAVELENGTH
-
-        # Get the ionosphere free combination
-        ifl = ionosphere_free_combination(l1.to_numpy(), l2.to_numpy())
-        ifc = ionosphere_free_combination(c1.to_numpy(), c2.to_numpy())
-
-        # Stack and return the measurements
-        return np.hstack((ifl, ifc))
+        return {"apply_tropo": False, "mode": "phase", "apply_iono": False}
 
     def _compute(
         self,
@@ -297,16 +286,15 @@ class PhaseBasedUnscentedKalmanTriangulationInterface(IKalman):
                 "The satellites in the current epoch must be the same as the previous epoch since continuous tracking is assumed."
             )
 
-        # Get the pseudorange measurements
-        pseudorange = self._get_pseudorange(epoch)
-
         # Get the satellite coordinates
-        epoch.profile = epoch.INITIAL
-        _, sv_coords = self._preprocess(epoch)
+        epoch.profile = self.epoch_profile()
+        pseudorange, sv_coords = self._preprocess(epoch, *args, **kwargs)
 
         # Run the predict and update loop
         state = self.predict_update_loop(
-            pseudorange, sv_coords[["x", "y", "z"]].to_numpy()
+            pseudorange,
+            sv_coords[["x", "y", "z", "elevation"]],
+            day_of_year=epoch.timestamp.day_of_year,
         )
 
         # Process the state vector

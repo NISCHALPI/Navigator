@@ -11,7 +11,12 @@ from ....satellite.iephm.sv.tools.elevation_and_azimuthal import (
     elevation_and_azimuthal,
 )
 from ....satellite.satellite import Satellite
-from ..algos.combinations.range_combinations import ionosphere_free_combination
+from ..algos.combinations.range_combinations import (
+    L1_WAVELENGTH,
+    L2_WAVELENGTH,
+    SPEED_OF_LIGHT,
+    ionosphere_free_combination,
+)
 from ..algos.ionosphere.klobuchar_ionospheric_model import (
     klobuchar_ionospheric_correction,
 )
@@ -30,55 +35,16 @@ class GPSPreprocessor(Preprocessor):
         Preprocessor (_type_): Abstract class for a data preprocessor.
     """
 
-    PRIOR_KWARGS = "prior"
+    L1_CODE_ON = "C1C"
+    L2_CODE_ON = "C2W"
+    L1_PHASE_ON = "L1C"
+    L2_PHASE_ON = "L2W"
+
+    PRIOR_KEY = "prior"
 
     def __init__(self) -> None:
         """Initializes the preprocessor with the GPS constellation."""
         super().__init__(constellation="G")
-
-    def _ionospehric_free_combination(
-        self, obs_data: pd.DataFrame, code_warnings: bool = True
-    ) -> pd.Series:
-        """Compute the Ionospheric free combination for GPS observations.
-
-        Args:
-            obs_data (pd.DataFrame): GPS observations data.
-            code_warnings (bool, optional): If True, then warning is raised. Defaults to True.
-
-        Returns:
-            pd.DataFrame: The computed ionospheric free combination pseudorange for GPS observations.
-        """
-        pseudorange = None  # Initialize the pseudorange to None
-
-        # If C1C and C2C are both present, then compute the ionospheric correction wrt C1C and C2C
-        if "C1C" in obs_data.columns and "C2C" in obs_data.columns:
-            pseudorange = ionosphere_free_combination(
-                obs_data["C1C"].values, obs_data["C2C"].values
-            )
-        # If C1W and C2W are both present, then compute the ionospheric correction wrt C1W and C2W
-        elif "C1W" in obs_data.columns and "C2W" in obs_data.columns:
-            if code_warnings:
-                warn(
-                    message="C1W and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
-                )
-            pseudorange = ionosphere_free_combination(
-                obs_data["C1W"].values, obs_data["C2W"].values
-            )
-        elif "C1C" in obs_data.columns and "C2W" in obs_data.columns:
-            if code_warnings:
-                warn(
-                    message="C1C and C2W are used for ionospheric correction. This is not recommended."  # Check if this is correct
-                )
-            pseudorange = ionosphere_free_combination(
-                obs_data["C1C"].values, obs_data["C2W"].values
-            )
-
-        else:
-            raise ValueError(
-                "Invalid observation data. Dual Frequency Ion Free Combination not applied."
-            )
-
-        return pseudorange
 
     def _compute_sv_coordinates_at_emission_epoch(
         self,
@@ -104,7 +70,7 @@ class GPSPreprocessor(Preprocessor):
             Epoch: The computed satellite coordinates at the emission epoch.
         """
         # Compute the emission epoch
-        dt = pseudorange / 299792458
+        dt = pseudorange / SPEED_OF_LIGHT
 
         # Compute the emission epoch
         emission_epoch = reception_time - pd.to_timedelta(dt, unit="s")
@@ -277,6 +243,20 @@ class GPSPreprocessor(Preprocessor):
             data=iono_corr, index=sv_coords.index, name="ionospheric_correction"
         )
 
+    def _check_keys(self, data: pd.DataFrame, key: list[str]) -> None:
+        """Check if the required keys are present in the data.
+
+        Args:
+            data (pd.DataFrame): Data to be checked.
+            key (list[str]): List of keys to be checked.
+
+        Raises:
+            ValueError: If any of the keys is not present in the data.
+        """
+        for k in key:
+            if k not in data.columns:
+                raise KeyError(f"Key {k} not found in the data.")
+
     def _dual_mode_processing(
         self,
         time: pd.Timestamp,
@@ -285,7 +265,6 @@ class GPSPreprocessor(Preprocessor):
         approx: pd.Series = None,
         apply_tropo: bool = True,
         apply_iono: bool = True,
-        verbose: bool = False,
     ) -> tuple[pd.Series, pd.DataFrame]:
         """Dual mode processing for the GPS observations.
 
@@ -296,16 +275,32 @@ class GPSPreprocessor(Preprocessor):
             approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
             apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
             apply_iono (bool, optional): If True, then ionospheric correction is applied. Defaults to True.
-            verbose (bool, optional): If True, then warning is raised. Defaults to False.
 
         Returns:
             tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
         """
+        # Check if all the data is available
+        try:
+            self._check_keys(data=obs_data, key=[self.L1_CODE_ON, self.L2_CODE_ON])
+        except KeyError:
+            raise ValueError(
+                f"Invalid observation data. Must contain both L1 Code({self.L1_CODE_ON}) and L2 Code observations({self.L2_CODE_ON}) to perform dual mode processing."
+            )
+
         # Compute the ionospheric free combination
         pseudorange = (
-            self._ionospehric_free_combination(obs_data, code_warnings=verbose)
+            pd.Series(
+                ionosphere_free_combination(
+                    p1=obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64),
+                    p2=obs_data[self.L2_CODE_ON].to_numpy(dtype=np.float64),
+                ),
+                name="code",
+                index=obs_data.index,
+            )
             if apply_iono
-            else obs_data["C1C"]
+            else obs_data[
+                self.L1_CODE_ON
+            ]  # Do not apply ionospheric correction if explicitly set to False
         )
 
         if apply_tropo:
@@ -328,6 +323,7 @@ class GPSPreprocessor(Preprocessor):
                 sv_coords=coords,
                 approx_receiver_location=approx,
             )
+
             # Correct the psedurange for the tropospheric correction
             pseudorange -= coords[
                 "tropospheric_correction"
@@ -361,8 +357,16 @@ class GPSPreprocessor(Preprocessor):
         Returns:
             tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
         """
-        # Get the range for the single frequency [C1C]
-        pseudorange = obs_data["C1C"]
+        # Check if the L1 code is available
+        try:
+            self._check_keys(data=obs_data, key=[self.L1_CODE_ON])
+        except KeyError:
+            raise ValueError(
+                f"Invalid observation data. Must contain L1 Code observations({self.L1_CODE_ON}) to perform single mode processing"
+            )
+
+        # Get the pseudorange
+        pseudorange = obs_data[self.L1_CODE_ON]
 
         # Compute the satellite azimuth and elevation if any of the apply_tropo or apply_iono is True
         if (apply_tropo or apply_iono) and approx is not None:
@@ -422,6 +426,94 @@ class GPSPreprocessor(Preprocessor):
 
         return pseudorange, coords
 
+    def _phase_kalman_filter_processing(
+        self,
+        time: pd.Timestamp,
+        obs_data: pd.DataFrame,
+        coords: pd.DataFrame,
+        approx: pd.Series = None,
+        apply_tropo: bool = True,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Process the mode flag for the GPS observations.
+
+        Args:
+            time (pd.Timestamp): Reception time of the GPS observations.
+            mode (str): Mode flag for the GPS observations ['dual', 'single']
+            obs_data (pd.DataFrame): GPS observations data.
+            coords (pd.DataFrame): Satellite coordinates at the reception epoch.
+            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
+            apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
+
+        Returns:
+            tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
+        """
+        # Check if all the data is available
+        try:
+            self._check_keys(
+                data=obs_data,
+                key=[
+                    self.L1_PHASE_ON,
+                    self.L2_PHASE_ON,
+                    self.L1_CODE_ON,
+                    self.L2_CODE_ON,
+                ],
+            )
+        except KeyError:
+            raise ValueError(
+                f"""Invalid observation data. Must contain both L1 Code({self.L1_CODE_ON}) and L2 Code observations({self.L2_CODE_ON}) 
+                and L1 Phase({self.L1_PHASE_ON}) and L2 Phase({self.L2_PHASE_ON}) to perform phase based processing."""
+            )
+
+        # Approx is needed for the phase based measurements
+        if approx is None:
+            raise ValueError(
+                """Approximate receiver location not provided in phase based processing!. Phase based measurements cannot be computed.
+                To avoid this,use WLS with initial epoch profile to get initial receiver location."""
+            )
+
+        # Scale the phase measurements to the meters from cycles
+        obs_data[self.L1_PHASE_ON] *= L1_WAVELENGTH
+        obs_data[self.L2_PHASE_ON] *= L2_WAVELENGTH
+
+        # Compute the ionospheric free combination
+        phase_if = pd.Series(
+            ionosphere_free_combination(
+                p1=obs_data[self.L1_PHASE_ON].to_numpy(),
+                p2=obs_data[self.L2_PHASE_ON].to_numpy(),
+            ),
+            index=obs_data.index,
+            name="phase",
+        )
+        code_if = pd.Series(
+            ionosphere_free_combination(
+                p1=obs_data[self.L1_CODE_ON].to_numpy(),
+                p2=obs_data[self.L2_CODE_ON].to_numpy(),
+            ),
+            index=obs_data.index,
+            name="code",
+        )
+
+        # Kalman Filter needs the elevation and azimuth of satellites
+        # Hence compute the azimuth and elevation of the satellites
+        (
+            coords["elevation"],
+            coords["azimuth"],
+        ) = self._compute_satellite_azimuth_and_elevation(
+            sv_coords=coords, approx_receiver_location=approx
+        )
+
+        # Apply the tropospheric correction if required
+        if apply_tropo:
+            coords["tropospheric_correction"] = self._compute_tropospheric_correction(
+                day_of_year=time.dayofyear,
+                sv_coords=coords,
+                approx_receiver_location=approx,
+            )
+            code_if -= coords["tropospheric_correction"]
+            phase_if -= coords["tropospheric_correction"]
+
+        return pd.concat([code_if, phase_if], axis=1), coords
+
     def _dispatch_mode(
         self,
         time: pd.Timestamp,
@@ -433,7 +525,7 @@ class GPSPreprocessor(Preprocessor):
         apply_tropo: bool = True,
         apply_iono: bool = True,
         verbose: bool = False,
-    ) -> tuple[pd.Series, pd.DataFrame]:
+    ) -> tuple[pd.Series | pd.DataFrame, pd.DataFrame]:
         """Process the mode flag for the GPS observations.
 
         Args:
@@ -448,7 +540,7 @@ class GPSPreprocessor(Preprocessor):
             verbose (bool, optional): If True, then warning is raised. Defaults to False.
 
         Returns:
-            tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
+            tuple[pd.Series | pd.Dataframe, pd.DataFrame]: The processed pseudorange and intermediate results.
         """
         if mode.lower() == "dual":
             return self._dual_mode_processing(
@@ -458,7 +550,6 @@ class GPSPreprocessor(Preprocessor):
                 approx=approx,
                 apply_iono=apply_iono,
                 apply_tropo=apply_tropo,
-                verbose=verbose,
             )
         if mode.lower() == "single":
             return self._single_mode_processing(
@@ -471,9 +562,16 @@ class GPSPreprocessor(Preprocessor):
                 apply_tropo=apply_tropo,
                 verbose=verbose,
             )
-
+        if mode.lower() == "phase":
+            return self._phase_kalman_filter_processing(
+                time=time,
+                obs_data=obs_data,
+                coords=coords,
+                approx=approx,
+                apply_tropo=apply_tropo,
+            )
         raise ValueError(
-            f"Invalid mode flag: {mode}. Supported modes are ['dual', 'single']."
+            f"Invalid mode flag: {mode}. Supported modes are ['dual', 'single', 'phase']"
         )
 
     def preprocess(
@@ -501,7 +599,7 @@ class GPSPreprocessor(Preprocessor):
         # This also computes satellite clock correction which is stored in the 'dt' column.
         coords = self._compute_sv_coordinates_at_emission_epoch(
             reception_time=epoch.timestamp,
-            pseudorange=obs_data["C1C"],
+            pseudorange=obs_data[self.L1_CODE_ON],  # Use the L1 code pseudorange
             nav=nav_data,
             nav_metadata=epoch.nav_meta,
             no_clock_correction=kwargs.get("no_clock_correction", False),
@@ -511,12 +609,12 @@ class GPSPreprocessor(Preprocessor):
         # Need to rotate each satellite coordinate to the reception epoch since it is common epoch for all satellites
         coords = self._rotate_satellite_coordinates_to_reception_epoch(
             sv_coords=coords,
-            pseudorange=obs_data["C1C"],
-            approx_receiver_location=kwargs.get(self.PRIOR_KWARGS, None),
+            pseudorange=obs_data[self.L1_CODE_ON],  # Use the L1 code pseudorange
+            approx_receiver_location=kwargs.get(self.PRIOR_KEY, None),
         )
 
         # Get the kwargs
-        approx = kwargs.get(self.PRIOR_KWARGS, None)
+        approx = kwargs.get(self.PRIOR_KEY, None)
         verbose = kwargs.get("verbose", False)
 
         # If the epoch is smoothed, then apply swap the smoothed key as C1C
@@ -539,9 +637,20 @@ class GPSPreprocessor(Preprocessor):
             verbose=verbose,
         )
 
-        # Correct the pseudorange for the satellite clock offset.
-        # This crossponds to the satellite clock correction. P(j) + c * dt(j)
-        pseudorange += coords["dt"] * 299792458
+        # hence it needs to be corrected for both
+        if isinstance(pseudorange, pd.DataFrame):
+            # Correct code
+            pseudorange["code"] += coords["dt"] * SPEED_OF_LIGHT
+            # Correct phase
+            pseudorange["phase"] += coords["dt"] * SPEED_OF_LIGHT
+
+            # # Stack the code and phase measurements in a single pandas series
+            # # So that it can be used for triangulation since the triangulation
+            # # uses pd.Series to compute the position
+            pseudorange = pd.concat([pseudorange["code"], pseudorange["phase"]], axis=0)
+        else:
+            # Correct the pseudorange for the satellite clock correction
+            pseudorange += coords["dt"] * SPEED_OF_LIGHT
 
         return pseudorange, coords
 

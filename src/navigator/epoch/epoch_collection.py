@@ -300,8 +300,10 @@ class EpochCollection:
             epoch.profile = self._profile
             yield epoch
 
-    def __getitem__(self, index: int) -> Epoch:
+    def __getitem__(self, index: int | slice) -> Epoch:
         """Returns the Epoch object at the given index."""
+        if isinstance(index, slice):
+            return EpochCollection(self._epochs[index], profile=self.profile)
         # Update the profile of the epoch with the profile of the collection
         self._epochs[index].profile = self._profile
         return self._epochs[index]

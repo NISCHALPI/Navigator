@@ -112,8 +112,6 @@ class ExtendedKalmanInterface(IKalman):
         self.filter = ExtendedKalmanFilter(
             dim_x=len(self.state),
             dim_y=self.num_sv,
-            innovation_window=30,
-            adjust_after=500,
         )
         # Add the process noise profile
         self.filter.Q = octa_state_process_noise_profile(
@@ -183,7 +181,6 @@ class ExtendedKalmanInterface(IKalman):
         # Predict the state and covariance matrix
         # Predict the state and covariance matrix
         # Note: Data Structures passed to the filter are numpy arrays not pandas series or dataframes
-
         residual = self.filter.predict_update(
             y=ranges,
             F=constant_velocity_state_transistion(
@@ -244,8 +241,8 @@ class ExtendedKalmanInterface(IKalman):
         # Run the predict and update loop
         # Note : pass the numpy arrays to the filter instead of the pandas series or dataframes
         rawstate, residual = self.predict_update_loop(
-            ranges=pseudorange.values,
-            sv_coords=sv_coordinates[["x", "y", "z"]].values,
+            ranges=pseudorange.to_numpy(),
+            sv_coords=sv_coordinates[["x", "y", "z"]].to_numpy(),
         )
 
         # Process the state

@@ -96,6 +96,8 @@ class Epoch:
         "apply_iono": False,
         "mode": "single",
     }
+    # Phase Profile
+    PHASE = {"apply_tropo": False, "apply_iono": False, "mode": "phase"}
 
     ALLOWED_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
     MANDATORY_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]

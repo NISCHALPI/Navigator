@@ -1,21 +1,33 @@
-"""Defines the State Transition Function for the PPP modes.
+"""Defines the State Transition Function for a phase-based GPS Kalman Filter.
 
-This model is only defined for the GPS PPP model. This is not multi-GNSS model supported.
+This module provides functionality for modeling the state transition in a Kalman Filter
+for Precise Point Positioning (PPP) using phase-based GPS measurements. It includes the
+definition of the state vector and the implementation of the state transition matrix.
 
+State Definition:
+    The state vector (curr_state) represents the receiver and is defined as follows:
+    x = [latitude, latitude_velocity, longitude, longitude_velocity,
+         height, height_velocity, clock_drift, clock_drift_rate,
+         wet_tropospheric_delay, B1, ..., Bn]
 
-StateDefinition:
-    curr_state = [x, x_dot , y,  y_dot , z, z_dot , cdt, cdt_dot, t_wet, lambda_N1, ... , lambda_Nn, delta_code1, ... , delta_coden, delta_phase1, ... , delta_phase]
-    where:
-        x, y, z: are the ECEF coordinates of the receiver.
-        x_dot, y_dot, z_dot: are the velocities of the receiver.
-        t_wet: is the wet tropospheric delay.
-        lambda_N: is the integer ambiguity for the phase measurements.
+    Where:
+    - latitude: Latitude of the receiver.
+    - latitude_velocity: Velocity of the latitude.
+    - longitude: Longitude of the receiver.
+    - longitude_velocity: Velocity of the longitude.
+    - height: Height of the receiver.
+    - height_velocity: Velocity of the height.
+    - clock_drift: Clock drift.
+    - clock_drift_rate: Clock drift rate.
+    - wet_tropospheric_delay: Wet tropospheric delay.
+    - B: Bias of the phase measurements, including integer ambiguity and hardware delay.
+
 """
 
 import numba as nb
 import numpy as np
 
-__all__ = ["ppp_state_transistion_matrix"]
+__all__ = ["phase_state_transistion_matrix"]
 
 
 @nb.njit(
@@ -26,36 +38,28 @@ __all__ = ["ppp_state_transistion_matrix"]
     error_model="numpy",
     nogil=True,
 )
-def ppp_state_transistion_matrix(
+def phase_state_transistion_matrix(
     dt: float,
     num_sv: int,
 ) -> np.ndarray:
-    """State Transition Function for the PPP model for kalman filter.
+    """State Transition Matrix for the phase-based GPS Kalman Filter.
 
     Args:
-        state: The current state of the system.
-        dt: The time step.
-        num_sv: The number of satellites to continuously track.
-
-    StateDefinition:
-        curr_state = [x, x_dot , y,  y_dot , z, z_dot , cdt, cdt_dot, t_wet, lambda_N1, ... , lambda_Nn, delta_code1, ... , delta_coden, delta_phase1, ... , delta_phase]
-        where:
-            x, y, z: are the ECEF coordinates of the receiver.
-            x_dot, y_dot, z_dot: are the velocities of the receiver.
-            t_wet: is the wet tropospheric delay.
-            lambda_N: is the integer ambiguity for the phase measurements.
+        dt (float): The time step.
+        num_sv (int): The number of satellites to continuously track.
 
     Returns:
-        The state transition matrix for the current state.
+        np.ndarray: The state transition matrix for the current state.
     """
     # Constant velocity state transition matrix
     A = np.eye(2, dtype=np.float64)
     A[0, 1] = dt
 
-    F = np.eye(9 + 1 * num_sv, dtype=np.float64)
+    F = np.eye(9 + num_sv, dtype=np.float64)
     F_xyz = np.kron(np.eye(4), A)
 
-    # Set the position, velocity and the clock drift state transition matrix
+    # Set the state transition matrix for the ellipsoidal coordinates, clock drift
     F[:8, :8] = F_xyz
+    # Other parameters are independent of the state and time hence the state transition matrix is an identity matrix
 
     return F
