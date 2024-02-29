@@ -50,6 +50,7 @@ Methods:
 
 Author:
     Nischal Bhattarai
+
 """
 
 import pickle
@@ -64,6 +65,7 @@ import pandas as pd  # type: ignore
 from ..download.idownload.rinex.nasa_cddis import NasaCddisV3
 from ..parse import Parser
 from ..parse.iparse import IParseGPSNav, IParseGPSObs
+from ..utility.igs_network import IGSNetwork
 from .epochfragment import FragNav, FragObs
 
 __all__ = ["Epoch"]
@@ -102,12 +104,19 @@ class Epoch:
     ALLOWED_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
     MANDATORY_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
 
+    # IGS network
+    IGS_NETWORK = IGSNetwork()
+
+    # Mandatory keys for real coordinates
+    MANDATORY_REAL_COORD_KEYS = ["x", "y", "z"]
+
     def __init__(
         self,
         obs_frag: FragObs,
         nav_frag: FragNav,
         trim: bool = False,
         purify: bool = False,
+        real_coord: pd.Series | dict | None = None,
     ) -> None:
         """Initialize an Epoch instance with a timestamp and observational data and navigation data.
 
@@ -117,6 +126,7 @@ class Epoch:
             nav_frag (FragNav): A Navigation data fragment i.e navigation data for crossponding epoch.
             trim (bool, optional): Whether to trim the data. Defaults to False.
             purify (bool, optional): Whether to purify the data. Defaults to False.
+            real_coord (pd.Series, optional): The real coordinates of the station. Defaults to empty series.
 
         Returns:
             None
@@ -142,6 +152,43 @@ class Epoch:
 
         # Define a profile for the epoch can be [dual , single]
         self._profile = self.DUAL
+
+        # Set the real coordinates of the station
+        self.real_coord = real_coord
+
+        # Populate the IGS network if the station is part of the IGS network
+        try:
+            self._real_coord = pd.Series(
+                self.IGS_NETWORK.get_xyz(self.station), index=["x", "y", "z"]
+            )
+        except ValueError:
+            pass
+
+    @property
+    def real_coord(self) -> pd.Series:
+        """Get the real coordinates of the station.
+
+        Returns:
+            pd.Series: The real coordinates of the station.
+
+        """
+        return self._real_coord
+
+    @real_coord.setter
+    def real_coord(self, value: pd.Series | dict | None) -> None:
+        """Set the real coordinates of the station.
+
+        Args:
+            value (pd.Series): The value to set.
+
+        """
+        if value is not None and not all(
+            keys in value for keys in Epoch.MANDATORY_REAL_COORD_KEYS
+        ):
+            raise ValueError(
+                f"Real coordinates must contain the following keys: ['x', 'y', 'z']. Got {value.keys()} instead."
+            )
+        self._real_coord = pd.Series(value) if value is not None else pd.Series()
 
     @property
     def timestamp(self) -> pd.Timestamp:
@@ -290,11 +337,11 @@ class Epoch:
         Returns:
             pd.DataFrame: DataFrame with missing data observations removed.
         """
-        # Drop NA rows values for observations ["C1C", "C2C", "C2W" , "C1W"] if present
-        if "C1C" in data.columns and "C2C" in data.columns:
-            data = data.dropna(subset=["C1C", "C2C"], axis=0)
-        elif "C1W" in data.columns and "C2W" in data.columns:
-            data = data.dropna(subset=["C1W", "C2W"], axis=0)
+        # Drop NA rows values for observations ["C1C", "C2W", "L1C" , "L2C"] if present
+        data = data.dropna(subset=["C1C", "C2W", "L1C", "L2W"], axis=0)
+
+        # Now drop any columns with NaN values
+        data = data.dropna(axis=1, how="any")
 
         # Drop Duplicates columns
         return data[~data.index.duplicated(keep="first")]

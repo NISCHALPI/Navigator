@@ -75,6 +75,8 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
             dim_state (int): Dimension of the state vector.
             dim_measurement (int): Dimension of the measurement vector.
             dt (float): Time step for the filter.
+            device (torch.device, optional): Device for the filter. Defaults to torch.device("cpu").
+            dtype (torch.dtype, optional): Data type for the filter. Defaults to torch.float32.
             flavor (list[str], optional): List of flavors. Defaults to ["F1", "F2", "F3", "F4"].
             max_history (int, optional): Maximum history to track. Defaults to 2.
 
@@ -118,6 +120,37 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         # Set the internal state of the filter
         self.reset_internal_state(batch_dim=self.batch_dim)
 
+    # Override to method to copy the internal state of the filter to the device or dtype
+    def to(self, *args, **kwargs) -> "AbstractKalmanNet":
+        """Copies the internal state of the filter to the device or dtype.
+
+        This method is overridden to ensure that the internal state of the filter is copied to the device or dtype
+        when the filter is moved to a new device or dtype.
+
+        Args:
+            *args: Arguments for the to method.
+            **kwargs: Keyword arguments for the to method.
+
+        Returns:
+            AbstractKalmanNet: The filter with the internal state copied to the new device or dtype.
+        """
+        # Call the super class to method
+        super().to(*args, **kwargs)
+
+        # Copy the internal state of the filter to the new device or dtype
+        self.x_posterior = self.x_posterior.to(*args, **kwargs)
+        self.x_prior = self.x_prior.to(*args, **kwargs)
+
+        # Replace the measurement and state trackers with new ones
+        self.measuremnt_tracker = HistoryTracker(max_history=self.max_history)
+        self.state_tracker = HistoryTracker(max_history=self.max_history)
+
+        # Add the posterior state vector to the state tracker
+        self.state_tracker.add(self.x_posterior)
+
+        # Return the filter
+        return self
+
     def reset_internal_state(self, batch_dim: int = 1) -> None:
         """Resets the internal state of the filter for new predict-update cycle.
 
@@ -158,12 +191,16 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
             self.dim_state,
             device=self.device,
             dtype=self.dtype,  # Ensure that the device and dtype are set
+            requires_grad=False,
         )
         # Set the prior state vector
         self.x_prior = torch.zeros(
-            batch_dim, self.dim_state, device=self.device, dtype=self.dtype
-        )  # Ensure that the device and dtype are set
-
+            batch_dim,
+            self.dim_state,
+            device=self.device,
+            dtype=self.dtype,
+            requires_grad=False,
+        )
         # Clear the measurement and state trackers
         self.measuremnt_tracker = HistoryTracker(max_history=self.max_history)
         self.state_tracker = HistoryTracker(max_history=self.max_history)
@@ -335,6 +372,12 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
 
         Returns:
             None
+
+        Note:
+            If the hx_kwargs is provided, it is assumend that each key in the dictionary has an index for
+            each batch data. For example, if the batch data is of shape (3, 10), then for every key in the
+            dictionary, the value should be of shape (3, ...). This is because the measurement function should
+            be able to handle the batch data.
         """
         # Check if the measurement has the proper shape
         if y.shape != (self.batch_dim, self.dim_measurement):
@@ -346,9 +389,14 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         self.measuremnt_tracker.add(y)
 
         # Call the measurement function to get the predicted measurement
-        # Do a measurement along the batch dimension
         y_pred = torch.vstack(
-            [self.hx(self.x_prior[i], **hx_kwargs) for i in range(self.batch_dim)]
+            [
+                self.hx(
+                    self.x_prior[i],
+                    **{key: value[i] for key, value in hx_kwargs.items()},
+                )
+                for i in range(self.batch_dim)
+            ]
         )
 
         # Calculate the combinations

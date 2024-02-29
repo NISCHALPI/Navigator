@@ -8,27 +8,20 @@ Classes:
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from typing import Iterator
 
 import numpy as np
 import torch
-from typing import Iterator
+from torch.utils.data import Dataset
 
-from ...core.triangulate.itriangulate.algos.combinations import (
-    ionosphere_free_combination,
+from ...core.triangulate.itriangulate.iterative.iterative_traingulation_interface import (
+    IterativeTriangulationInterface,
 )
 from ...core.triangulate.itriangulate.preprocessor.gps_preprocessor import (
     GPSPreprocessor,
 )
 from ..epoch import Epoch
-
-# CONSTANTS
-# GPS L1 and L2 frequencies
-L1_FREQ = 1575.42e6
-L2_FREQ = 1227.60e6
-
-# Calculate L1 and L2 wavelengths
-L1_WAVELENGTH = 299792458 / L1_FREQ
-L2_WAVELENGTH = 299792458 / L2_FREQ
+from ..epoch_collection import EpochCollection
 
 __all__ = ["TensorAdapter", "GPSTensorAdatper"]
 
@@ -55,6 +48,7 @@ class TensorAdapter(ABC):
 
         Args:
             epoch: The epoch data to be converted to tensor data.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             The epoch data as tensor data.
@@ -67,6 +61,7 @@ class TensorAdapter(ABC):
 
         Args:
             epoch: The epoch data to be converted to tensor data.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             The epoch data as tensor data.
@@ -104,12 +99,6 @@ class GPSTensorAdatper(TensorAdapter):
     # Preprocessor to calculate the sv_coords and pseudoranges
     preprocessor = GPSPreprocessor()
 
-    # Phase and Code measurements
-    L1_CODE_ON = "C1C"
-    L2_CODE_ON = "C2W"
-    L1_PHASE_ON = "L1C"
-    L2_PHASE_ON = "L2W"
-
     def __init__(self) -> None:
         """Initializes the GPSTensorAdapter class.
 
@@ -134,30 +123,53 @@ class GPSTensorAdatper(TensorAdapter):
         epoch = deepcopy(epoch)
         # Set epoch profile to initial
         # Note: This ensure nothing prior to the current epoch is used
-        epoch.profile = epoch.INITIAL
+        epoch.profile = epoch.PHASE
 
-        # Preprocess the GPS data to get the sv_coords and pseudoranges
-        _, sv_coords = self.preprocessor.preprocess(epoch, **kwargs)
+        # Get the range and satellite coordinates
+        pseudorange, sv_coords = self.preprocessor.preprocess(epoch=epoch, **kwargs)
 
-        # Ignore the pseudoranges
-        # Instead use code and phase measurements on L1 and L2 frequencies
-        c1c = epoch.obs_data[self.L1_CODE_ON]
-        c2w = epoch.obs_data[self.L2_CODE_ON]
-        l1c = (
-            epoch.obs_data[self.L1_PHASE_ON] * L1_WAVELENGTH
-        )  # Ensure the phase is in meters
-        l2w = (
-            epoch.obs_data[self.L2_PHASE_ON] * L2_WAVELENGTH
-        )  # Ensure the phase is in meters
-        # Convet to numpy array
-        c1c = np.array(c1c, dtype=np.float64)
-        c2w = np.array(c2w, dtype=np.float64)
-        l1c = np.array(l1c, dtype=np.float64)
-        l2w = np.array(l2w, dtype=np.float64)
+        # Convert the range and coords to tensors
+        return torch.from_numpy(
+            pseudorange.to_numpy(dtype=np.float32)
+        ), torch.from_numpy(sv_coords[["x", "y", "z"]].to_numpy(dtype=np.float32))
 
-        # Calculate the ionosphere-free combination
-        icode = torch.from_numpy(ionosphere_free_combination(c1c, c2w))
-        iphase = torch.from_numpy(ionosphere_free_combination(l1c, l2w))
 
-        # Return the tensor data
-        return icode, iphase, torch.from_numpy(sv_coords.to_numpy(dtype=np.float64))
+class EpochDataset(Dataset):
+    """A class for creating a dataset from an epoch collection.
+
+    Attributes:
+        epochs: The epoch collection to be converted to a dataset.
+        tensor_adapter: The tensor adapter to be used for converting the epoch data to tensor data.
+
+    """
+
+    def __init__(self, epochs: EpochCollection, tensor_adapter: TensorAdapter) -> None:
+        """Initializes the EpochDataset class.
+
+        Args:
+            epochs: The epoch collection to be converted to a dataset.
+            tensor_adapter: The tensor adapter to be used for converting the epoch data to tensor data.
+
+        """
+        if not isinstance(epochs, EpochCollection):
+            raise TypeError("epochs must be an instance of EpochCollection")
+
+        if not isinstance(tensor_adapter, TensorAdapter):
+            raise TypeError("tensor_adapter must be an instance of TensorAdapter")
+
+        # Set the attributes
+        self.epochs = epochs
+        self.tensor_adapter = tensor_adapter
+
+        # Need a intial fix to run in pahse mode
+        epoch_0 = deepcopy(self.epochs[0])
+        epoch_0.profile = epoch_0.INITIAL
+        self.intial_fix = IterativeTriangulationInterface()(epoch_0)
+
+    def __len__(self) -> int:
+        """Returns the length of the dataset."""
+        return len(self.epochs)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Returns the item at the specified index."""
+        return self.tensor_adapter(self.epochs[idx], prior=self.intial_fix)

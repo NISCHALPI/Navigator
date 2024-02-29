@@ -21,7 +21,6 @@ from .satellite import IGPSEphemeris, IGPSSp3, Satellite
 from .triangulate import (
     IterativeTriangulationInterface,
     Triangulate,
-    UnscentedKalmanTriangulationInterface,
 )
 from .triangulate.itriangulate.algos.slip_detection import GeometryFreeDetector
 from .triangulate.itriangulate.algos.smoothing import (
@@ -29,4 +28,8 @@ from .triangulate.itriangulate.algos.smoothing import (
     HatchFilter,
     IonosphereFreeSmoother,
 )
-from .triangulate.itriangulate.kalman import ExtendedKalmanInterface
+from .triangulate.itriangulate.kalman.interfaces import (
+    ExtendedKalmanInterface,
+    PhaseUnscentedKalmanTriangulationInterface,
+    UnscentedKalmanTriangulationInterface,
+)

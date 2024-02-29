@@ -75,7 +75,7 @@ class EgnosTroposphericModel:
 
     def __init__(self) -> None:
         """Initializes the EGNOS tropospheric correction model."""
-        return
+        super().__init__()
 
     def get_tropospheric_correction(
         self,

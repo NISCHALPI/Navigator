@@ -40,7 +40,7 @@ import tqdm
 
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...epoch import Epoch
-from ...utility.igs_network import IGSNetwork
+from ...utility.transforms.coordinate_transforms import geocentric_to_enu
 from .itriangulate.iterative.iterative_traingulation_interface import (
     IterativeTriangulationInterface,
 )
@@ -231,13 +231,16 @@ class Triangulate(AbstractTriangulate):
         """Computes triangulated locations using a specific algorithm."""
         return super()._compute(epoch, *args, **kwargs)
 
-    def igs_diff(
+    def diff(
         self,
         epoch: Epoch,
         *args,
         **kwargs,
     ) -> pd.Series:
-        """Computes the error between the computed location and the actual location for only IGS stations.
+        """Computes the error between the computed location and the actual location for the epoch.
+
+        Note: Epoch real_coords must be populated with the actual coordinates of the station.
+
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
@@ -253,7 +256,13 @@ class Triangulate(AbstractTriangulate):
             This method is only for IGS stations.
         """
         # Get the actual location from the IGS network
-        actual = self.igs_real_coords(epoch)
+        if epoch.real_coord.empty:
+            raise ValueError(
+                "Epoch real_coords must be populated with the actual coordinates of the station."
+            )
+
+        # NOTE : Guranteed to have these coordinate in the real_coord attribute if it's not empty
+        actual = epoch.real_coord[["x", "y", "z"]].to_numpy()
 
         # Get the computed location
         computed = self._compute(epoch, *args, **kwargs)
@@ -261,21 +270,6 @@ class Triangulate(AbstractTriangulate):
         # Calculate the difference between the computed and actual locations
         computed["diff"] = np.linalg.norm(computed[["x", "y", "z"]] - actual)
         return computed
-
-    def igs_real_coords(
-        self,
-        obs: Epoch,
-    ) -> np.ndarray:
-        """Computes the actual location for only IGS stations.
-
-        Args:
-            obs (Epoch): Epoch containing observation data and navigation data.
-
-        Returns:
-            np.ndarray: The actual location.
-        """
-        # Get the actual location from the IGS network
-        return IGSNetwork().get_xyz(obs.station)
 
     def coords(
         self,
@@ -312,12 +306,11 @@ class Triangulate(AbstractTriangulate):
             pd.DataFrame: The computed triangulated location for the time series of epochs.
         """
         # Choose the compute function based on the type of epoch
-        # If the epoch contains station information, use the igs_diff method
+        # If the epoch contains real coordinates, use the diff method
         compute_func = None
-        try:
-            epochs[0].station
-            compute_func = self.igs_diff
-        except ValueError:
+        if all([not epoch.real_coord.empty for epoch in epochs]):
+            compute_func = self.diff
+        else:
             compute_func = self._compute
 
         # Compute the triangulated location for each epoch
@@ -340,6 +333,48 @@ class Triangulate(AbstractTriangulate):
                     raise e
 
         return pd.DataFrame(results)
+
+    @staticmethod
+    def enu_error(predicted: pd.DataFrame, actual: pd.Series) -> pd.DataFrame:
+        """Computes the error between the computed location and the actual location in ENU coordinates.
+
+        Args:
+            predicted (pd.DataFrame): The predicted location in WG84 coordinates.
+            actual (pd.Series): The actual location in WG84 coordinates.
+
+        Returns:
+            pd.DataFrame: The computed error in meters. ["E_error", "N_error", "U_error"]
+        """
+        # Check if the actual location has x, y, z coordinates
+        if all([coord not in actual.index for coord in ["x", "y", "z"]]):
+            raise ValueError(
+                "Actual location must have x, y, z coordinates in WG84 coordinates."
+            )
+        # Check if the predicted location has x, y, z coordinates
+        if all([coord not in predicted.columns for coord in ["x", "y", "z"]]):
+            raise ValueError(
+                "Predicted location must have x, y, z coordinates in WG84 coordinates."
+            )
+        # Grab the unit vectors e, n, u at the actual location
+        e_hat, n_hat, u_hat = geocentric_to_enu(
+            x=actual["x"],
+            y=actual["y"],
+            z=actual["z"],
+        )
+
+        # Error vector from actual to predicted location
+        error = predicted[["x", "y", "z"]] - actual[["x", "y", "z"]]
+
+        # Project the error vector onto the unit vectors
+        E_error = np.dot(error, e_hat)
+        N_error = np.dot(error, n_hat)
+        U_error = np.dot(error, u_hat)
+
+        # Return the error in ENU coordinates
+        return pd.DataFrame(
+            {"E_error": E_error, "N_error": N_error, "U_error": U_error},
+            index=predicted.index,
+        )
 
     @staticmethod
     def google_earth_view(lat: float, lon: float) -> None:

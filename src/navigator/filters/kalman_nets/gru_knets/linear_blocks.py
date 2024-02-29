@@ -1,4 +1,5 @@
 """Implementation of the linear blocks for the KalmanNet."""
+
 import torch
 import torch.nn as nn
 

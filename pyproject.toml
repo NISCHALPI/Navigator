@@ -34,8 +34,6 @@ pytorch-lightning = "^2.2.0.post0"
 
 
 [tool.poetry.group.dev.dependencies]
-black = "^23.9.1"
-ruff = "^0.0.288"
 pytest = "^7.4.2"
 ipykernel = "^6.25.2"
 lxml = "^4.9.3"

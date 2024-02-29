@@ -578,7 +578,7 @@ class GPSPreprocessor(Preprocessor):
         self,
         epoch: Epoch,
         **kwargs,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.Series, pd.DataFrame]:
         """Preprocess the observation and navigation data to be used for triangulation!
 
         Args:

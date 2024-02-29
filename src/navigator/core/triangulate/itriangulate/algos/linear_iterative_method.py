@@ -29,7 +29,7 @@ __all__ = ["least_squares"]
 )
 def _design_matrix(
     guess: np.ndarray, pseudorange: np.ndarray, sv_pos: np.ndarray
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Generate a design matrix for the least squares problem. Uses the 1 in the column for the clock offset. The clock offset must be given in terms of the distance it would travel.
 
     Args:

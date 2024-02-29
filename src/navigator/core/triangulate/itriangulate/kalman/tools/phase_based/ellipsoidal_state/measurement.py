@@ -38,8 +38,8 @@ See Also:
 import numpy as np
 import pandas as pd
 
-from .......utility.transforms.coordinate_transforms import ellipsoidal_to_geocentric
-from ....algos.troposphere.tropospheric_delay import filtered_troposphere_correction
+from ........utility.transforms.coordinate_transforms import ellipsoidal_to_geocentric
+from .....algos.troposphere.tropospheric_delay import filtered_troposphere_correction
 
 __all__ = ["phase_measurement_model"]
 
@@ -65,7 +65,7 @@ def phase_measurement_model(
         )
 
     # Get position from the current state
-    x, y, z = ellipsoidal_to_geocentric(lat=state[0], lon=state[2], height=state[4])
+    x, y, z = ellipsoidal_to_geocentric(lat=state[0], lon=state[2], alt=state[4])
     position = np.array([x, y, z], dtype=np.float64)
     # Get the sv positions
     sv_positions = sv_frame[["x", "y", "z"]].values

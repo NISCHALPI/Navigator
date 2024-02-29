@@ -22,6 +22,8 @@ Author: Nischal Bhattarai
 
 from typing import Iterator, List
 
+from pandas.core.series import Series
+
 from .epoch import Epoch
 
 __all__ = ["EpochCollection"]
@@ -79,7 +81,12 @@ class EpochCollection:
     # Not when the current epoch does not have the same satellites as the start epoch
     EXTENDED_VISIBILITY = "extended_visibility"
 
-    def __init__(self, epochs: List[Epoch], profile: dict[str] = Epoch.DUAL) -> None:
+    def __init__(
+        self,
+        epochs: List[Epoch],
+        profile: dict[str] = Epoch.DUAL,
+        real_coords: Series | None = None,
+    ) -> None:
         """Initializes the class with a list of Epoch objects.
 
         This class provides a flexible and efficient way to manage a sequence of Epoch objects,
@@ -89,12 +96,13 @@ class EpochCollection:
         Args:
             epochs (List[Epoch]): A list of Epoch objects.
             profile (dict, optional): The profile of the collection of epochs. Defaults to Epoch.DUAL.
+            real_coords (Series, optional): The real coordinates of the receiver. Defaults to None.
 
         Raises:
             ValueError: If epochs is not a list of Epoch objects.
         """
         # Check if the epochs is a list of Epoch objects
-        if not all(isinstance(epoch, Epoch) for epoch in epochs):
+        if not all([isinstance(epoch, Epoch) for epoch in epochs]):
             raise ValueError("epochs must be a list of Epoch objects")
 
         # Set the epochs
@@ -102,6 +110,29 @@ class EpochCollection:
 
         # Set a profile
         self.profile = profile
+
+        # Set the real coordinates of the receiver
+        self.real_coords = real_coords
+
+    @property
+    def real_coords(self) -> Series:
+        """Returns the real coordinates of the receiver."""
+        return self._real_coords
+
+    @real_coords.setter
+    def real_coords(self, value: Series | dict | None) -> None:
+        """Set the real coordinates of the receiver.
+
+        Args:
+            value (Series): The value to set.
+        """
+        if value is not None and not all(
+            [key in value for key in Epoch.MANDATORY_REAL_COORD_KEYS]
+        ):
+            raise ValueError(
+                f"Real coordinates must contain the following keys: {Epoch.MANDATORY_REAL_COORD_KEYS}. Got {value.keys()} instead."
+            )
+        self._real_coords = value if value is not None else None
 
     def _criterion_track(
         self, start: int = 0, end: int = -1, mode: str = "visibility"
@@ -298,12 +329,15 @@ class EpochCollection:
         # Update the profile of the epochs with the profile of the collection
         for epoch in self._epochs:
             epoch.profile = self._profile
+            epoch.real_coord = self._real_coords
             yield epoch
 
     def __getitem__(self, index: int | slice) -> Epoch:
         """Returns the Epoch object at the given index."""
         if isinstance(index, slice):
-            return EpochCollection(self._epochs[index], profile=self.profile)
+            return EpochCollection(
+                self._epochs[index], profile=self.profile, real_coords=self._real_coords
+            )
         # Update the profile of the epoch with the profile of the collection
         self._epochs[index].profile = self._profile
         return self._epochs[index]

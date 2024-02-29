@@ -5,6 +5,10 @@ import numpy as np  # type: ignore
 
 __all__ = ["geocentric_to_ellipsoidal", "ellipsoidal_to_geocentric"]
 
+# WGS DATUM CONSTANTS
+A = 6378137.0  # semi-major axis in meters
+F = 1 / 298.257223563  # flattening
+
 
 @nb.njit(nb.float64[:](nb.float64, nb.float64, nb.float64), fastmath=True, cache=True)
 def geocentric_to_ellipsoidal(
@@ -21,31 +25,28 @@ def geocentric_to_ellipsoidal(
         np.ndarray: Ellipsoidal coordinates
     """
     # WGS84 ellipsoid parameters
-    a = 6378137.0  # semi-major axis in meters
-    f = 1 / 298.257223563  # flattening
+    e = np.sqrt(2 * F - F**2)
 
     # Calculate longitude and latitude
     lon = np.arctan2(y, x)
     p = np.sqrt(x**2 + y**2)
-    lat = np.arctan2(z, p * (1 - f))
+    lat = np.arctan2(z, (1 - e**2) * p)
 
     # Iteratively refine latitude using the iterative method
-    tolerance = 1e-9
+    tolerance = 1e-12
     while True:
         previous_lat = lat
-        N = a / np.sqrt(1 - f * (2 - f) * np.sin(lat) ** 2)
-        lat = np.arctan2(z + f * N * np.sin(lat), p)
+        N = A / np.sqrt(1 - e**2 * np.sin(lat) ** 2)
+        h = p / np.cos(lat) - N
+        lat = np.arctan2(z, p * (1 - e**2 * N / (N + h)))
 
         # Break the loop if the change in latitude is small enough
         if np.abs(lat - previous_lat) < tolerance:
             break
 
-    # Calculate height
-    height = p / np.cos(lat) - N
-
     # Convert latitude and longitude from radians to degrees
-    lat = np.degrees(lat)
-    lon = np.degrees(lon)
+    lat = np.rad2deg(lat)
+    lon = np.rad2deg(lon)
 
     # Normalize longitude to be between -180 and 180
     lon = (lon + 180) % 360 - 180
@@ -53,7 +54,7 @@ def geocentric_to_ellipsoidal(
     # Normalize latitude to be between -90 and 90
     lat = (lat + 90) % 180 - 90
 
-    return np.array([lat, lon, height])
+    return np.array([lat, lon, h])
 
 
 @nb.njit(
@@ -76,14 +77,11 @@ def ellipsoidal_to_geocentric(
         np.ndarray: Ellipsoidal coordinates
     """
     # WG84 ellipsoid parameters
-    a = 6378137.0
-    f = 1 / 298.257223563
-    b = a * (1 - f)
-    e2 = 1 - (b**2 / a**2)
+    e2 = 2 * F - F**2
     # Convert degrees to radians
     lat = np.radians(lat)
     lon = np.radians(lon)
-    N = a / np.sqrt(1 - e2 * np.sin(lat) ** 2)
+    N = A / np.sqrt(1 - e2 * np.sin(lat) ** 2)
     x = (N + alt) * np.cos(lat) * np.cos(lon)
     y = (N + alt) * np.cos(lat) * np.sin(lon)
     z = (N * (1 - e2) + alt) * np.sin(lat)

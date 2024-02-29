@@ -112,7 +112,7 @@ class HatchLikeSmoother(BaseSmoother):
         super().__init__(smoother_type)
 
     def _update_sv_visibility_map(
-        self, new_sv_parameters: dict[str, (float, int)]
+        self, new_sv_parameters: dict[str, tuple[float, int]]
     ) -> None:
         """This method updates the SV visibility map with the given SV parameters for the current epoch.
 
@@ -159,7 +159,7 @@ class HatchLikeSmoother(BaseSmoother):
 
     def _update(
         self, current_epoch: Epoch
-    ) -> tuple[pd.Series, dict[str, (float, int)]]:
+    ) -> tuple[pd.Series, dict[str, tuple[float, int]]]:
         """This method calculates the smoothed range for the current epoch and updates the SV visibility map.
 
         Note: Need to be implemented by the derived classes.
