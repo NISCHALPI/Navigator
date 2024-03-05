@@ -19,7 +19,6 @@ State Definition:
     - Dclock_drift: Error in clock drift from baseline coordinate.
     - clock_drift_rate: Clock drift rate.
     - wet_tropospheric_delay: Wet tropospheric delay.
-    - B: Bias of the phase measurements, including integer ambiguity and hardware delay.
 
 Usage:
     >>> from gnss_kalman_network import ErrorStateKalmanNet
@@ -81,7 +80,7 @@ class ErrorStateKalmanNet(AbstractKalmanNet):
         """
         # Initialize the base class
         super().__init__(
-            dim_state=9 + num_sv,  # Total 9 state elements + num_sv biases
+            dim_state=9,  # Total 9 state elements + num_sv biases
             dim_measurement=2 * num_sv,
             dt=dt,
             flavor=["F1", "F2", "F3", "F4"],
@@ -125,7 +124,7 @@ class ErrorStateKalmanNet(AbstractKalmanNet):
         )
 
         # Initialize the state transition matrix
-        self.F = phase_state_transistion_matrix(dt=self.dt, num_sv=self.num_sv).to(
+        self.F = phase_state_transistion_matrix(dt=self.dt).to(
             device=self.device, dtype=self.dtype
         )
 
@@ -219,7 +218,6 @@ class ErrorStateKalmanNet(AbstractKalmanNet):
         return phase_measurement_model(
             error_state=x,
             sv_matrix=sv_matrix,
-            num_sv=self.num_sv,
             base_line=self.base_line,
         )
 
@@ -230,7 +228,7 @@ class ErrorStateKalmanNet(AbstractKalmanNet):
 
         Args:
             x_trajectory: The trajectory of the measurements vector. (B, T, M)
-            sv_trajectory: The trajectory of the satellites for each range measurement. (B, T, 3)
+            sv_trajectory: The trajectory of the satellites for each range measurement. (B, T, num_sv, 3)
 
         Returns:
             torch.Tensor: The predicted state of the system by the kalman net. (B, T, S)

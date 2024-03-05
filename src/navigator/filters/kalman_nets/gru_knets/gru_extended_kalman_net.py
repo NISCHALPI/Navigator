@@ -198,6 +198,20 @@ class GRUExtendedKalmanBlock(nn.Module):
 
 
         """
+        # Layer normalization of the input
+        combinations["F1"] = nn.functional.layer_norm(
+            combinations["F1"], combinations["F1"].shape[1:]
+        )
+        combinations["F2"] = nn.functional.layer_norm(
+            combinations["F2"], combinations["F2"].shape[1:]
+        )
+        combinations["F3"] = nn.functional.layer_norm(
+            combinations["F3"], combinations["F3"].shape[1:]
+        )
+        combinations["F4"] = nn.functional.layer_norm(
+            combinations["F4"], combinations["F4"].shape[1:]
+        )
+
         # Calculate the process noise covariance
         Q_inp = self.networks["Q_GRU_INPUT"](combinations["F4"])
         Q = self.networks["Q_GRU_CELL"](Q_inp, combinations[self.Q_HIDDEN_KEY])

@@ -29,7 +29,7 @@ import torch
 
 def phase_state_transistion_matrix(
     dt: float,
-    num_sv: int,
+    # num_sv: int,
 ) -> torch.Tensor:
     """State Transition Matrix for the phase-based GPS Kalman Filter.
 
@@ -44,7 +44,7 @@ def phase_state_transistion_matrix(
     A = torch.eye(2, dtype=torch.float32)
     A[0, 1] = dt
 
-    F = torch.eye(9 + num_sv, dtype=torch.float32)
+    F = torch.eye(9, dtype=torch.float32)
     F_xyz = torch.kron(torch.eye(4), A)
 
     # Set the state transition matrix for the ellipsoidal coordinates, clock drift

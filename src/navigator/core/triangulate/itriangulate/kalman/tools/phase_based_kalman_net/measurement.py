@@ -18,7 +18,6 @@ State Definition:
     - Dclock_drift: Error in clock drift from baseline coordinate.
     - clock_drift_rate: Clock drift rate.
     - wet_tropospheric_delay: Wet tropospheric delay.
-    - B: Bias of the phase measurements, including integer ambiguity and hardware delay.
 
 See Also:
     - Linear observation model for PPP:
@@ -35,7 +34,6 @@ def phase_measurement_model(
     error_state: torch.Tensor,
     base_line: torch.Tensor,
     sv_matrix: torch.Tensor,
-    num_sv: int,
 ) -> torch.Tensor:
     """Measurement Function for the phase based GPS Kalman Filter.
 
@@ -43,7 +41,6 @@ def phase_measurement_model(
         base_line : The base line initilization for the location in ECEF coordinate. [x_0 , y_0 , z_0 , cdt_0]
         error_state: The current state of the system.
         sv_matrix: The satellite frame containing the satellite positions, elevation, and azimuth.
-        num_sv: The number of satellites to continuously track.
 
     Returns:
         Returns: The stacked [code, phase] measurements. The code is first, and the phase is second.
@@ -55,15 +52,12 @@ def phase_measurement_model(
     # Get the current state variables
     cdt = base_line[[3]] + error_state[[6]]
     t_wet = error_state[[8]]  # t_wet
-    integer_bais_vector = error_state[9 : 9 + num_sv]  # lambda_N
 
     # Compute the range from the user to the satellites
     range_from_user = torch.norm(sv_matrix - position, dim=1)
 
     # Get the current range from the code measurements
-    phase_measurements = (
-        range_from_user + cdt + t_wet + integer_bais_vector
-    )  # phase_measurements
+    phase_measurements = range_from_user + cdt + t_wet  # phase_measurements
     code_measurements = range_from_user + cdt + t_wet
 
     # Return the measurements

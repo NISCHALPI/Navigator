@@ -67,6 +67,7 @@ from ..parse import Parser
 from ..parse.iparse import IParseGPSNav, IParseGPSObs
 from ..utility.igs_network import IGSNetwork
 from .epochfragment import FragNav, FragObs
+from concurrent.futures import ProcessPoolExecutor
 
 __all__ = ["Epoch"]
 
@@ -424,7 +425,7 @@ class Epoch:
     @staticmethod
     def epochify(
         obs: Path | str, nav: Path | str | None = None, mode: str = "maxsv", **kwargs
-    ) -> Iterator["Epoch"]:
+    ) -> list["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 
         Args:
@@ -434,7 +435,7 @@ class Epoch:
             **kwargs: Additional keyword arguments to pass to the parser.
 
         Yields:
-            Iterator[Epoch]: Epoch instances generated from the provided data files.
+            list[Epoch]: List of Epoch instances generated from the provided data files.
         """
         # Convert the paths to Path objects
         obs = Path(obs)
@@ -482,19 +483,70 @@ class Epoch:
         obs_frags = [frag for frag in obs_frags if len(frag) >= 4]
         nav_frags = [frag for frag in nav_frags if len(frag) >= 4]
 
-        # Iterate over the fragments
-        yield from [
-            Epoch.load_from_fragment(
-                obs_frag=observational_fragments, nav_frag=nearest_nav
-            )
-            for observational_fragments in obs_frags
+        return [
+            Epoch.load_from_fragment(obs_frag=obs_frag, nav_frag=nav_frag)
+            for obs_frag in obs_frags
             if (
-                nearest_nav := observational_fragments.nearest_nav_fragment(
+                nav_frag := obs_frag.nearest_nav_fragment(
                     nav_fragments=nav_frags, mode=mode
                 )
             )
             is not None
         ]
+
+        # # Iterate over the fragments
+        # yield from [
+        #     Epoch.load_from_fragment(
+        #         obs_frag=observational_fragments, nav_frag=nearest_nav
+        #     )
+        #     for observational_fragments in obs_frags
+        #     if (
+        #         nearest_nav := observational_fragments.nearest_nav_fragment(
+        #             nav_fragments=nav_frags, mode=mode
+        #         )
+        #     )
+        #     is not None
+        # ]
+
+    def parallel_epochify(
+        obs: list[Path | str],
+        nav: list[Path | str | None] = None,
+        mode: str = "maxsv",
+        num_workers: int = 4,
+        **kwargs,
+    ) -> list["Epoch"]:
+        """Generate Epoch instances from observation and navigation data files.
+
+        Args:
+            obs (list[Path | str]): List of paths to the observation data file.
+            nav (list[Path | str]): List of paths to the navigation data file. Defaults to None.
+            mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
+            num_workers (int, optional): Number of workers to use. Defaults to 4.
+            **kwargs: Additional keyword arguments to pass to the parser.
+
+        Returns:
+            list[Epoch]: List of Epoch instances generated from the provided data files.
+        """
+        list_of_all_epochs = []
+
+        # Ensure the nav list is not None
+        if nav is None:
+            nav = [None] * len(obs)
+
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            for epoch in executor.map(
+                Epoch.epochify,
+                obs,
+                nav,
+                [mode] * len(obs),
+            ):
+                # Wait for the result and append to the list
+                list_of_all_epochs.extend(epoch)
+
+            # Ensure all the workers are closed
+            executor.shutdown(wait=True)
+
+        return list_of_all_epochs
 
     def save(self, path: str | Path) -> None:
         """Save the epoch to a file.

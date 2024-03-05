@@ -22,6 +22,7 @@ Author: Nischal Bhattarai
 
 from typing import Iterator, List
 
+import pandas as pd
 from pandas.core.series import Series
 
 from .epoch import Epoch
@@ -269,6 +270,37 @@ class EpochCollection:
                 return
         # Append the epoch at the end of the list
         self._epochs.append(epoch)
+
+    def split_time_blocks(self, threashold: int = 60) -> list["EpochCollection"]:
+        """Splits the epochs into time blocks based on the threshold.
+
+        If the time difference between two consecutive epochs is greater than the threshold, then a new time block is created.
+
+        Args:
+            threashold (int, optional): The threshold in minutes. Defaults to 60.
+
+        Returns:
+            list[EpochCollection]: A list of EpochCollection objects, each representing a time block.
+        """
+        blocks = []
+        thld = pd.Timedelta(minutes=threashold)
+
+        # Initialize the start index
+        start = 0
+        for i in range(1, len(self._epochs)):
+            # Check if the time difference is greater than the threshold
+            if self._epochs[i].timestamp - self._epochs[i - 1].timestamp > thld:
+                # Create a new time block
+                blocks.append(
+                    EpochCollection(self._epochs[start:i], profile=self.profile)
+                )
+                # Update the start index
+                start = i
+
+        # Append the last time block
+        blocks.append(EpochCollection(self._epochs[start:], profile=self.profile))
+
+        return blocks
 
     def pop(self, index: int) -> Epoch:
         """Pops an Epoch object from the collection.

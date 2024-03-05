@@ -216,7 +216,7 @@ class GPSPreprocessor(Preprocessor):
 
         """
         # Calculate the gps in seconds of the week
-        time = (time - pd.Timestamp("1980-01-06")).total_seconds() % (7 * 24 * 60 * 60)
+        t = (time - pd.Timestamp("1980-01-06")).total_seconds() % (7 * 24 * 60 * 60)
 
         # Compute the ionospheric correction
         iono_corr = []
@@ -227,7 +227,7 @@ class GPSPreprocessor(Preprocessor):
                     azimuth=row["azimuth"],
                     latitude=approx_receiver_location["lat"],
                     longitude=approx_receiver_location["lon"],
-                    tow=time,
+                    tow=t,
                     alpha0=iono_params["alpha0"],
                     alpha1=iono_params["alpha1"],
                     alpha2=iono_params["alpha2"],
