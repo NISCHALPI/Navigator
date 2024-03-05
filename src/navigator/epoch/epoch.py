@@ -54,11 +54,11 @@ Author:
 """
 
 import pickle
+from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path  # type: ignore
 from tempfile import TemporaryDirectory
-from typing import Iterator
 
 import pandas as pd  # type: ignore
 
@@ -67,7 +67,6 @@ from ..parse import Parser
 from ..parse.iparse import IParseGPSNav, IParseGPSObs
 from ..utility.igs_network import IGSNetwork
 from .epochfragment import FragNav, FragObs
-from concurrent.futures import ProcessPoolExecutor
 
 __all__ = ["Epoch"]
 
@@ -339,10 +338,14 @@ class Epoch:
             pd.DataFrame: DataFrame with missing data observations removed.
         """
         # Drop NA rows values for observations ["C1C", "C2W", "L1C" , "L2C"] if present
-        data = data.dropna(subset=["C1C", "C2W", "L1C", "L2W"], axis=0)
+        to_drop_na = data.index.get_level_values("sv").intersection(
+            ["C1C", "C2W", "L1C", "L2W"]
+        )
 
-        # Now drop any columns with NaN values
-        data = data.dropna(axis=1, how="any")
+        data = data.dropna(subset=to_drop_na, axis=0, how="any")
+
+        # # Now drop any columns with NaN values
+        # data = data.dropna(axis=1, how="any")
 
         # Drop Duplicates columns
         return data[~data.index.duplicated(keep="first")]
@@ -451,7 +454,7 @@ class Epoch:
 
         if nav is not None:
             # Parse the observation data
-            parser.swap(iparser=IParseGPSObs())
+            parser.swap(iparser=IParseGPSNav())
             # Parse the navigation data
             nav_meta, nav_data = parser(nav)
         else:
@@ -471,7 +474,6 @@ class Epoch:
         obs_frags = FragObs.fragmentify(
             obs_data=data, parent=obs.name, obs_meta=obs_meta
         )
-
         # Get the navigation fragments
         nav_frags = FragNav.fragmentify(
             nav_data=nav_data,
@@ -479,7 +481,7 @@ class Epoch:
             nav_meta=nav_meta,
         )
 
-        # Filter at least 4 satellites
+        # # Filter at least 4 satellites
         obs_frags = [frag for frag in obs_frags if len(frag) >= 4]
         nav_frags = [frag for frag in nav_frags if len(frag) >= 4]
 

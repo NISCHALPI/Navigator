@@ -22,13 +22,16 @@ __all__ = ["least_squares"]
 
 
 @njit(
-    UniTuple(float64[:, :], 2)(float64[:, :], float64[:, :], float64[:, :]),
+    UniTuple(float64[:, :], 2)(float64[:, :], float64[:, :], float64[:, :], float64),
     fastmath=True,
     parallel=True,
     cache=True,
 )
 def _design_matrix(
-    guess: np.ndarray, pseudorange: np.ndarray, sv_pos: np.ndarray
+    guess: np.ndarray,
+    pseudorange: np.ndarray,
+    sv_pos: np.ndarray,
+    cdt: np.float64,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate a design matrix for the least squares problem. Uses the 1 in the column for the clock offset. The clock offset must be given in terms of the distance it would travel.
 
@@ -36,6 +39,7 @@ def _design_matrix(
         guess (np.array): The initial guess for the receiver position must be of shape (3, 1).
         pseudorange (np.array):  The pseudorange measurements of shape (num_svs, 1)
         sv_pos (np.array): The satellite positions of shape (num_svs, 3)
+        cdt (np.float64): The clock offset in meters.
 
     Returns:
         Tuple[np.array, np.array]: The residual and design matrix of shape (num_svs, 1) and (num_svs, 4) respectively.
@@ -54,10 +58,10 @@ def _design_matrix(
 
     # Calculate the design matrix
     A = np.ones((sv_pos.shape[0], 4), dtype=np.float64)
-    A[:, :3] = -(sv_pos - guess.T) / P_o
+    A[:, :3] = (guess.T - sv_pos) / P_o
 
     # Calculate the residual
-    r = pseudorange - P_o
+    r = pseudorange - P_o - cdt
 
     return r, A
 
@@ -111,13 +115,14 @@ def least_squares(
     # Add counter to prevent infinite loop
     counter = 0
     # Iterate until convergence
-    while True:
+    while counter < 100000:
         # Generate the design matrix and residual.
         # Pass the coordinates only of the guess since the clock offset is not used in the design matrix
         r, A = _design_matrix(
             guess=guess[:3, 0:],
             pseudorange=pseudorange,
             sv_pos=sv_pos,
+            cdt=guess[3, 0],
         )
 
         # Solve for the correction
@@ -127,7 +132,7 @@ def least_squares(
         guess += dr
 
         # Check for convergence
-        if np.linalg.norm(dr[:3, 0]) < eps or counter > 100000:
+        if np.linalg.norm(dr[:3, 0]) < eps:
             break
         # Update the counter
         counter += 1
