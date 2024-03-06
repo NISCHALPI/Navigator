@@ -84,9 +84,10 @@ class EpochCollection:
 
     def __init__(
         self,
-        epochs: List[Epoch],
+        epochs: list[Epoch],
         profile: dict[str] = Epoch.DUAL,
         real_coords: Series | None = None,
+        dummy: bool = False,
     ) -> None:
         """Initializes the class with a list of Epoch objects.
 
@@ -98,6 +99,7 @@ class EpochCollection:
             epochs (List[Epoch]): A list of Epoch objects.
             profile (dict, optional): The profile of the collection of epochs. Defaults to Epoch.DUAL.
             real_coords (Series, optional): The real coordinates of the receiver. Defaults to None.
+            dummy (bool, optional): A dummy argument to indiacte that if the epoch collection is a simulated one. Defaults to False.
 
         Raises:
             ValueError: If epochs is not a list of Epoch objects.
@@ -109,11 +111,24 @@ class EpochCollection:
         # Set the epochs
         self._epochs = sorted(epochs, key=lambda x: x.timestamp)
 
+        # Check if first epoch is dummy
+        if (
+            len(self._epochs) > 0
+            and self._epochs[0].profile["mode"] == "dummy"
+            and not dummy
+        ):
+            raise ValueError(
+                "Explicitly set dummy to True if the epochs are simulated!"
+            )
+
         # Set a profile
-        self.profile = profile
+        self.profile = profile if not dummy else Epoch.DUMMY
 
         # Set the real coordinates of the receiver
         self.real_coords = real_coords
+
+        # Is dymmmy
+        self.dummy = dummy
 
     @property
     def real_coords(self) -> Series:

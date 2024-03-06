@@ -1,14 +1,9 @@
-"""Defines the State Transition Function for a error state phase-based GPS Kalman Net.
-
-The state vector is parameterized in the cartesian frame which predicts the error in the consecutive
-measurements instead of the predicting the whole coordinate which helps in the numerical stability as 
-well as training.
-
+"""The state transistion model for Kalman Net Neural Network for GNSS applications.
 
 State Definition:
     The state vector (curr_state) represents the receiver and is defined as follows:
     
-    x = [Dx, x_dot, Dy, y_dot, z, z_dot, Dclock_drift, clock_drift_rate, wet_tropospheric_delay, B1, ..., Bn]
+    x = [Dx, x_dot, Dy, y_dot, z, z_dot, Dclock_drift]
 
     Where:
     - Dx : Error in X coordinate from baseline coordinate.
@@ -18,16 +13,17 @@ State Definition:
     - Dz : Error in Y coordinate from baseline coordinate.
     - z_dot : Velocity of the z-coordinate.
     - Dclock_drift: Error in clock drift from baseline coordinate.
-    - clock_drift_rate: Clock drift rate.
-    - wet_tropospheric_delay: Wet tropospheric delay.
-    - B: Bias of the phase measurements, including integer ambiguity and hardware delay.
 
+Note:
+    This state transistion model is used in the Neural Kalman Filter for GNSS applications. The error and drift modeling is left to the neural network.
 """
 
 import torch
 
+__all__ = ["kalman_net_state_transistion_model"]
 
-def phase_state_transistion_matrix(
+
+def kalman_net_state_transistion_model(
     dt: float,
     # num_sv: int,
 ) -> torch.Tensor:
@@ -44,11 +40,10 @@ def phase_state_transistion_matrix(
     A = torch.eye(2, dtype=torch.float32)
     A[0, 1] = dt
 
-    F = torch.eye(9, dtype=torch.float32)
-    F_xyz = torch.kron(torch.eye(4), A)
-
-    # Set the state transition matrix for the ellipsoidal coordinates, clock drift
-    F[:8, :8] = F_xyz
-    # Other parameters are independent of the state and time hence the state transition matrix is an identity matrix
+    # State transition matrix 7x7
+    F = torch.eye(7, dtype=torch.float32)
+    F[:2, :2] = A
+    F[2:4, 2:4] = A
+    F[4:6, 4:6] = A
 
     return F

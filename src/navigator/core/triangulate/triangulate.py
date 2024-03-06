@@ -173,9 +173,11 @@ class AbstractTriangulate(ABC):
         # Copy  the epoch to avoid modifying the original
         epoch_inital = deepcopy(epoch)
         # Set the initial  epoch profile
-        epoch_inital.profile = (
-            epoch_inital.INITIAL
-        )  # Initial profile doesn;t need any prior approximation of user position since no error model is applied
+
+        # Initial profile doesn;t need any prior approximation of user position since no error model is applied
+        # Check that it is not the dummy profile
+        if epoch_inital.profile["mode"] != "dummy":
+            epoch_inital.profile = Epoch.INITIAL
         # Compute the initial approximation using the weighted least squares method
         return IterativeTriangulationInterface()._compute(epoch=epoch_inital, **kwargs)
 

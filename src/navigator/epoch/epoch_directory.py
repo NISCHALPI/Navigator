@@ -25,7 +25,7 @@ from ..utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
 from ..utility.rinex_data_tools.directory import AbstractDirectory
 from ..utility.rinex_data_tools.standerd_directory import StanderdDirectory
 from .epoch import Epoch
-from .epochfragment import FragNav, FragObs
+from .fragments.gps_framgents import FragNav, FragObs
 
 __all__ = ["EpochDirectory"]
 

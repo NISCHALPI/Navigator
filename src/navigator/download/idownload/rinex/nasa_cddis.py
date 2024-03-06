@@ -153,8 +153,8 @@ class NasaCddisV3:
                     )
                     # Add a callback to update the progress bar
                     futures[-1].add_done_callback(
-                        lambda x: pbar.update(1)  # noqa : ARG005
-                    )
+                        lambda x: pbar.update(1)
+                    )  # noqa : ARG005
 
                 # Wait for all the futures to complete
                 executor.shutdown(wait=True)

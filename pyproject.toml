@@ -51,7 +51,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 select =["E", "F", "I", "UP", "ANN", "ARG", "D", "RET", "TCH"]
 exclude = ["tests", "docs", "*test_*"]
-src =['./ftrain']
+src =['./src/navigator']
 # Ignore long lines and self annotations 
 ignore =['ANN101', 'E501', 'ANN002', 'ANN003']
 

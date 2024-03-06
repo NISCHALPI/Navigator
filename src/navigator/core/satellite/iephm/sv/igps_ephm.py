@@ -169,8 +169,8 @@ class IGPSEphemeris(AbstractIephemeris):
         return dt
 
     def _compute(
-        self, metadata: pd.Series, data: pd.Series, **kwargs  # noqa: ARG002
-    ) -> pd.Series:
+        self, metadata: pd.Series, data: pd.Series, **kwargs
+    ) -> pd.Series:  # noqa: ARG002
         """Calculate the satellite's position based on ephemeris data.
 
         Args:

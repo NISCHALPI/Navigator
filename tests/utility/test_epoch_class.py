@@ -18,12 +18,17 @@ def test_epochify(obsfilepath, navfilepath):
 
     # Assert the length of individual epochs is either 9, 10, or 11
     for epoch in epochified:
-        assert len(epoch) in range(4, 12)
+        assert len(epoch) in [8, 9, 10, 11]
 
     # Assert that the epoch has both obs and nav data
     for epoch in epochified:
         assert epoch.obs_data is not None
         assert epoch.nav_data is not None
+
+    # Assert that the epoch observation data has no NaN values
+    # on following columns: ['C1C', "C2W", "L1C", "L2W"]
+    for epoch in epochified:
+        assert epoch.obs_data[["C1C", "C2W", "L1C", "L2W"]].isna().sum().sum() == 0
 
 
 def test_mode(obsfilepath, navfilepath):

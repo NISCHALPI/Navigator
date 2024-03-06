@@ -132,7 +132,7 @@ def least_squares(
         guess += dr
 
         # Check for convergence
-        if np.linalg.norm(dr[:3, 0]) < eps:
+        if np.linalg.norm(dr) < eps:
             break
         # Update the counter
         counter += 1

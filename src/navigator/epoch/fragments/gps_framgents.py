@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+from ...utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
 
 __all__ = ["Fragment", "FragObs", "FragNav"]
 
@@ -113,9 +113,8 @@ class FragObs(Fragment):
         matcher = MixedObs3DailyMatcher()
 
         if not matcher(self.parent):
-            raise ValueError(
-                "Parent file is not an observation file format defined by nasa cddis."
-            )
+            return "OBSFRAG_UNKNOWN_00000000_000000.pkl"
+
         # Get the metadata from the parent file name.
         met = matcher.extract_metadata(self.parent)
 

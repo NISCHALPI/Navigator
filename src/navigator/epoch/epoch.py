@@ -55,7 +55,6 @@ Author:
 
 import pickle
 from concurrent.futures import ProcessPoolExecutor
-from copy import deepcopy
 from datetime import datetime
 from pathlib import Path  # type: ignore
 from tempfile import TemporaryDirectory
@@ -66,7 +65,7 @@ from ..download.idownload.rinex.nasa_cddis import NasaCddisV3
 from ..parse import Parser
 from ..parse.iparse import IParseGPSNav, IParseGPSObs
 from ..utility.igs_network import IGSNetwork
-from .epochfragment import FragNav, FragObs
+from .fragments.gps_framgents import FragNav, FragObs
 
 __all__ = ["Epoch"]
 
@@ -79,6 +78,15 @@ class Epoch:
 
 
     """
+
+    # RINEX Observables
+    L1_CODE_ON = "C1C"
+    L2_CODE_ON = "C2W"
+    L1_PHASE_ON = "L1C"
+    L2_PHASE_ON = "L2W"
+
+    # Relvant columns
+    RELEVANT_COLUMNS = [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON]
 
     # Single Frequency Profile
     SINGLE = {
@@ -101,6 +109,9 @@ class Epoch:
     # Phase Profile
     PHASE = {"apply_tropo": False, "apply_iono": False, "mode": "phase"}
 
+    # DUMMY
+    DUMMY = {"apply_tropo": False, "apply_iono": False, "mode": "dummy"}
+
     ALLOWED_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
     MANDATORY_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
 
@@ -112,57 +123,72 @@ class Epoch:
 
     def __init__(
         self,
-        obs_frag: FragObs,
-        nav_frag: FragNav,
+        timestamp: pd.Timestamp,
+        obs_data: pd.DataFrame,
+        nav_data: pd.DataFrame,
+        obs_meta: pd.Series,
+        nav_meta: pd.Series,
         trim: bool = False,
         purify: bool = False,
         real_coord: pd.Series | dict | None = None,
+        station: str | None = None,
+        override_relevant_columns: list[str] | None = None,
     ) -> None:
         """Initialize an Epoch instance with a timestamp and observational data and navigation data.
 
         Args:
-            timestamp (pd.Timestamp): The timestamp associated with the epoch.
-            obs_frag (FragObs): A Observational data fragment i.e observational data for a single epoch.
-            nav_frag (FragNav): A Navigation data fragment i.e navigation data for crossponding epoch.
-            trim (bool, optional): Whether to trim the data. Defaults to False.
-            purify (bool, optional): Whether to purify the data. Defaults to False.
-            real_coord (pd.Series, optional): The real coordinates of the station. Defaults to empty series.
+            timestamp (pd.Timestamp): The timestamp of the epoch i.e reciever timestamp.
+            obs_data (pd.DataFrame): The observational data of the epoch.
+            obs_meta (pd.Series): The observation metadata.
+            nav_data (pd.DataFrame): The navigation data of the epoch.
+            nav_meta (pd.Series): The navigation metadata.
+            trim (bool, optional): Intersect satellite vehicles in observation and navigation data. Defaults to False.
+            purify (bool, optional): Remove observations with missing data. Defaults to False.
+            real_coord (pd.Series | dict | None, optional): The real coordinates of the station. Defaults to None.
+            station (str | None, optional): The station name. Defaults to None.
+            override_relevant_columns (list[str] | None, optional): Override the relevant columns. Defaults to Epoch.RELEVANT_COLUMNS.
 
         Returns:
             None
         """
-        # Store FragObs and FragNav
-        self._obs_frag = deepcopy(
-            obs_frag
-        )  # Need to deepcopy to avoid modifying the original object
-        self._nav_frag = deepcopy(
-            nav_frag
-        )  # Need to deepcopy to avoid modifying the original object
+        # Override the relevant columns if provided
+        if override_relevant_columns is not None:
+            self.RELEVANT_COLUMNS = override_relevant_columns
+        # Purify the data if required
+        obs_data = self.purify(obs_data) if purify else obs_data
 
-        # Purify the data
-        if purify:
-            self.obs_data = self.purify(self.obs_data)
+        # Store the timestamp
+        self.timestamp = timestamp
+
+        # Store FragObs and FragNav
+        self.obs_data = obs_data
+        self.nav_data = nav_data
+
+        # Store the metadata
+        self.obs_meta = obs_meta
+        self.nav_meta = nav_meta
 
         # Trim the data if required
         if trim:
             self.trim()
 
-        # Set the is_smoothed attribute
-        self._is_smoothed = False
-
         # Define a profile for the epoch can be [dual , single]
-        self._profile = self.DUAL
+        self.profile = self.DUAL
+
+        # Set the is_smoothed attribute
+        self.is_smoothed = False
 
         # Set the real coordinates of the station
         self.real_coord = real_coord
 
+        # Set the station name
+        self.station = station
+
         # Populate the IGS network if the station is part of the IGS network
-        try:
-            self._real_coord = pd.Series(
-                self.IGS_NETWORK.get_xyz(self.station), index=["x", "y", "z"]
+        if self.station in self.IGS_NETWORK:
+            self.real_coord = pd.Series(
+                self.IGS_NETWORK.get_xyz(self._station), index=["x", "y", "z"]
             )
-        except ValueError:
-            pass
 
     @property
     def real_coord(self) -> pd.Series:
@@ -198,7 +224,22 @@ class Epoch:
             pd.Timestamp: The timestamp associated with the epoch.
 
         """
-        return self._obs_frag.epoch_time
+        return self._timestamp
+
+    @timestamp.setter
+    def timestamp(self, value: pd.Timestamp) -> None:
+        """Set the timestamp of the epoch.
+
+        Args:
+            value (pd.Timestamp): The value to set.
+
+        """
+        if not isinstance(value, pd.Timestamp):
+            raise ValueError(
+                f"Timestamp must be a pd.Timestamp. Got {type(value)} instead."
+            )
+
+        self._timestamp = value
 
     @property
     def obs_data(self) -> pd.DataFrame:
@@ -208,7 +249,7 @@ class Epoch:
             pd.DataFrame: A DataFrame containing observational data.
 
         """
-        return self._obs_frag.obs_data
+        return self._obs_data
 
     @obs_data.setter
     def obs_data(self, data: pd.DataFrame) -> None:  # noqa: ARG002
@@ -218,7 +259,11 @@ class Epoch:
             data (pd.DataFrame): The data to set.
 
         """
-        self._obs_frag.obs_data = data
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError(
+                f"Observational data must be a pd.DataFrame. Got {type(data)} instead."
+            )
+        self._obs_data = data
 
     @property
     def nav_data(self) -> pd.DataFrame:
@@ -228,7 +273,7 @@ class Epoch:
             pd.DataFrame: A DataFrame containing navigation data.
 
         """
-        return self._nav_frag.nav_data
+        return self._nav_data
 
     @nav_data.setter
     def nav_data(self, nav_data: pd.DataFrame) -> None:  # noqa: ARG002
@@ -238,7 +283,11 @@ class Epoch:
             nav_data (pd.DataFrame): The nav_data to set.
 
         """
-        self._nav_frag.nav_data = nav_data
+        if not isinstance(nav_data, pd.DataFrame):
+            raise ValueError(
+                f"Navigation data must be a pd.DataFrame. Got {type(nav_data)} instead."
+            )
+        self._nav_data = nav_data
 
     @property
     def station(self) -> str:
@@ -248,7 +297,17 @@ class Epoch:
             str: The station name.
 
         """
-        return self._obs_frag.station
+        return self._station
+
+    @station.setter
+    def station(self, value: str) -> None:
+        """Set the station name.
+
+        Args:
+            value (str): The value to set.
+
+        """
+        self._station = value
 
     @property
     def nav_meta(self) -> pd.Series:
@@ -258,7 +317,21 @@ class Epoch:
             pd.Series: The navigation metadata.
 
         """
-        return self._nav_frag.metadata
+        return self._nav_data
+
+    @nav_meta.setter
+    def nav_meta(self, value: pd.Series) -> None:
+        """Set the navigation metadata.
+
+        Args:
+            value (pd.Series): The value to set.
+
+        """
+        if not isinstance(value, pd.Series):
+            raise ValueError(
+                f"Navigation metadata must be a pd.Series. Got {type(value)} instead."
+            )
+        self._nav_meta = value
 
     @property
     def obs_meta(self) -> pd.Series:
@@ -268,7 +341,21 @@ class Epoch:
             pd.Series: The observation metadata.
 
         """
-        return self._obs_frag.metadata
+        return self._obs_meta
+
+    @obs_meta.setter
+    def obs_meta(self, value: pd.Series) -> None:
+        """Set the observation metadata.
+
+        Args:
+            value (pd.Series): The value to set.
+
+        """
+        if not isinstance(value, pd.Series):
+            raise ValueError(
+                f"Observation metadata must be a pd.Series. Got {type(value)} instead."
+            )
+        self._obs_meta = value
 
     @property
     def profile(self) -> dict:
@@ -337,18 +424,16 @@ class Epoch:
         Returns:
             pd.DataFrame: DataFrame with missing data observations removed.
         """
-        # Drop NA rows values for observations ["C1C", "C2W", "L1C" , "L2C"] if present
-        to_drop_na = data.index.get_level_values("sv").intersection(
-            ["C1C", "C2W", "L1C", "L2W"]
-        )
+        # Drop duplicates columns
+        data = data[~data.index.duplicated(keep="first")]
+        relevant_columns = data.columns.intersection(Epoch.RELEVANT_COLUMNS)
+        # Drop any rows with NA values on to_drop_na columns
+        data.dropna(subset=relevant_columns, how="any", axis=0, inplace=True)
 
-        data = data.dropna(subset=to_drop_na, axis=0, how="any")
+        # Drop Unnecessary columns
+        data.drop(columns=data.columns.difference(relevant_columns), inplace=True)
 
-        # # Now drop any columns with NaN values
-        # data = data.dropna(axis=1, how="any")
-
-        # Drop Duplicates columns
-        return data[~data.index.duplicated(keep="first")]
+        return data
 
     @property
     def common_sv(self) -> pd.Index:
@@ -486,14 +571,18 @@ class Epoch:
         nav_frags = [frag for frag in nav_frags if len(frag) >= 4]
 
         return [
-            Epoch.load_from_fragment(obs_frag=obs_frag, nav_frag=nav_frag)
-            for obs_frag in obs_frags
-            if (
-                nav_frag := obs_frag.nearest_nav_fragment(
-                    nav_fragments=nav_frags, mode=mode
-                )
+            Epoch(
+                timestamp=obs_frag.epoch_time,
+                obs_data=obs_frag.obs_data,
+                obs_meta=obs_frag.metadata,
+                nav_data=nav_frag.nav_data,
+                nav_meta=nav_frag.metadata,
+                trim=True,
+                purify=True,
+                station=obs_frag.station if hasattr(obs_frag, "station") else None,
             )
-            is not None
+            for obs_frag in obs_frags
+            if (nav_frag := obs_frag.nearest_nav_fragment(nav_frags, mode)) is not None
         ]
 
         # # Iterate over the fragments
@@ -511,11 +600,12 @@ class Epoch:
         # ]
 
     def parallel_epochify(
+        self,
         obs: list[Path | str],
         nav: list[Path | str | None] = None,
         mode: str = "maxsv",
         num_workers: int = 4,
-        **kwargs,
+        **kwargs,  # noqa: ARG002
     ) -> list["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 
@@ -588,34 +678,6 @@ class Epoch:
             )
 
         return epoch
-
-    @staticmethod
-    def load_from_fragment(obs_frag: FragObs, nav_frag: FragNav) -> "Epoch":
-        """Load an epoch from fragments.
-
-        Args:
-            obs_frag (list[FragObs]): Observation data fragments.
-            nav_frag (pd.DataFrame): Navigation data fragments.
-
-        Returns:
-            None
-        """
-        return Epoch(obs_frag=obs_frag, nav_frag=nav_frag, trim=True, purify=True)
-
-    @staticmethod
-    def load_from_fragment_path(obs_frag_path: Path, nav_frag_path: Path) -> "Epoch":
-        """Load an epoch from fragments.
-
-        Args:
-            obs_frag_path (Path): Path to the observation fragment.
-            nav_frag_path (Path): Path to the navigation fragment.
-
-        Returns:
-            Epoch: The epoch loaded from the fragments.
-        """
-        return Epoch.load_from_fragment(
-            obs_frag=FragObs.load(obs_frag_path), nav_frag=FragNav.load(nav_frag_path)
-        )
 
     def __gt__(self, other: "Epoch") -> bool:
         """Check if the epoch is greater than another epoch.

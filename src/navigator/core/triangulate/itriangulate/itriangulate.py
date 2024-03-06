@@ -27,6 +27,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from ....epoch import Epoch
+from .preprocessor.dummy_preprocessor import DummyPreprocessor
 from .preprocessor.gps_preprocessor import GPSPreprocessor
 from .preprocessor.preprocessor import Preprocessor
 
@@ -73,11 +74,15 @@ class Itriangulate(ABC):
         """
         pass
 
-    def _auto_dispatch_preprocessor(self, epoch: Epoch) -> Preprocessor:
+    @staticmethod
+    def _auto_dispatch_preprocessor(epoch: Epoch) -> Preprocessor:
         """Auto dispatches the preprocessor based on the constellation.
 
         Dispatching mechanism is based on the PRN of the satellites in the epoch observation data.
         i.e if "G01" is present in the epoch observation data, then the GPS preprocessor is dispatched.
+
+        Note:
+            Dummy preprocessor is dispatched if the epoch is a dummy epoch.
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
@@ -85,6 +90,10 @@ class Itriangulate(ABC):
         Returns:
             Preprocessor: The preprocessor for the constellation.
         """
+        # If dummy epoch , return the dummy preprocessor
+        if epoch.profile["mode"] == "dummy":
+            return DummyPreprocessor()
+
         # Get the common satellites in the epoch observation data
         prns = epoch.common_sv
 
