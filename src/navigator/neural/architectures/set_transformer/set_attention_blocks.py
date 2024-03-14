@@ -10,7 +10,6 @@ Following are the blocks implemented:
     - Pooling Set Attention Block (PSAB)
 """
 
-
 import torch
 import torch.nn as nn
 
@@ -266,6 +265,81 @@ class PMA(nn.Module):
         """
         # Compute the self-attention of inducing points.
         return self.MAB(self.S.repeat(X.shape[0], 1, 1), self.rFF(X))
+
+
+class SetTransformerBlock(nn.Module):
+    """Set Transformer Overall Block as described in the paper.
+
+    The Set Transformer block is used to compute the attention between the elements of the set.
+    The SAB block is used to compute the self-attention of the set elements.
+
+    As a mapping function, maps a tensor of shape (B, N, dim_Q) to a tensor of shape (B, dim_S, dim_Q).
+
+    Args:
+        dim_Q (int): Dimension of the Query vector.
+        dim_S (int): Dimension of the the lernable seed vector.
+        rFF_dim (int): Dimension of the Pointwise Feedforward Network (FNN).
+        ln (bool): If True, apply layer normalization.
+        num_heads (int): Number of attention heads.
+        out_dim (int): Dimension of the output tensor.
+
+    """
+
+    def __init__(
+        self,
+        dim_Q: int,
+        dim_S: int,
+        num_heads: int,
+        ln: bool = True,
+        fnn_dim: int = 64,
+        out_dim: int | None = None,
+    ) -> None:
+        """Constructor method for the Set Transformer block.
+
+        Args:
+            dim_Q (int): Dimension of the Query vector.
+            dim_S (int): Dimension of the the lernable seed vector.
+            num_heads (int): Number of attention heads to use on MAB.
+            ln (bool): If True, apply layer normalization.
+            fnn_dim (int): Dimension of the Pointwise Feedforward Network (FNN).
+            out_dim (int): Dimension of the output tensor.  Default is dim_Q.
+
+        Returns:
+            None
+        """
+        super().__init__()
+        # If out_dim is None, set it to dim_Q.
+        out_dim = out_dim if out_dim is not None else dim_Q
+
+        # Create a encoder block
+        self.encoder = nn.Sequential(
+            SAB(dim_Q, num_heads, ln, fnn_dim),
+            SAB(dim_Q, num_heads, ln, fnn_dim),
+        )
+
+        self.pooling_decoder = nn.Sequential(
+            PMA(dim_Q, dim_S, num_heads, ln, fnn_dim),
+            SAB(dim_Q, num_heads, ln, fnn_dim) if dim_S != 1 else nn.Identity(),
+            nn.Linear(dim_Q, out_dim),
+        )
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """Forward pass for the Set Transformer block.
+
+        Args:
+            X (torch.Tensor): Input tensor of shape (B, N, dim_Q).
+
+        Returns:
+            torch.Tensor: Output tensor of shape (B, dim_S, dim_Q).
+        """
+
+        # Compute the self-attention of the set elements.
+        X = self.encoder(X)
+
+        # Compute the self-attention of the set elements.
+        X = self.pooling_decoder(X)
+
+        return X
 
 
 # Path: src/navigator/neural/set_transformer/blocks/set_attention_blocks.py

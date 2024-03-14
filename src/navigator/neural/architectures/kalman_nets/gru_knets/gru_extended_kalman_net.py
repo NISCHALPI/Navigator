@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule
 
-from .linear_blocks import LinearBlocks
+from .linear_blocks import LinearBlocks, SimpleLinearBlock
 
 
 class GRUExtendedKalmanBlock(LightningModule):
@@ -59,9 +59,10 @@ class GRUExtendedKalmanBlock(LightningModule):
         dim_state: int,
         dim_measurement: int,
         gru_layers: int = 1,
-        expansion_factor: int = 2,
-        linear_layers: int = 3,
-        gain_layers: int = 3,
+        state_expansion_factor: int = 2,
+        measurement_expansion_factor: int = 2,
+        gain_layers: int = 1,
+        layer_norm: bool = False,
         **kwargs,
     ) -> None:
         """The extended Kalman Net class for the KalmanNet.
@@ -70,9 +71,10 @@ class GRUExtendedKalmanBlock(LightningModule):
             dim_state (int): The dimension of the state space.
             dim_measurement (int): The dimension of the measurement space.
             gru_layers (int): The number of GRU layers. Default is 1.
-            expansion_factor (int): The expansion factor for the hidden dimensions of the inputs before the GRU cells.
-            linear_layers (int): The number of linear layers for processing the inputs before the GRU cells.
+            state_expansion_factor (int): The expansion factor for the hidden dimensions of the state before the GRU cells.
+            measurement_expansion_factor (int): The expansion factor for the hidden dimensions of the measurement before the GRU cells.
             gain_layers (int): The number of linear layers for processing the outputs of the GRU cells to kalman gain.
+            layer_norm (bool): Whether to use layer normalization. Default is False.
             **kwargs: The keyword arguments for the extended Kalman Net.
 
         Note: The flavours are what the kalman net are trained on.
@@ -88,6 +90,7 @@ class GRUExtendedKalmanBlock(LightningModule):
         self.dim_state = dim_state
         self.dim_measurement = dim_measurement
         self.gru_layers = gru_layers
+        self.layer_norm = layer_norm
 
         # Flavours dictionary
         self.flavour_dict = {
@@ -100,42 +103,35 @@ class GRUExtendedKalmanBlock(LightningModule):
         # Initialize the intialize each module by the input parameters
         self.networks = nn.ModuleDict(
             {
-                "Q_LINEAR": LinearBlocks(
+                "Q_LINEAR": SimpleLinearBlock(
                     input_dim=self.dim_state,
-                    output_dim=self.dim_state * expansion_factor,
-                    hidden_dim=self.dim_state * expansion_factor,
-                    layers=linear_layers,
+                    output_dim=self.dim_state * state_expansion_factor,
                 ),
                 "Q_GRU": nn.GRU(
-                    input_size=self.dim_state * expansion_factor,
+                    input_size=self.dim_state * state_expansion_factor,
                     hidden_size=self.Q_dim,
                     num_layers=self.gru_layers,
                 ),
-                "SIGMA_LINEAR": LinearBlocks(
+                "SIGMA_LINEAR": SimpleLinearBlock(
                     input_dim=self.dim_state,
-                    output_dim=self.dim_state * expansion_factor,
-                    hidden_dim=self.dim_state * expansion_factor,
-                    layers=linear_layers,
+                    output_dim=self.dim_state * state_expansion_factor,
                 ),
                 "SIGMA_GRU": nn.GRU(
-                    input_size=self.Q_dim + self.dim_state * expansion_factor,
+                    input_size=self.Q_dim + self.dim_state * state_expansion_factor,
                     hidden_size=self.P_dim,
                     num_layers=self.gru_layers,
                 ),
-                "SIGMA_TO_S_EXPAND": LinearBlocks(
+                "SIGMA_TO_S_EXPAND": SimpleLinearBlock(
                     input_dim=self.P_dim,
                     output_dim=self.S_dim,
-                    hidden_dim=self.S_dim,
-                    layers=linear_layers,
                 ),
-                "S_GRU_LINEAR": LinearBlocks(
+                "S_GRU_LINEAR": SimpleLinearBlock(
                     input_dim=self.dim_measurement * 2,
-                    output_dim=self.dim_measurement * 2 * expansion_factor,
-                    hidden_dim=self.dim_measurement * 2 * expansion_factor,
-                    layers=linear_layers,
+                    output_dim=self.dim_measurement * 2 * measurement_expansion_factor,
                 ),
                 "S_GRU": nn.GRU(
-                    input_size=self.S_dim + self.dim_measurement * 2 * expansion_factor,
+                    input_size=self.S_dim
+                    + self.dim_measurement * 2 * measurement_expansion_factor,
                     hidden_size=self.S_dim,
                     num_layers=self.gru_layers,
                 ),
@@ -144,18 +140,15 @@ class GRUExtendedKalmanBlock(LightningModule):
                     output_dim=self.dim_state * self.dim_measurement,
                     hidden_dim=self.S_dim + self.P_dim,
                     layers=gain_layers,
+                    output_layer=True,
                 ),
-                "SIGMA_KG_COMBINE": LinearBlocks(
+                "SIGMA_KG_COMBINE": SimpleLinearBlock(
                     input_dim=self.S_dim + self.dim_state * self.dim_measurement,
                     output_dim=self.P_dim,
-                    hidden_dim=self.P_dim,
-                    layers=linear_layers,
                 ),
-                "P_UPDATE": LinearBlocks(
+                "P_UPDATE": SimpleLinearBlock(
                     input_dim=self.P_dim * 2,
                     output_dim=self.P_dim,
-                    hidden_dim=self.P_dim,
-                    layers=linear_layers,
                 ),
             }
         )
@@ -253,11 +246,12 @@ class GRUExtendedKalmanBlock(LightningModule):
         # Sanity check for the input dictionary
         self._sanity_check(combinations)
 
-        # Individually normalize the combinations
-        for key in combinations:
-            combinations[key] = nn.functional.normalize(
-                combinations[key], dim=-1, p=2, eps=1e-12
-            )
+        # Individually normalize the combinations if required
+        if self.layer_norm:
+            for key in combinations:
+                combinations[key] = nn.functional.normalize(
+                    combinations[key], dim=-1, p=2, eps=1e-12
+                )
 
         #### Tracking Step of KalmanNet ####
 

@@ -22,7 +22,8 @@ from ....core.triangulate.itriangulate.preprocessor.gps_preprocessor import (
     GPSPreprocessor,
 )
 from ....epoch.epoch import Epoch
-from ....utility.simulator.reciever_simulator import RecieverSimulator
+from ....utility.simulator.target.gps_reciever_target import RecieverSimulator
+from ....utility.simulator.target.target_tracking_simulator import TrackingSimulator
 
 __all__ = ["TensorAdapter", "GPSTensorAdatper", "DummyDataset"]
 
@@ -143,12 +144,13 @@ class GPSTensorAdatper(TensorAdapter):
         return sv_coords.sort_values("elevation", ascending=False)
 
     def _dummy_tensor_adapter(
-        self, epoch: Epoch, **kwargs
+        self, epoch: Epoch, mask: int, **kwargs
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Tensor adapter for simulated dummy epoch data.
 
         Args:
             epoch: The GPS epoch data to be converted to tensor data.
+            mask: The number of satellites to track and train on.
             kwargs: Additional keyword arguments.
 
         Returns:
@@ -157,9 +159,14 @@ class GPSTensorAdatper(TensorAdapter):
         # Get the range and satellite coordinates from dummy preprocessor
         pseudorange, sv_coords = self.dummy_preprocessor.preprocess(
             epoch=epoch,
-            stack_phase=True,
             **kwargs,
         )
+
+        # Mask the satellite coordinates based on the number of satellites to track
+        get_first_n_prns = pseudorange.index.sort_values()[:mask]
+
+        pseudorange = pseudorange.loc[get_first_n_prns]
+        sv_coords = sv_coords.loc[get_first_n_prns]
 
         # Return the range and satellite coordinates as tensors
         return torch.from_numpy(
@@ -185,7 +192,7 @@ class GPSTensorAdatper(TensorAdapter):
 
         # If dummy profile, dispatch to dummy tensor adapter
         if epoch.profile["mode"] == "dummy":
-            return self._dummy_tensor_adapter(epoch, **kwargs)
+            return self._dummy_tensor_adapter(epoch, mask=mask_sv, **kwargs)
 
         # Set epoch profile to initial
         # Note: This ensure nothing prior to the current epoch is used
@@ -219,7 +226,16 @@ class DummyDataset(Dataset):
     """A class for converting dummy epoch data to tensor data for NN training.
 
     Attributes:
-        epochs: The epoch collection to be converted to a dataset.
+        num_points: The number of data points to generate.
+        trajectory: The trajectory to generate the data points.
+        mask_sv: The number of satellites to track and train on.
+
+    Defination:
+        STATE : The true state of the system. [x, x_dot, y, y_dot, z, z_dot]
+        CODE : The code measurements from the satellites.
+        SV_COORDS : The satellite coordinates.
+        DIM_STATE : The dimension of the state.
+        DIM_MEASUREMENT : The dimension of the measurement.
 
     Raises:
         TypeError: If epochs is not an instance of EpochCollection.
@@ -229,25 +245,41 @@ class DummyDataset(Dataset):
     tensor_adapter = GPSTensorAdatper()
 
     def __init__(
-        self, num_points: int, simulator: RecieverSimulator, **kwargs
+        self,
+        num_points: int,
+        simulator: RecieverSimulator | TrackingSimulator,
+        timestep: int = 10,
+        mask_sv: int = -1,
+        dt: float = 1.0,
+        **kwargs,
     ) -> None:  # noqa : ARG002
         """Initializes the DummyEpoch class.
 
         Args:
             num_points: The number of data points to generate.
             simulator: The simulator to generate the data points.
+            timestep: The time step to generate the data points.
+            mask_sv: The number of satellites to track and train on.
+            dt : The sampling time interval. Defaults to 1.0.
             **kwargs: Additional keyword arguments.
 
         Raises:
             TypeError: If epochs is not an instance of EpochCollection.
 
         """
-        if not isinstance(simulator, RecieverSimulator):
-            raise TypeError("simulator must be an instance of RecieverSimulator")
-
+        if not isinstance(simulator, (RecieverSimulator, TrackingSimulator)):
+            raise TypeError(
+                "simulator must be an instance of RecieverSimulator or TrackingSimulator"
+            )
         # Store the number of data points
         self.num_points = num_points
         self.simulator = simulator
+        self.trajectory = timestep
+        self.mask_sv = mask_sv
+        self.dt = dt
+
+        # Add the time offset as a random number between 0 and 10000
+        self.TIME_OFFSET = np.random.randint(0, 10000)
 
     def __len__(self) -> int:
         """Returns the length of the dataset."""
@@ -260,30 +292,33 @@ class DummyDataset(Dataset):
             idx: The index of the item to be returned.
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:   The true state, (code, sv_coords) as tensor data for KalmanNet training.
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:   The true state (T, DIM_STATE), code measurements (T, DIM_MEASUREMENT), and satellite coordinates (T, DIM_MEASUREMENT, 3) as tensor data.
         """
-        # Get the epoch data at the given index
-        epoch = self.simulator.get_epoch(
-            idx - self.num_points // 2
-        )  # Wrap form [-num_points//2, num_points//2]
+        # Get idx : idx + num_points epochs
+        epoches = [
+            self.simulator.get_epoch(self.TIME_OFFSET + i * self.dt)
+            for i in range(idx, idx + self.trajectory)
+        ]
+        # Loop to get the code measurements and satellite coordinates
+        true_state, code_measurements, sv_coords = [], [], []
 
-        # Preprocess the epoch data to tensor data
-        code, sv_coords = self.tensor_adapter(epoch)
+        for epoch in epoches:
+            code, sv = self.tensor_adapter.to_tensor(epoch, mask_sv=self.mask_sv)
+            code_measurements.append(code)
+            sv_coords.append(sv)
 
-        # Get the true state
-        true_state = torch.tensor(
-            [
-                epoch.real_coord["x"],
-                epoch.real_coord["x_dot"],
-                epoch.real_coord["y"],
-                epoch.real_coord["y_dot"],
-                epoch.real_coord["z"],
-                epoch.real_coord["z_dot"],
-                epoch.real_coord["cdt"],
-            ],
-            dtype=torch.float32,
+            # Grab the true state from the real_coord attribute
+            true_state.append(
+                torch.from_numpy(
+                    epoch.real_coord[
+                        ["x", "x_dot", "y", "y_dot", "z", "z_dot"]
+                    ].to_numpy(dtype=np.float32)
+                )
+            )
+
+        # Stack on the temporal axis
+        return (
+            torch.stack(true_state),
+            torch.stack(code_measurements),
+            torch.stack(sv_coords),
         )
-
-        # Return the true state, (code, sv_coords) as tensor data
-
-        return true_state, code, sv_coords

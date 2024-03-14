@@ -65,6 +65,7 @@ class IKalman(Itriangulate, ABC):
             np.clip(x, -740000, 740000),
             np.clip(y, -740000, 740000),
             np.clip(z, -740000, 740000),
+            max_iter=1000,
         )
 
     def _trim_by_first_n(

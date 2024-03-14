@@ -317,7 +317,7 @@ class Epoch:
             pd.Series: The navigation metadata.
 
         """
-        return self._nav_data
+        return self._nav_meta
 
     @nav_meta.setter
     def nav_meta(self, value: pd.Series) -> None:
@@ -599,8 +599,8 @@ class Epoch:
         #     is not None
         # ]
 
+    @staticmethod
     def parallel_epochify(
-        self,
         obs: list[Path | str],
         nav: list[Path | str | None] = None,
         mode: str = "maxsv",

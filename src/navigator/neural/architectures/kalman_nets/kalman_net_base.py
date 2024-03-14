@@ -71,6 +71,7 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         dt: float,
         flavor: list[str] = ["F1", "F2", "F3", "F4"],
         max_history: int = 2,
+        track_f2_loss: bool = False,
     ) -> None:
         """Initializes the Kalman Net.
 
@@ -81,6 +82,7 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
             dtype (torch.dtype, optional): Data type for the filter. Defaults to torch.float32.
             flavor (list[str], optional): List of flavors. Defaults to ["F1", "F2", "F3", "F4"].
             max_history (int, optional): Maximum history to track. Defaults to 2.
+            track_f2_loss (bool, optional): Whether to track the F2 loss. Defaults to False.
 
         Returns:
             None
@@ -118,6 +120,11 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
 
         # Set the batch dimension
         self.batch_dim = 1
+
+        # See if F2 is enabled to track the robust error
+        if "F2" not in self.flavor and track_f2_loss:
+            raise ValueError("Cannot track robust error without F2 flavor.")
+        self.track_f2_loss = track_f2_loss
 
         # Set the internal state of the filter
         self.reset_trackers(batch_dim=self.batch_dim)
@@ -165,6 +172,7 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         self.prior_state_tracker = self._tracker_to(
             self.prior_state_tracker, *args, **kwargs
         )
+        self.f2_loss_tracker = self._tracker_to(self.f2_loss_tracker, *args, **kwargs)
 
         # Return the filter
         return self
@@ -190,11 +198,16 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         self.measuremnt_tracker = HistoryTracker(max_history=self.max_history)
         self.state_tracker = HistoryTracker(max_history=self.max_history)
         self.prior_state_tracker = HistoryTracker(max_history=self.max_history)
+        self.f2_loss_tracker = HistoryTracker(max_history=-1)
 
         # Add the posterior state vector to the state tracker
         self.state_tracker.add(
             torch.zeros(
-                self.batch_dim, self.dim_state, device=self.device, dtype=self.dtype
+                self.batch_dim,
+                self.dim_state,
+                device=self.device,
+                dtype=self.dtype,
+                requires_grad=True if self.track_f2_loss else False,
             )
         )
         # Add the prior state vector to the state tracker
@@ -375,15 +388,19 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
                     for i in range(self.batch_dim)
                 ]  # The difference between the current measurement and the predicted measurement. Shape (batch_size, dim_measurement)
             ),
-            "F3": self.state_tracker[-1] - self.state_tracker[-2]
-            if self.state_tracker.is_full()  # The difference between the current state and the previous state calculated at t-1 for timestep t. Shape (batch_size, dim_state)
-            else self.state_tracker[-1],
-            "F4": self.state_tracker[-1]
-            - self.prior_state_tracker[
-                -1
-            ]  # The difference between the previous posterior state and previous prior state calculated at t-1 for timestep t. Shape (batch_size, dim_state)
-            if not self.prior_state_tracker.is_empty()
-            else self.state_tracker[-1],
+            "F3": (
+                self.state_tracker[-1] - self.state_tracker[-2]
+                if self.state_tracker.is_full()  # The difference between the current state and the previous state calculated at t-1 for timestep t. Shape (batch_size, dim_state)
+                else self.state_tracker[-1]
+            ),
+            "F4": (
+                self.state_tracker[-1]
+                - self.prior_state_tracker[
+                    -1
+                ]  # The difference between the previous posterior state and previous prior state calculated at t-1 for timestep t. Shape (batch_size, dim_state)
+                if not self.prior_state_tracker.is_empty()
+                else self.state_tracker[-1]
+            ),
         }
 
         # Mask Combinations based on the flavor passed for the filter
@@ -404,11 +421,15 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         # Update the states of the filter for next time step
         self.measuremnt_tracker.add(y)  # Add measurement to the measurement tracker
         self.state_tracker.add(
-            x_posterior.detach()
+            x_posterior.detach() if self.track_f2_loss else x_posterior
         )  # Add the posterior state to the state tracker
         self.prior_state_tracker.add(
             x_prior
         )  # Add the prior state to the prior state tracker
+
+        # If robust error tracker is enabled, then add the error to the tracker
+        if self.track_f2_loss:
+            self.f2_loss_tracker.add(combinations["F2"])
 
         return x_posterior
 
@@ -435,7 +456,7 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
 
 
         Returns:
-            torch.Tensor: Predicted state vector. Shape (batch_size, dim_state).
+            torch.Tensor: Predicted state vector. Shape (timestep, batch_size, dim_state).
         """
         # Reset the internal state of the filter to batch_dim
         self.reset(batch_dim=x.shape[1])
@@ -451,15 +472,46 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
             output.append(
                 self.predict_update(
                     x[i],
-                    hx_kwargs={key: value[i] for key, value in hx_kwargs.items()}
-                    if hx_kwargs
-                    else {},
-                    fx_kwargs={key: value[i] for key, value in fx_kwargs.items()}
-                    if fx_kwargs
-                    else {},
+                    hx_kwargs=(
+                        {key: value[i] for key, value in hx_kwargs.items()}
+                        if hx_kwargs
+                        else {}
+                    ),
+                    fx_kwargs=(
+                        {key: value[i] for key, value in fx_kwargs.items()}
+                        if fx_kwargs
+                        else {}
+                    ),
                 )
             )
 
         return torch.stack(output, dim=0)
+
+    @property
+    def f2_loss(self) -> torch.Tensor:
+        """Returns the robust error.
+
+        Defined to be the L2 norm of the all the elements in the robust error tracker.
+
+        Returns:
+            torch.Tensor: The robust error tracker.
+        """
+        if not self.track_f2_loss or self.f2_loss_tracker.is_empty():
+            raise ValueError("The F2 error tracker is not enabled or empty.")
+
+        return sum([torch.norm(error) for error in self.f2_loss_tracker.get()])
+
+    @f2_loss.setter
+    def f2_loss(self, value: torch.Tensor) -> None:
+        """Enables or disables the robust error tracker.
+
+        Args:
+            value (bool): True to enable the robust error tracker, False to disable.
+
+        Returns:
+            None
+        """
+        raise ValueError("The robust error cannot be set directly.")
+
 
 # Path: src/navigator/filters/kalman_nets/kalman_net.py

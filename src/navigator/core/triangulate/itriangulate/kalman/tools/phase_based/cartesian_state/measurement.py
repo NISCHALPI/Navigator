@@ -64,7 +64,7 @@ def phase_measurement_model(
         )
 
     position = state[0:6:2]
-    lat, _, height = geocentric_to_ellipsoidal(*position)
+    lat, _, height = geocentric_to_ellipsoidal(*position, max_iter=1000)
 
     # Get the sv positions
     sv_positions = sv_frame[["x", "y", "z"]].values

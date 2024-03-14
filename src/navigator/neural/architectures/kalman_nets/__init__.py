@@ -36,6 +36,7 @@ Example:
 Author:
     Nischal Bhattarai (nischalbhattaraipi@gmail.com)
 """
+
 from .gru_knets.gru_extended_kalman_net import GRUExtendedKalmanBlock
 from .gru_knets.gru_kalman_net import GRUKalmanBlock
 from .kalman_net_base import AbstractKalmanNet

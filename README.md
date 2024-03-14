@@ -4,8 +4,10 @@ The Navigator is a python based GNSS library and toolkit tailored for GNSS PVT s
 ## Features
 - RINEX data collection, parsing, and processing using simple API
 - Satellite Tracking and Position Estimation using Broadcast Ephemeris and SP3 files
-- Single Point Positioning (SPP) using WLS and UKF
-- Easy to use CLI tools for bulk processing of RINEX data
+- Single Point Positioning (SPP) using Weighted Least Squared (WLS) , Extended Kalman Filter (EKF), and Unscented Kalman Filter (UKF)
+- Simulation module to simulate GPS constellations and user trajectories for testing  and improvement of algorithms
+- Epoch Interface for handling multiple epochs of data from different sources, data analysis, and visualization
+
 
 ## Installation
 To install the library, user need to clone the repository from **Pntf Lab Server**(*10.116.24.69*) which is only accessible to authorized lab members. To use the **Lab Git Server**, user need to have access to the git user account. If you don't have access to the git user account, please contact the lab administrator.
@@ -47,14 +49,10 @@ pdoc -o $DOC_DIR -d google Navigator/src/navigator
 ```
 
 ## Usage
-The introduction usage of the library is documented in the *docs* directory. It provides basic usage of the library and its modules. Curretly available introductory notebooks are:
-1. [Intro to Parsing](./docs/intro/intro_parsing_and_interpolation.ipynb)
-2. [Intro to Traingulation](./docs/intro/intro_triangulation.ipynb)
-3. [Intro to Epoch Directory](./docs/intro/epoch_directory_tutorial.ipynb)
-4. [Intro to SP3 Orbit](./docs/intro/intro_sp3_orbit.ipynb)
-5. [Intro to Unscented Kalman Filter](./docs//intro/unscented_kalman_filter_gps.ipynb)
+The introduction usage of the library is documented in the *[docs](./docs/)* directory. It provides basic usage of the library and its modules. 
+Other notebooks will be added in the future to provide more detailed usage
+for extended features of the library.
 
-Other notebooks will be added in the future to provide more detailed usage of the library.
 
 ### Data Collection
 The data collection is done by using publicly available FTP servers. The primary source of the data is the [CDDIS](https://cddis.nasa.gov/Data_and_Derived_Products/CDDIS_Archive_Access.html) server. The data is collected using the download tools provided by the library.

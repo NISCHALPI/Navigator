@@ -81,7 +81,7 @@ class UnscentedKalmanTriangulationInterface(IKalman):
             raise ValueError(
                 "The standard deviation of the pseudorange measurement noise must be positive."
             )
-
+        # Store the standard deviation of the measurement noise
         self.sigma_r = sigma_r
 
         # The white noise spectral density for the random walk position error in the x-direction
@@ -130,7 +130,7 @@ class UnscentedKalmanTriangulationInterface(IKalman):
             self.filter.x[6] = (
                 initial_guess["cdt"] if "cdt" in initial_guess else 1e-5 * 299792458
             )
-            self.filter.x[[0, 2, 4]] = initial_guess[["x", "y", "z"]].values
+            self.filter.x[[0, 2, 4]] = initial_guess[["x", "y", "z"]].to_numpy()
 
         # Set the initial guess for the state covariance matrix
         self.filter.P *= 1000
@@ -214,7 +214,9 @@ class UnscentedKalmanTriangulationInterface(IKalman):
             Series | DataFrame: A pandas series containing the triangulated position, DOPS, and clock bias and drift.
         """
         # Add the needed epoch profile to the epoch before processing
-        epoch.profile = self.epoch_profile()
+        # Skip if the epoch  is dummy
+        if not epoch.profile["mode"] == "dummy":
+            epoch.profile = self.epoch_profile()
 
         # Get the range and sv_coordinates
         pseudorange, sv_coordinates = self._preprocess(

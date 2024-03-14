@@ -10,9 +10,13 @@ A = 6378137.0  # semi-major axis in meters
 F = 1 / 298.257223563  # flattening
 
 
-@nb.njit(nb.float64[:](nb.float64, nb.float64, nb.float64), fastmath=True, cache=True)
+@nb.njit(
+    nb.float64[:](nb.float64, nb.float64, nb.float64, nb.int32),
+    fastmath=True,
+    cache=True,
+)
 def geocentric_to_ellipsoidal(
-    x: np.float64, y: np.float64, z: np.float64
+    x: np.float64, y: np.float64, z: np.float64, max_iter: np.int32 = 1000
 ) -> np.ndarray:
     """Convert geocentric coordinates to ellipsoidal coordinates.
 
@@ -20,6 +24,7 @@ def geocentric_to_ellipsoidal(
         x (np.float64): x-coordinate in meters
         y (np.float64): y-coordinate in meters
         z (np.float64): z-coordinate in meters
+        max_iter (int): Maximum number of iterations. Defaults to 100.
 
     Returns:
         np.ndarray: Ellipsoidal coordinates
@@ -34,7 +39,8 @@ def geocentric_to_ellipsoidal(
 
     # Iteratively refine latitude using the iterative method
     tolerance = 1e-12
-    while True:
+    counter = 0
+    while counter < max_iter:
         previous_lat = lat
         N = A / np.sqrt(1 - e**2 * np.sin(lat) ** 2)
         h = p / np.cos(lat) - N
@@ -43,6 +49,8 @@ def geocentric_to_ellipsoidal(
         # Break the loop if the change in latitude is small enough
         if np.abs(lat - previous_lat) < tolerance:
             break
+        # Increment the counter
+        counter += 1
 
     # Convert latitude and longitude from radians to degrees
     lat = np.rad2deg(lat)
@@ -136,5 +144,5 @@ def geocentric_to_enu(
     Returns:
         tuple: Unit vectors for the east, north, and up directions.
     """
-    lat, long, _ = geocentric_to_ellipsoidal(x, y, z)
+    lat, long, _ = geocentric_to_ellipsoidal(x, y, z, max_iter=1000)
     return ellipsoidal_to_enu(lat, long)

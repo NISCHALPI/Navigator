@@ -62,13 +62,7 @@ __all__ = [
 ]
 
 
-@nb.njit(
-    "float64[:](float64[:], float64[:])",
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+
 def ionosphere_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     r"""Computes the ionosphere-free combination of pseudo-ranges.
 
@@ -83,13 +77,7 @@ def ionosphere_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     return (L1_FREQ**2 * p1 - L2_FREQ**2 * p2) / (L1_FREQ**2 - L2_FREQ**2)
 
 
-@nb.njit(
-    "float64[:](float64[:], float64[:])",
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+
 def geometry_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     r"""Computes the geometry-free combination of pseudo-ranges.
 
@@ -104,13 +92,7 @@ def geometry_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     return p1 - p2
 
 
-@nb.njit(
-    "float64[:](float64[:], float64[:])",
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+
 def wide_lane_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     r"""Computes the wide-lane combination of pseudo-ranges.
 
@@ -125,13 +107,7 @@ def wide_lane_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     return (L1_FREQ * p1 - L2_FREQ * p2) / (L1_FREQ - L2_FREQ)
 
 
-@nb.njit(
-    "float64[:](float64[:], float64[:])",
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+
 def narrow_lane_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     r"""Computes the narrow-lane combination of pseudo-ranges.
 

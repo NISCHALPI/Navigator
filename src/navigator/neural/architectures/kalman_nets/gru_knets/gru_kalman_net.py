@@ -19,7 +19,8 @@ Convention:
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule
-from .linear_blocks import LinearBlocks
+
+from .linear_blocks import LinearBlocks, SimpleLinearBlock
 
 __all__ = ["GRUKalmanBlock"]
 
@@ -46,7 +47,11 @@ class GRUKalmanBlock(LightningModule):
         dim_measurement: int,
         flavour: list[str],
         gru_layers: int = 1,
+        gru_hidden_dim: int | None = None,
         integer_scaler: int = 10,
+        linear_output_layers: int = 3,
+        dropout: float = 0.0,
+        normalize_combinations: bool = True,
     ) -> None:
         """The base KalmanNet class for Kalman Filtering.
 
@@ -55,7 +60,11 @@ class GRUKalmanBlock(LightningModule):
             dim_measurement (int): The dimension of the measurement space.
             flavour (list[str]): The list of flavours for the KalmanNet. See the paper for more details.
             gru_layers (int): The number of GRU layers. Default is 1.
+            gru_hidden_dim (int): The hidden dimension of the GRU cell. Defaults to (dim_state**2 + dim_measurement**2).
             integer_scaler (int): The integer scaler for the hidden dimension of the GRU cell. Default is 10.
+            linear_output_layers (int): The number of linear layers in the output layer. Default is 3.
+            normalize_combinations (bool): Whether to normalize the combinations. Default is True.
+            dropout (float): The dropout probability for the GRU cell. Default is 0.0.
         """
         super().__init__()
 
@@ -67,12 +76,18 @@ class GRUKalmanBlock(LightningModule):
         if integer_scaler <= 0:
             raise ValueError(f"Invalid integer_scaler: {integer_scaler}")
 
+        # Set the hidden dimension of the GRU cell
+        self.gru_hidden_dim = gru_hidden_dim
+        if gru_hidden_dim is None:
+            self.gru_hidden_dim = dim_state**2 + dim_measurement**2
+
         # Store the input parameters
         self._dim_state = dim_state
         self._dim_measurement = dim_measurement
         self._integer_scaler = integer_scaler
         self._flavours = flavour
         self._gru_layers = gru_layers
+        self._normalize_combinations = normalize_combinations
 
         # Flavours dictionary
         self.flavour_dict = {
@@ -82,25 +97,25 @@ class GRUKalmanBlock(LightningModule):
             "F4": dim_state,
         }
         # Initialize the input layer that maps the flavours to the input dimension
-        self.input_layer = LinearBlocks(
+        self.input_layer = SimpleLinearBlock(
             input_dim=sum([self.flavour_dict[flavour] for flavour in self._flavours]),
-            output_dim=(dim_state**2 + dim_measurement**2),
-            hidden_dim=(dim_state**2 + dim_measurement**2),
-            layers=3,
+            output_dim=self.gru_hidden_dim,
         )
         # Initialize the GRU cell for joint tracking of measurement covariance and state covariance
         self.network = nn.GRU(
-            input_size=(dim_state**2 + dim_measurement**2),
-            hidden_size=integer_scaler * (dim_state**2 + dim_measurement**2),
+            input_size=self.gru_hidden_dim,
+            hidden_size=self.hx_dim,
             num_layers=gru_layers,
+            dropout=dropout,
         )
         # Initialize the output layer that maps the GRU cell output to Kalman gain
         self.output_layer = LinearBlocks(
-            input_dim=integer_scaler * (dim_state**2 + dim_measurement**2),
+            input_dim=self.hx_dim,
             output_dim=dim_state
             * dim_measurement,  # Kalman gain dimension is (dim_state x dim_measurement)
             hidden_dim=dim_state * dim_measurement,
-            layers=3,
+            layers=linear_output_layers,
+            output_layer=True,
         )
 
         # Reset the hidden state to 1 batch size
@@ -183,13 +198,14 @@ class GRUKalmanBlock(LightningModule):
         combinations = dict(sorted(combinations.items(), key=lambda item: item[0]))
 
         # Normalize the combinations
-        for key in combinations:
-            combinations[key] = torch.nn.functional.normalize(
-                combinations[key],
-                p=2,
-                dim=-1,
-                eps=1e-12,
-            )
+        if self._normalize_combinations:
+            for key in combinations:
+                combinations[key] = torch.nn.functional.normalize(
+                    combinations[key],
+                    p=2,
+                    dim=-1,
+                    eps=1e-12,
+                )
 
         # Concat the input tensors to form the input tensor
         # Shape: (batch_size , sum([flavour_dict[flavour] for flavour in self._flavours]))
@@ -210,7 +226,7 @@ class GRUKalmanBlock(LightningModule):
         # Pass through the output layer
         x = self.output_layer(Q)  # Shape: (batch_size, dim_state * dim_measurement)
 
-        return x.view(-1, self._dim_state, self._dim_measurement)
+        return x.view(x.shape[0], self._dim_state, self._dim_measurement)
 
     @property
     def hx_dim(self) -> int:
@@ -219,9 +235,7 @@ class GRUKalmanBlock(LightningModule):
         Returns:
             int: The dimension of the measurement space.
         """
-        return self._integer_scaler * (
-            self._dim_state**2 + self._dim_measurement**2
-        )
+        return self._integer_scaler * self.gru_hidden_dim
 
     @hx_dim.setter
     def hx_dim(self, value: int):  # noqa : ARG003

@@ -124,7 +124,7 @@ class IterativeTriangulationInterface(Itriangulate):
 
         # Convert the geocentric coordinates to ellipsoidal coordinates
         lat, lon, height = geocentric_to_ellipsoidal(
-            x=solution[0, 0], y=solution[1, 0], z=solution[2, 0]
+            x=solution[0, 0], y=solution[1, 0], z=solution[2, 0], max_iter=1000
         )
 
         # Convert the solution

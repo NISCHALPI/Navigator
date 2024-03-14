@@ -16,12 +16,6 @@ import numpy as np
 __all__ = ["measurement_function", "jacobian_measurement_function"]
 
 
-@nb.njit(
-    nb.float64[:](nb.float64[:], nb.float64[:, :]),
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-)
 def measurement_function(state: np.ndarray, sv_location: np.ndarray) -> np.ndarray:
     """Nonlinear measurement function for the GPS Kalman filter problem.
 
@@ -45,13 +39,6 @@ def measurement_function(state: np.ndarray, sv_location: np.ndarray) -> np.ndarr
     return np.sqrt(((position - sv_location) ** 2).sum(axis=1)) + dt
 
 
-@nb.njit(
-    nb.float64[:, :](nb.float64[:], nb.float64[:, :]),
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
 def jacobian_measurement_function(
     x: np.ndarray,
     sv_location: np.ndarray,

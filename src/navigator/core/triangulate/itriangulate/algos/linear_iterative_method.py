@@ -21,12 +21,12 @@ warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
 __all__ = ["least_squares"]
 
 
-@njit(
-    UniTuple(float64[:, :], 2)(float64[:, :], float64[:, :], float64[:, :], float64),
-    fastmath=True,
-    parallel=True,
-    cache=True,
-)
+# @njit(
+#     UniTuple(float64[:, :], 2)(float64[:, :], float64[:, :], float64[:, :], float64),
+#     fastmath=True,
+#     parallel=True,
+#     cache=True,
+# )
 def _design_matrix(
     guess: np.ndarray,
     pseudorange: np.ndarray,
@@ -66,17 +66,15 @@ def _design_matrix(
     return r, A
 
 
-@njit(
-    UniTuple(float64[:, :], 3)(
-        float64[:, :],
-        float64[:, :],
-        float64[:, :],
-        float64,
-    ),
-    fastmath=True,
-    parallel=True,
-    cache=True,
-)
+# @njit(
+#     UniTuple(float64[:, :], 3)(
+#         float64[:, :],
+#         float64[:, :],
+#         float64[:, :],
+#         float64,
+#     ),
+#     cache=True,
+# )
 def least_squares(
     pseudorange: np.ndarray,
     sv_pos: np.ndarray,

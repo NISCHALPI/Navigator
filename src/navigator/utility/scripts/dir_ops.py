@@ -3,6 +3,8 @@
 from pathlib import Path
 
 import click
+import os
+from concurrent.futures import ProcessPoolExecutor
 
 from ...epoch.epoch_directory import EpochDirectory
 from ..logger.logger import get_logger
@@ -125,6 +127,52 @@ def epochify(
 
     # Log the end of the epochification process.
     logger.info("Epochification complete!")
+
+
+@main.command()
+@click.pass_context
+@click.option(
+    "-f",
+    "--file-path",
+    required=True,
+    type=click.Path(
+        exists=True, readable=True, path_type=Path
+    ),
+    help="Path to Novtel Logs file.",
+)
+@click.option(
+    "-s",
+    "--save-path",
+    required=True,
+    type=click.Path(
+        exists=False, file_okay=False, dir_okay=True, writable=True, path_type=Path
+    ),
+    help="Path to save the extracted RINEX files.",
+)
+def novtel_to_rinex2(
+    ctx: click.Context,
+    file_path: Path,
+    save_path: Path,
+) -> None:
+    """Extract RINEX V2 files from Novtel Logs directory."""
+    # Get the logger.
+    logger = ctx.obj["logger"]
+    # Check the novtel app image path in environment variables.
+    if "NOVTEL_APP_IMAGE" not in os.environ:
+        raise ValueError("NOVTEL_APP_IMAGE environment variable not set.")
+        return
+    # Get the path to the novtel app image.
+    novtel_app_image = Path(os.environ["NOVTEL_APP_IMAGE"])
+
+    # Log the start of the epochification process.
+    logger.info(f"Starting extracting RINEX V2 files from Novtel Logs in {file_path}...")
+    logger.info(f"Target save directory: {save_path}")
+
+    # Execute the conversion process.
+    os.system(f"{novtel_app_image} -r2.1 -o {save_path} {file_path}")
+   
+    # Log the end of the epochification process.
+    logger.info("Extraction complete!")
 
 
 if __name__ == "__main__":

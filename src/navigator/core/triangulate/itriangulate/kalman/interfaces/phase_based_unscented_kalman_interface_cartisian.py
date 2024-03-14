@@ -215,7 +215,7 @@ class PhaseUnscentedKalmanTriangulationInterface(IKalman):
             Series: A pandas series containing the state vector.
         """
         lat, long, height = geocentric_to_ellipsoidal(
-            x=state[0], y=state[2], z=state[4]
+            x=state[0], y=state[2], z=state[4], max_iter=1000
         )
         # Return the state vector as a pandas series
         return_val = Series(

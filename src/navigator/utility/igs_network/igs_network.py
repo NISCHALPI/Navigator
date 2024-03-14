@@ -94,7 +94,7 @@ class IGSNetwork:
             ].values.astype(np.float64)
 
         # Convert from cartisian to ellipsoid
-        return geocentric_to_ellipsoidal(*self.get_xyz(station))
+        return geocentric_to_ellipsoidal(*self.get_xyz(station), max_iter=1000)
 
     def get_igs_station(self, station: str) -> pd.Series:
         """Retrieve detailed information for a specific IGS station.

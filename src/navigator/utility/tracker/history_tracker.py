@@ -31,8 +31,6 @@ class HistoryTracker:
         Returns:
             None
         """
-        if max_history <= 0:
-            raise ValueError("The maximum number of history to track must be positive.")
         self.max_history = max_history
         self.history = Queue(max_history)
 
