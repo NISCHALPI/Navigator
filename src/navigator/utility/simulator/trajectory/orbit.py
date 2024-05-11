@@ -9,6 +9,7 @@ class SatelliteLikeTrajectory(Trajectory):
     Represents a satellite-like trajectory which is parametrized by the kepelian elements.
 
     Parameters:
+        name (str): Name of the trajectory.
         semi_major_axis (float): Semi-major axis of the ellipse.
         eccentricity (float): Eccentricity of the ellipse.
         inclination (float): Inclination of the orbit.
@@ -20,6 +21,7 @@ class SatelliteLikeTrajectory(Trajectory):
 
     def __init__(
         self,
+        name: str,
         semi_major_axis: float,
         eccentricity: float,
         inclination: float,
@@ -35,6 +37,7 @@ class SatelliteLikeTrajectory(Trajectory):
         The units are in meters and radians.
 
         Args:
+            name (str): Name of the satellite.
             semi_major_axis (float): Semi-major axis of the ellipse.
             eccentricity (float): Eccentricity of the ellipse.
             inclination (float): Inclination of the orbit.
@@ -43,6 +46,9 @@ class SatelliteLikeTrajectory(Trajectory):
             true_anomaly (float): True anomaly.
             angular_velocity (float): Angular velocity determining the rate of rotation along the trajectory.
         """
+        # Initialize the Trajectory object
+        super().__init__(name)
+
         self.semi_major_axis = semi_major_axis
         self.eccentricity = eccentricity
         self.inclination = inclination
@@ -53,7 +59,10 @@ class SatelliteLikeTrajectory(Trajectory):
 
         # Elliptical orbit parameters
         self.elliptical_trajectory = EllipticalTrajectory(
-            semi_major_axis, eccentricity, angular_velocity
+            name=name,
+            semi_major_axis=semi_major_axis,
+            eccentricity=eccentricity,
+            angular_velocity=angular_velocity,
         )
 
         # Rotation matrix to transform the position flat xy-plane to the orbital plane

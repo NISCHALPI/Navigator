@@ -303,9 +303,25 @@ class DummyDataset(Dataset):
         true_state, code_measurements, sv_coords = [], [], []
 
         for epoch in epoches:
-            code, sv = self.tensor_adapter.to_tensor(epoch, mask_sv=self.mask_sv)
-            code_measurements.append(code)
-            sv_coords.append(sv)
+            # If the simulator is a reciever simulator, use GPS tensor adapter
+            if isinstance(self.simulator, RecieverSimulator):
+                code, sv = self.tensor_adapter.to_tensor(epoch, mask_sv=self.mask_sv)
+                code_measurements.append(code)
+                sv_coords.append(sv)
+
+            else:
+                # Append the satellite coordinates
+                code = torch.from_numpy(
+                    epoch.obs_data[epoch.L1_CODE_ON].to_numpy(dtype=np.float32)
+                )
+                code_measurements.append(code)
+
+                # Get Tower coordinates
+                sv_coords.append(
+                    torch.from_numpy(
+                        epoch.nav_data[["x", "y", "z"]].to_numpy(dtype=np.float32)
+                    )
+                )
 
             # Grab the true state from the real_coord attribute
             true_state.append(

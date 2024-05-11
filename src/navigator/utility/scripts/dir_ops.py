@@ -135,9 +135,7 @@ def epochify(
     "-f",
     "--file-path",
     required=True,
-    type=click.Path(
-        exists=True, readable=True, path_type=Path
-    ),
+    type=click.Path(exists=True, readable=True, path_type=Path),
     help="Path to Novtel Logs file.",
 )
 @click.option(
@@ -165,12 +163,14 @@ def novtel_to_rinex2(
     novtel_app_image = Path(os.environ["NOVTEL_APP_IMAGE"])
 
     # Log the start of the epochification process.
-    logger.info(f"Starting extracting RINEX V2 files from Novtel Logs in {file_path}...")
+    logger.info(
+        f"Starting extracting RINEX V2 files from Novtel Logs in {file_path}..."
+    )
     logger.info(f"Target save directory: {save_path}")
 
     # Execute the conversion process.
     os.system(f"{novtel_app_image} -r2.1 -o {save_path} {file_path}")
-   
+
     # Log the end of the epochification process.
     logger.info("Extraction complete!")
 

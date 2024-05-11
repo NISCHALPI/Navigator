@@ -33,7 +33,8 @@ class DummyPreprocessor(Preprocessor):
         """
         # Get the ionosphere-free combination
         code_ion_free = ionosphere_free_combination(
-            p1=epoch.obs_data["C1C"].to_numpy(), p2=epoch.obs_data["C2W"].to_numpy()
+            p1=epoch.obs_data[epoch.L1_CODE_ON].to_numpy(),
+            p2=epoch.obs_data[epoch.L2_CODE_ON].to_numpy(),
         )
         # Convert to series
         code_ion_free = Series(code_ion_free, index=epoch.obs_data.index)
@@ -41,7 +42,8 @@ class DummyPreprocessor(Preprocessor):
         if kwargs.get("stack_phase", False):
             # Get the ionosphere-free combination of the phase data
             phase_ion_free = ionosphere_free_combination(
-                p1=epoch.obs_data["L1C"].to_numpy(), p2=epoch.obs_data["L2W"].to_numpy()
+                p1=epoch.obs_data[epoch.L1_PHASE_ON].to_numpy(),
+                p2=epoch.obs_data[epoch.L2_PHASE_ON].to_numpy(),
             )
             # Rename the index to match the code_ion_free with Phase suffix
             additional_idx = [f"{prn}_L" for prn in epoch.obs_data.index]

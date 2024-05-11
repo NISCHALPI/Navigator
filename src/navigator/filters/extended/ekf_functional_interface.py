@@ -23,13 +23,13 @@ __all__ = [
 ]
 
 
-@nb.njit(
-    nb.float64[:, :](nb.float64[:, :], nb.float64[:, :], nb.float64[:, :]),
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+# @nb.njit(
+#     nb.float64[:, :](nb.float64[:, :], nb.float64[:, :], nb.float64[:, :]),
+#     fastmath=True,
+#     error_model="numpy",
+#     parallel=True,
+#     cache=True,
+# )
 def ekf_predict_covariance_update(
     F: np.ndarray,
     P_posterior: np.ndarray,
@@ -48,19 +48,19 @@ def ekf_predict_covariance_update(
     return F @ P_posterior @ F.T + Q
 
 
-@nb.njit(
-    nb.types.Tuple((nb.float64[:], nb.float64[:, :]))(
-        nb.float64[:],
-        nb.float64[:],
-        nb.float64[:, :],
-        nb.float64[:, :],
-        nb.float64[:, :],
-    ),
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+# @nb.njit(
+#     nb.types.Tuple((nb.float64[:], nb.float64[:, :]))(
+#         nb.float64[:],
+#         nb.float64[:],
+#         nb.float64[:, :],
+#         nb.float64[:, :],
+#         nb.float64[:, :],
+#     ),
+#     fastmath=True,
+#     error_model="numpy",
+#     parallel=True,
+#     cache=True,
+# )
 def ekf_update(
     y_hat: np.ndarray,
     x_prior: np.ndarray,
@@ -92,17 +92,17 @@ def ekf_update(
     return x, P
 
 
-@nb.njit(
-    nb.types.Tuple((nb.float64[:, :], nb.float64[:, :]))(
-        nb.float64[:, :],
-        nb.float64[:, :],
-        nb.float64[:, :],
-    ),
-    fastmath=True,
-    error_model="numpy",
-    parallel=True,
-    cache=True,
-)
+# @nb.njit(
+#     nb.types.Tuple((nb.float64[:, :], nb.float64[:, :]))(
+#         nb.float64[:, :],
+#         nb.float64[:, :],
+#         nb.float64[:, :],
+#     ),
+#     fastmath=True,
+#     error_model="numpy",
+#     parallel=True,
+#     cache=True,
+# )
 def kalman_gain(
     P_prior: np.ndarray,
     H: np.ndarray,

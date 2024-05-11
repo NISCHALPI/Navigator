@@ -111,7 +111,8 @@ class IKalman(Itriangulate, ABC):
             raise ValueError(
                 f"The number of satellites  to track  {self.num_sv} cannot be greater than the number of satellites in the epoch {len(pseudorange)}."
             )
-
+        # Copy the sv_coords
+        sv_coords = sv_coords.copy()
         # Attach the range to the sv_coords
         # Just easier to work rather than using the index
         sv_coords["range"] = pseudorange
@@ -125,7 +126,7 @@ class IKalman(Itriangulate, ABC):
                 observer_position=observer_position,
             )
 
-            # Sort the  prns by elevation
+            # Sort the prns by elevationW
             sv_coords["elevation"] = elevation
 
         sv_coords = sv_coords.sort_values(by="elevation", ascending=False)

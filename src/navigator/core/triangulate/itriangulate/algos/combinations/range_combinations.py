@@ -62,7 +62,6 @@ __all__ = [
 ]
 
 
-
 def ionosphere_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     r"""Computes the ionosphere-free combination of pseudo-ranges.
 
@@ -75,7 +74,6 @@ def ionosphere_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
 
     """
     return (L1_FREQ**2 * p1 - L2_FREQ**2 * p2) / (L1_FREQ**2 - L2_FREQ**2)
-
 
 
 def geometry_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
@@ -92,7 +90,6 @@ def geometry_free_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     return p1 - p2
 
 
-
 def wide_lane_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     r"""Computes the wide-lane combination of pseudo-ranges.
 
@@ -105,7 +102,6 @@ def wide_lane_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
 
     """
     return (L1_FREQ * p1 - L2_FREQ * p2) / (L1_FREQ - L2_FREQ)
-
 
 
 def narrow_lane_combination(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
