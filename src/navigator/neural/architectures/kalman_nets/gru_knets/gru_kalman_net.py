@@ -51,7 +51,7 @@ class GRUKalmanBlock(LightningModule):
         integer_scaler: int = 10,
         linear_output_layers: int = 3,
         dropout: float = 0.0,
-        normalize_combinations: bool = True,
+        normalize_combinations: bool = False,
     ) -> None:
         """The base KalmanNet class for Kalman Filtering.
 
@@ -63,7 +63,7 @@ class GRUKalmanBlock(LightningModule):
             gru_hidden_dim (int): The hidden dimension of the GRU cell. Defaults to (dim_state**2 + dim_measurement**2).
             integer_scaler (int): The integer scaler for the hidden dimension of the GRU cell. Default is 10.
             linear_output_layers (int): The number of linear layers in the output layer. Default is 3.
-            normalize_combinations (bool): Whether to normalize the combinations. Default is True.
+            normalize_combinations (bool): Whether to normalize the combinations. Default is False.
             dropout (float): The dropout probability for the GRU cell. Default is 0.0.
         """
         super().__init__()

@@ -126,6 +126,10 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
             raise ValueError("Cannot track robust error without F2 flavor.")
         self.track_f2_loss = track_f2_loss
 
+        # Innovation parameters
+        self.W_innov = torch.nn.Parameter(torch.randn(dim_measurement, dim_measurement), requires_grad=True)
+        self.b_innov = torch.nn.Parameter(torch.randn(dim_measurement), requires_grad=True)
+
         # Set the internal state of the filter
         self.reset_trackers(batch_dim=self.batch_dim)
 
@@ -415,7 +419,7 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
 
         # Update the state vector
         x_posterior = x_prior + torch.einsum(
-            "ijk,ik->ij", kalman_gain, combinations["F2"]
+            "ijk,ik->ij", kalman_gain, torch.tanh(torch.einsum("jj,ij->ij", self.W_innov, combinations["F2"]) + self.b_innov)
         )
 
         # Update the states of the filter for next time step
