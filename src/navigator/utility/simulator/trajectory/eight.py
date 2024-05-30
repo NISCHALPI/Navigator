@@ -1,12 +1,14 @@
+"""Module for the eight trajectory of the car."""
+
 import numpy as np
+
 from .trajectory import Trajectory
 
 __all__ = ["EightTrajctory"]
 
 
 class EightTrajctory(Trajectory):
-    """
-    Class for the eight trajectory of the car.
+    """Class for the eight trajectory of the car.
 
     Trajectory Parametrization:
         r = R * cos(2 * theta)
@@ -23,10 +25,11 @@ class EightTrajctory(Trajectory):
         Note that the R is constant and the theta_dot is constant given in constructor.
     """
 
-    def __init__(self, radius: float = 10, angular_velocity: float = 1.0):
+    def __init__(self, radius: float = 10, angular_velocity: float = 1.0) -> None:
         """Constructor for the EightTrajectory class.
 
         Args:
+            radius (float): Radius of the eight trajectory.
             angular_velocity (float): Angular velocity of the car.
 
         Returns:
@@ -41,8 +44,7 @@ class EightTrajctory(Trajectory):
         self.angular_velocity = angular_velocity
 
     def get_pos_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the position of the car at a given time.
+        """Calculates the position of the car at a given time.
 
         Parameters:
             time (float): Time at which the position is calculated.
@@ -62,8 +64,7 @@ class EightTrajctory(Trajectory):
         return np.array([x, y, z], dtype=np.float32)
 
     def get_velocity_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the velocity of the car at a given time.
+        """Calculates the velocity of the car at a given time.
 
         Parameters:
             time (float): Time at which the velocity is calculated.

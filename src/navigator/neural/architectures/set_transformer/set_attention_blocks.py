@@ -332,14 +332,11 @@ class SetTransformerBlock(nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (B, dim_S, dim_Q).
         """
-
         # Compute the self-attention of the set elements.
         X = self.encoder(X)
 
         # Compute the self-attention of the set elements.
-        X = self.pooling_decoder(X)
-
-        return X
+        return self.pooling_decoder(X)
 
 
 # Path: src/navigator/neural/set_transformer/blocks/set_attention_blocks.py

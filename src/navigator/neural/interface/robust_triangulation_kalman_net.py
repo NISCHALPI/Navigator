@@ -1,6 +1,5 @@
 """Implements the robust kalman net for the neural network aided navigation system.
 
-
 This is a varient of the KalmanNet[1] which uses self-attention mechanism to further increase the robustness of the Kalman Filter.
 The varient has two main components, the first component is the KalmanNet[1] which is used to predict the state of the system  using GRU
 Cell. However, the inputs to the GRU cells are further processed using the self-attention mechanism. The consecutive innovations are tracked
@@ -23,11 +22,11 @@ Email:
     nischalbhattaraipi@gmail.com
 """
 
-from ..architectures.kalman_nets.kalman_net_base import AbstractKalmanNet
-import torch.nn as nn
 import numpy as np
-import torch.functional as F
-from ..architectures.set_transformer.set_attention_blocks import SAB, PMA
+import torch.nn as nn
+
+from ..architectures.kalman_nets.kalman_net_base import AbstractKalmanNet
+from ..architectures.set_transformer.set_attention_blocks import PMA, SAB
 
 
 class RobustTriangulationKalmanNet(AbstractKalmanNet):
@@ -74,7 +73,7 @@ class RobustTriangulationKalmanNet(AbstractKalmanNet):
         # Choose power of 2 greater than 4 for the set transformer latent dimension.
         if (
             set_transfomer_latent_dim < 4
-            or np.log2(set_transfomer_latent_dim).is_integer() == False
+            or np.log2(set_transfomer_latent_dim).is_integer() is False
         ):
             raise ValueError(
                 "The set transformer latent dimension must be greater than 4 and power of 2."
@@ -110,7 +109,7 @@ class RobustTriangulationKalmanNet(AbstractKalmanNet):
 
         # Initialize the Innovation History Attention Mechanism
         if innovation_latent_dim < self.dim_measurement or (
-            np.log2(innovation_latent_dim).is_integer() == False
+            np.log2(innovation_latent_dim).is_integer() is False
             or innovation_latent_dim < 4
         ):
             raise ValueError(

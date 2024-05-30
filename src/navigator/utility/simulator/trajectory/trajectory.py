@@ -1,7 +1,9 @@
-import numpy as np
-from abc import ABC, abstractmethod
-from scipy.spatial.transform import Rotation as R
+"""This module contains the abstract class for the trajectory of the car."""
 
+from abc import ABC, abstractmethod
+from copy import deepcopy
+
+import numpy as np
 
 __all__ = [
     "Trajectory",
@@ -9,25 +11,24 @@ __all__ = [
 
 
 class Trajectory(ABC):
-    """
-    Abstract class for the trajectory of the car.
-    """
+    """Abstract class for the trajectory of the car."""
 
-    def __init__(self, trajectory_name: str):
+    def __init__(self, trajectory_name: str, scale: float = 1) -> None:
         """Constructor for the Trajectory class.
 
         Args:
             trajectory_name (str): Name of the trajectory.
+            scale (float, optional): Scale factor for the trajectory. Defaults to 1.
 
         Returns:
             None
         """
         self.trajectory_name = trajectory_name
+        self.scale = scale
 
     @abstractmethod
     def get_pos_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the position of the car at a given time.
+        """Calculates the position of the car at a given time.
 
         Parameters:
             time (float): Time at which the position is calculated.
@@ -39,8 +40,7 @@ class Trajectory(ABC):
 
     @abstractmethod
     def get_velocity_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the velocity of the car at a given time.
+        """Calculates the velocity of the car at a given time.
 
         Parameters:
             time (float): Time at which the velocity is calculated.
@@ -51,8 +51,7 @@ class Trajectory(ABC):
         pass
 
     def __call__(self, time: float) -> np.ndarray:
-        """
-        Calls the get_pos_at_time method to calculate the position of the car at a given time.
+        """Calls the get_pos_at_time method to calculate the position of the car at a given time.
 
         Parameters:
             time (float): Time at which the position is calculated.
@@ -63,13 +62,26 @@ class Trajectory(ABC):
         pos = self.get_pos_at_time(time)
         vel = self.get_velocity_at_time(time)
 
-        return np.concatenate([pos, vel], axis=0)
+        return np.concatenate([pos, vel], axis=0) * self.scale
 
     def __repr__(self) -> str:
-        """
-        Returns the string representation of the Trajectory object.
+        """Returns the string representation of the Trajectory object.
 
         Returns:
             str: String representation of the Trajectory object.
         """
-        return f"Trajectory: {self.trajectory_name}"
+        return f"Trajectory({self.trajectory_name})"
+
+    def __mul__(self, scale: float) -> "Trajectory":
+        """Scales the trajectory by a factor.
+
+        Args:
+            scale (float): The scale factor.
+
+        Returns:
+            Trajectory: The scaled trajectory.
+        """
+        clone = deepcopy(self)
+        clone.scale *= scale
+
+        return clone

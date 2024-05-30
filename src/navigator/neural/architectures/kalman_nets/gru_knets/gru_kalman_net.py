@@ -138,11 +138,12 @@ class GRUKalmanBlock(LightningModule):
             dtype=self.dtype,
         )
 
-    def to(self, *args, **kwargs):
+    def to(self, *args, **kwargs) -> "GRUKalmanBlock":
         """Move the KalmanNet to a specific device.
 
         Args:
             *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
         """
         super().to(*args, **kwargs)
         self.hx = self.hx.to(*args, **kwargs)

@@ -11,9 +11,7 @@ Functions:
 import warnings
 
 import numpy as np
-from numba import float64, njit
 from numba.core.errors import NumbaPerformanceWarning
-from numba.types import UniTuple
 
 # Filter out the numba warnings for this module
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)

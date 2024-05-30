@@ -1,10 +1,9 @@
 """Epochify RINEX Directory .i.e convert RINEX files direcotry to Epoch Directory."""
 
+import os
 from pathlib import Path
 
 import click
-import os
-from concurrent.futures import ProcessPoolExecutor
 
 from ...epoch.epoch_directory import EpochDirectory
 from ..logger.logger import get_logger

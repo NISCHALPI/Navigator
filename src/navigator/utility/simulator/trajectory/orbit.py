@@ -1,12 +1,14 @@
-from .trajectory import Trajectory
+"""This module contains the implementation of the SatelliteLikeTrajectory class."""
+
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+
 from .ellipsoidal import EllipticalTrajectory
+from .trajectory import Trajectory
 
 
 class SatelliteLikeTrajectory(Trajectory):
-    """
-    Represents a satellite-like trajectory which is parametrized by the kepelian elements.
+    """Represents a satellite-like trajectory which is parametrized by the kepelian elements.
 
     Parameters:
         name (str): Name of the trajectory.
@@ -29,9 +31,8 @@ class SatelliteLikeTrajectory(Trajectory):
         argument_perigee: float,
         true_anomaly: float,
         angular_velocity: float,
-    ):
-        """
-        Initializes the SatelliteLikeTrajectory object.
+    ) -> None:
+        """Initializes the SatelliteLikeTrajectory object.
 
         The arguments are the kepelian elements that define the orbit of the satellite in space.
         The units are in meters and radians.
@@ -73,8 +74,7 @@ class SatelliteLikeTrajectory(Trajectory):
         ).as_matrix()
 
     def get_pos_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the position of the satellite at a given time.
+        """Calculates the position of the satellite at a given time.
 
         Args:
             time (float): Time at which the position is calculated.
@@ -87,13 +87,10 @@ class SatelliteLikeTrajectory(Trajectory):
             self.true_anomaly / self.angular_velocity + time
         )
         # Rotate the position to the orbital plane
-        pos = self.rotation_matrix @ pos
-
-        return pos
+        return self.rotation_matrix @ pos
 
     def get_velocity_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the velocity of the satellite at a given time.
+        """Calculates the velocity of the satellite at a given time.
 
         Args:
             time (float): Time at which the velocity is calculated.
@@ -106,6 +103,4 @@ class SatelliteLikeTrajectory(Trajectory):
             self.true_anomaly / self.angular_velocity + time
         )
         # Rotate the velocity to the orbital plane
-        vel = self.rotation_matrix @ vel
-
-        return vel
+        return self.rotation_matrix @ vel

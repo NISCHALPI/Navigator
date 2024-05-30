@@ -605,7 +605,7 @@ class Epoch:
         nav: list[Path | str | None] = None,
         mode: str = "maxsv",
         num_workers: int = 4,
-        **kwargs,  # noqa: ARG002
+        **kwargs,  # noqa: ARG004
     ) -> list["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 

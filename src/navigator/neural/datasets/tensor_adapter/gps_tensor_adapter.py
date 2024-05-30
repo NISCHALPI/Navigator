@@ -251,8 +251,8 @@ class DummyDataset(Dataset):
         timestep: int = 10,
         mask_sv: int = -1,
         dt: float = 1.0,
-        **kwargs,
-    ) -> None:  # noqa : ARG002
+        **kwargs,  # noqa : ARG002
+    ) -> None:
         """Initializes the DummyEpoch class.
 
         Args:

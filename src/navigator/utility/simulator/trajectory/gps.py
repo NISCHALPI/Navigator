@@ -1,97 +1,124 @@
 """GNSS Satellite Trajectory Simulator.
 
-This module defines a Python class, GNSSsatellite, for simulating the trajectory of a GNSS satellite in space. The simulation is based on Keplerian orbital elements, and the class provides a method to calculate the coordinates of the satellite at a given time.
+This module defines a Python class, GNSSsatellite, for simulating the trajectory of a GNSS satellite in space. 
+The simulation is based on Keplerian orbital elements, and the class provides a method to calculate the coordinates of the satellite at a given time.
 
-Classes:
-    GNSSsatellite: 
-        Simulates the trajectory of a GNSS satellite in space.
-
-Usage Example:
-    # Initialize a GNSS satellite with Keplerian orbital elements
-    satellite = GNSSsatellite(semi_major_axis=26559897, eccentricity=0.01, inclination=55, argument_of_perigee=45, mean_anomaly=30, mean_motion=15.0)
-
-    # Calculate coordinates after 1 hour (3600 seconds)
-    coordinates_at_t = satellite.get_coords(3600)
-
-    # Print the coordinates
-    print("Coordinates after 1 hour:", coordinates_at_t)
-
-Module Dependencies:
-    NumPy: 
-        The module utilizes NumPy for numerical calculations.
 
 Attributes:
-    semi_major_axis: 
-        Semi-major axis of the elliptical orbit (in meters)
-    eccentricity: 
-        eccentricity of the elliptical orbit
-    inclination: 
-        Inclination of the orbit in degrees
-    argument_of_perigee: 
-        Argument of perigee in degrees
-    mean_anomaly: 
-        Mean anomaly at epoch in degrees
-    mean_motion: 
-        Mean motion of the satellite in revolutions per day
+    __all__ (List[str]): A list of strings specifying the names of the public objects exported by the module.
+
+Sample Almanac Data:
+    Sample almanac data for initializing GNSS satellites.
+
+Classes:
+    KepelerianSatellite: A class representing a GNSS satellite trajectory simulator based on Keplerian orbital elements.
 
 Methods:
-    __init__(self, semi_major_axis, eccentricity, inclination, argument_of_perigee, mean_anomaly, mean_motion): 
-        Initializes the GNSSsatellite object with Keplerian orbital elements.
-    get_coords(self, t): 
-        Returns the coordinates (x, y, z) of the satellite at a given time t.
+    KepelerianSatellite.get_coords: Returns the coordinates of the satellite at a given time.
 
-Note:
-    The Keplerian orbital elements (semi_major_axis, eccentricity, inclination, etc.) should be replaced with the actual values of the GNSS satellite you want to simulate.
+    KepelerianSatellite.get_pos_at_time: Calculates the position of the satellite at a given time.
+
+    KepelerianSatellite.get_velocity_at_time: Calculates the velocity of the satellite at a given time.
+
+Constants:
+    ALMANAC_STATIC (Dict[str, Dict[str, Union[int, float]]]): Static almanac data for initializing GNSS satellites.
 """
 
+import typing as tp
+from pathlib import Path
+
 from numpy import ndarray
+
 from ....core.satellite.iephm.sv.tools.coord import ephm_to_coord_gps
+from ....parse.iparse.yuma_alm.iparse_yuma_alm import IParseYumaAlm
 from .trajectory import Trajectory
 
-__all__ = ["KepelerianSatellite"]
+__all__ = ["KepelerianSatellite", "from_almanac"]
 
 
 class KepelerianSatellite(Trajectory):
     """Simulates the trajectory of a GNSS satellite in space.
 
-    Attributes:
-    - semi_major_axis: Semi-major axis of the elliptical orbit (in meters)
-    - eccentricity: eccentricity of the elliptical orbit
-    - inclination: Inclination of the orbit in degrees
-    - argument_of_perigee: Argument of perigee in degrees
-    - mean_anomaly: Mean anomaly at epoch in degrees
-    - mean_motion: Mean motion of the satellite in revolutions per day
-
     Methods:
-    - get_coords(t: float) -> Tuple[float, float, float]: Returns the coordinates (x, y, z) of the satellite at a given time t.
+        get_coords: Returns the coordinates of the satellite at a given time.
+
+        get_pos_at_time: Calculates the position of the satellite at a given time.
+
+        get_velocity_at_time: Calculates the velocity of the satellite at a given time.
+
+    Attributes:
+        prn (str): PRN of the satellite.
+        sqrtA (float): Square root of the semi-major axis.
+        eccentricty (float): Eccentricity of the orbit.
+        time_of_almanac (float): Time of almanac in seconds.
+        inclination (float): Inclination of the orbit in radians.
+        right_ascension (float): Right ascension at the week in radians.
+        rate_of_right_ascension (float): Rate of right ascension in radians per second.
+        argument_of_perigee (float): Argument of perigee in radians.
+        mean_anomaly (float): Mean anomaly in radians.
+        week (int): Week number.
+        health (int): Health status of the satellite.
+        af0 (float): Clock correction coefficient af0 in seconds.
+        af1 (float): Clock correction coefficient af1 in seconds per second.
+
+    Note:
+        The parameters are based on the Yuma almanac format.
     """
 
     def __init__(
         self,
         prn: str,
         sqrtA: float,
-        Eccentricity: float,
-        Io: float,
-        Omega0: float,
-        M0: float,
-        DeltaN: float = 0.0,
+        eccentricty: float,
+        time_of_almanac: float,
+        inclination: float,
+        right_ascension: float,
+        rate_of_right_ascension: float,
+        argument_of_perigee: float,
+        mean_anomaly: float,
+        week: int,
+        health: int,
+        af0: float,
+        af1: float,
     ) -> None:
-        """Initialize the GNSSsatellite object with Keplerian orbital elements.
+        """Initializes the Keplerian satellite with the given parameters from the almanac.
 
         Args:
-            sqrtA (float): Square root of semi-major axis of the elliptical orbit (in meters)
-            Eccentricity (float): Eccentricity of the elliptical orbit
-            Io (float): Inclination of the orbit in radians
-            Omega0 (float): Argument of perigee in radians
-            M0 (float): Mean anomaly at epoch in radians
-            DeltaN (float): Mean motion of the satellite in revolutions per day.
+            prn (str): PRN of the satellite.
+            sqrtA (float): Square root of the semi-major axis.
+            eccentricty (float): Eccentricity of the orbit.
+            time_of_almanac (float): Time of almanac in seconds.
+            inclination (float): Inclination of the orbit in radians.
+            right_ascension (float): Right ascension at the week in radians.
+            rate_of_right_ascension (float): Rate of right ascension in radians per second.
+            argument_of_perigee (float): Argument of perigee in radians.
+            mean_anomaly (float): Mean anomaly in radians.
+            week (int): Week number.
+            health (int): Health status of the satellite.
+            af0 (float): Clock correction coefficient af0 in seconds.
+            af1 (float): Clock correction coefficient af1 in seconds per second.
+
+        Returns:
+            None
+
+        Note:
+            The parameters are based on the Yuma almanac format.
         """
-        self.sqrt_semi_major = sqrtA
-        self.eccentricity = Eccentricity
-        self.inclination = Io
-        self.argument_of_perigee = Omega0
-        self.mean_anomaly = M0
-        self.delta_n = DeltaN
+        # Initialize the Keplerian satellite with the given parameters
+        self.prn = prn
+        self.sqrtA = sqrtA
+        self.eccentricty = eccentricty
+        self.time_of_almanac = time_of_almanac
+        self.inclination = inclination
+        self.right_ascension = right_ascension
+        self.rate_of_right_ascension = rate_of_right_ascension
+        self.argument_of_perigee = argument_of_perigee
+        self.mean_anomaly = mean_anomaly
+        self.week = week
+        self.health = health
+        self.af0 = af0
+        self.af1 = af1
+
         super().__init__(prn)
 
     def get_coords(self, t: float) -> tuple:
@@ -103,25 +130,29 @@ class KepelerianSatellite(Trajectory):
         Returns:
         - Tuple (x, y, z) representing the coordinates of the satellite
         """
-        # Constants
+        # Correct the time for the satellite clock error (af0 and af1) to GPS time
+        t_corrected = (
+            self.time_of_almanac + t - (self.af0 + self.af1 * t)
+        )  # Account for satellite clock error
+
         return ephm_to_coord_gps(
-            t=t,
-            toe=0,
-            sqrt_a=self.sqrt_semi_major,
-            e=self.eccentricity,
+            t=t_corrected,
+            toe=self.time_of_almanac,
+            sqrt_a=self.sqrtA,
+            e=self.eccentricty,
             M_0=self.mean_anomaly,
             w=self.argument_of_perigee,
             i_0=self.inclination,
-            omega_0=0,
-            delta_n=self.delta_n,
-            i_dot=0,
-            omega_dot=0,
-            c_us=0,
-            c_uc=0,
-            c_rs=0,
-            c_rc=0,
-            c_is=0,
+            omega_0=self.right_ascension,
+            omega_dot=self.rate_of_right_ascension,
             c_ic=0,
+            c_is=0,
+            c_rc=0,
+            c_rs=0,
+            c_uc=0,
+            c_us=0,
+            delta_n=0,
+            i_dot=0,
         )
 
     def get_pos_at_time(self, time: float) -> ndarray:
@@ -136,7 +167,17 @@ class KepelerianSatellite(Trajectory):
         return self.get_coords(time)
 
     def get_velocity_at_time(self, time: float) -> ndarray:
+        """Calculates the velocity of the satellite at a given time.
 
+        Args:
+            time (float): Time at which the velocity is calculated.
+
+        Returns:
+            np.ndarray: Velocity of the satellite [vx, vy, vz].
+
+        Note:
+            The velocity is calculated using the finite difference method.
+        """
         # Calculate the velocity using finite difference method
         delta_t = 1e-7
 
@@ -145,279 +186,511 @@ class KepelerianSatellite(Trajectory):
         pos_t_plus_delta = self.get_coords(time + delta_t)
 
         # Calculate the velocity
-        velocity = (pos_t_plus_delta - pos_t) / delta_t
-
-        return velocity
+        return (pos_t_plus_delta - pos_t) / delta_t
 
 
 # Initial conditions for the GPS Constellations
-GPS_CONSTELLATION = {
-    "G01": {
-        "sqrtA": 5153.660242081,
-        "Eccentricity": 0.01204742747359,
-        "Io": 0.9891789945442,
-        "Omega0": -0.5116143834326,
-        "DeltaN": 3.801229765049e-09,
-        "M0": -0.6681039753151,
+ALMANAC_STATIC = {
+    'G02': {
+        'ID': 2,
+        'Health': 0,
+        'eccentricity': 0.01597881317,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9671772836,
+        'RateofRightAscen(r/s)': -7.886042771e-09,
+        'SQRT(A)(m1/2)': 5153.654785,
+        'RightAscenatWeek(rad)': 1.934699938,
+        'ArgumentofPerigee(rad)': -1.181754306,
+        'MeanAnom(rad)': -0.352432835,
+        'Af0(s)': -0.0004253387451,
+        'Af1(s/s)': 7.275957614e-12,
+        'week': 268,
     },
-    "G02": {
-        "sqrtA": 5153.700933456,
-        "Eccentricity": 0.02000075648539,
-        "Io": 0.9669485791867,
-        "Omega0": -0.6066903042292,
-        "DeltaN": 4.212675474843e-09,
-        "M0": 1.546230090621,
+    'G03': {
+        'ID': 3,
+        'Health': 0,
+        'eccentricity': 0.005547523499,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9848300469,
+        'RateofRightAscen(r/s)': -7.680319916e-09,
+        'SQRT(A)(m1/2)': 5153.673828,
+        'RightAscenatWeek(rad)': 3.069382081,
+        'ArgumentofPerigee(rad)': 1.091436319,
+        'MeanAnom(rad)': 2.394527906,
+        'Af0(s)': 0.0003929138184,
+        'Af1(s/s)': 1.818989404e-11,
+        'week': 268,
     },
-    "G03": {
-        "sqrtA": 5153.771314621,
-        "Eccentricity": 0.004439325537533,
-        "Io": 0.9763548527786,
-        "Omega0": 0.5201910595885,
-        "DeltaN": 4.28732144129e-09,
-        "M0": -2.840534537631,
+    'G04': {
+        'ID': 4,
+        'Health': 0,
+        'eccentricity': 0.002841472626,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9647804386,
+        'RateofRightAscen(r/s)': -8.034620388e-09,
+        'SQRT(A)(m1/2)': 5153.684082,
+        'RightAscenatWeek(rad)': -2.135634193,
+        'ArgumentofPerigee(rad)': -2.946859485,
+        'MeanAnom(rad)': -0.9165782382,
+        'Af0(s)': 0.000373840332,
+        'Af1(s/s)': 7.275957614e-12,
+        'week': 268,
     },
-    "G04": {
-        "sqrtA": 5153.736791611,
-        "Eccentricity": 0.002154131303541,
-        "Io": 0.9615650640617,
-        "Omega0": 1.601686421354,
-        "DeltaN": 4.508402078757e-09,
-        "M0": 0.1808035127235,
+    'G05': {
+        'ID': 5,
+        'Health': 0,
+        'eccentricity': 0.005885601044,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9717732339,
+        'RateofRightAscen(r/s)': -7.783181344e-09,
+        'SQRT(A)(m1/2)': 5153.57373,
+        'RightAscenatWeek(rad)': 3.017992601,
+        'ArgumentofPerigee(rad)': 1.256599161,
+        'MeanAnom(rad)': -0.2147003852,
+        'Af0(s)': -0.0001745223999,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
-    "G05": {
-        "sqrtA": 5153.561510086,
-        "Eccentricity": 0.005898805800825,
-        "Io": 0.9634063293292,
-        "Omega0": 0.476081517929,
-        "DeltaN": 4.731982820364e-09,
-        "M0": 1.856154107492,
+    'G06': {
+        'ID': 6,
+        'Health': 0,
+        'eccentricity': 0.002969264984,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9895758,
+        'RateofRightAscen(r/s)': -7.623174679e-09,
+        'SQRT(A)(m1/2)': 5153.590332,
+        'RightAscenatWeek(rad)': 2.03315409,
+        'ArgumentofPerigee(rad)': -0.691689015,
+        'MeanAnom(rad)': -2.559430466,
+        'Af0(s)': 0.0002422332764,
+        'Af1(s/s)': -2.182787284e-11,
+        'week': 268,
     },
-    "G06": {
-        "sqrtA": 5153.564332962,
-        "Eccentricity": 0.002650320879184,
-        "Io": 0.9884575916034,
-        "Omega0": -0.5199555136856,
-        "DeltaN": 3.711583173766e-09,
-        "M0": 0.6620175426822,
+    'G07': {
+        'ID': 7,
+        'Health': 63,
+        'eccentricity': 0.01857852936,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9499799209,
+        'RateofRightAscen(r/s)': -7.851755629e-09,
+        'SQRT(A)(m1/2)': 5153.585449,
+        'RightAscenatWeek(rad)': -1.12251441,
+        'ArgumentofPerigee(rad)': -2.119738617,
+        'MeanAnom(rad)': 2.850169635,
+        'Af0(s)': -0.0001068115234,
+        'Af1(s/s)': 1.091393642e-11,
+        'week': 268,
     },
-    "G07": {
-        "sqrtA": 5153.622900009,
-        "Eccentricity": 0.01645870879292,
-        "Io": 0.9507268584584,
-        "Omega0": 2.618341132807,
-        "DeltaN": 4.544475009911e-09,
-        "M0": -2.338985975629,
+    'G08': {
+        'ID': 8,
+        'Health': 0,
+        'eccentricity': 0.009456157684,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9531377641,
+        'RateofRightAscen(r/s)': -8.308917528e-09,
+        'SQRT(A)(m1/2)': 5153.580566,
+        'RightAscenatWeek(rad)': 0.9368959935,
+        'ArgumentofPerigee(rad)': 0.364454136,
+        'MeanAnom(rad)': -0.5841489471,
+        'Af0(s)': 0.0002088546753,
+        'Af1(s/s)': 1.818989404e-11,
+        'week': 268,
     },
-    "G08": {
-        "sqrtA": 5153.619432449,
-        "Eccentricity": 0.007800261140801,
-        "Io": 0.9610757618517,
-        "Omega0": -1.598280000515,
-        "DeltaN": 4.694124100539e-09,
-        "M0": 0.5471395349692,
+    'G09': {
+        'ID': 9,
+        'Health': 0,
+        'eccentricity': 0.002718448639,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9584168152,
+        'RateofRightAscen(r/s)': -8.126052768e-09,
+        'SQRT(A)(m1/2)': 5153.597168,
+        'RightAscenatWeek(rad)': -2.195206652,
+        'ArgumentofPerigee(rad)': 1.982660431,
+        'MeanAnom(rad)': -0.1168038735,
+        'Af0(s)': 0.0002183914185,
+        'Af1(s/s)': 1.455191523e-11,
+        'week': 268,
     },
-    "G09": {
-        "sqrtA": 5153.720909119,
-        "Eccentricity": 0.002643894287758,
-        "Io": 0.9547227533606,
-        "Omega0": 1.546489220226,
-        "DeltaN": 4.698767151084e-09,
-        "M0": 0.9061415612103,
+    'G10': {
+        'ID': 10,
+        'Health': 0,
+        'eccentricity': 0.009332180023,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9844884965,
+        'RateofRightAscen(r/s)': -7.703178011e-09,
+        'SQRT(A)(m1/2)': 5153.64209,
+        'RightAscenatWeek(rad)': 3.066818955,
+        'ArgumentofPerigee(rad)': -2.37289301,
+        'MeanAnom(rad)': 1.397857595,
+        'Af0(s)': -3.433227539e-05,
+        'Af1(s/s)': -7.275957614e-12,
+        'week': 268,
     },
-    "G10": {
-        "sqrtA": 5153.682167053,
-        "Eccentricity": 0.008190797176212,
-        "Io": 0.9761397467672,
-        "Omega0": 0.5171475185042,
-        "DeltaN": 4.434470427779e-09,
-        "M0": 2.567805814185,
+    'G11': {
+        'ID': 11,
+        'Health': 0,
+        'eccentricity': 0.00131893158,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9661226718,
+        'RateofRightAscen(r/s)': -7.851755629e-09,
+        'SQRT(A)(m1/2)': 5153.672363,
+        'RightAscenatWeek(rad)': 2.066106964,
+        'ArgumentofPerigee(rad)': -2.588128565,
+        'MeanAnom(rad)': -1.275203921,
+        'Af0(s)': -0.0006761550903,
+        'Af1(s/s)': -7.275957614e-12,
+        'week': 268,
     },
-    "G11": {
-        "sqrtA": 5153.672706604,
-        "Eccentricity": 0.0008048370946199,
-        "Io": 0.9644928649192,
-        "Omega0": -0.474351890866,
-        "DeltaN": 4.281606917543e-09,
-        "M0": 2.05179723007,
+    'G12': {
+        'ID': 12,
+        'Health': 0,
+        'eccentricity': 0.008770465851,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.962773081,
+        'RateofRightAscen(r/s)': -7.931758961e-09,
+        'SQRT(A)(m1/2)': 5153.596191,
+        'RightAscenatWeek(rad)': -0.00704223016,
+        'ArgumentofPerigee(rad)': 1.451508723,
+        'MeanAnom(rad)': 2.116594256,
+        'Af0(s)': -0.0005102157593,
+        'Af1(s/s)': -3.637978807e-12,
+        'week': 268,
     },
-    "G12": {
-        "sqrtA": 5153.707902908,
-        "Eccentricity": 0.008628415758722,
-        "Io": 0.9675482161411,
-        "Omega0": -2.551343677499,
-        "DeltaN": 4.649836541499e-09,
-        "M0": 0.06771211565855,
+    'G13': {
+        'ID': 13,
+        'Health': 0,
+        'eccentricity': 0.008083343506,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.971245928,
+        'RateofRightAscen(r/s)': -7.954617056e-09,
+        'SQRT(A)(m1/2)': 5153.600098,
+        'RightAscenatWeek(rad)': -2.02919218,
+        'ArgumentofPerigee(rad)': 0.92446648,
+        'MeanAnom(rad)': -0.853581662,
+        'Af0(s)': 0.0006551742554,
+        'Af1(s/s)': 3.637978807e-12,
+        'week': 268,
     },
-    "G13": {
-        "sqrtA": 5153.673830032,
-        "Eccentricity": 0.006682727951556,
-        "Io": 0.9687821290243,
-        "Omega0": 1.703758847343,
-        "DeltaN": 4.364110354142e-09,
-        "M0": 1.083577753969,
+    'G14': {
+        'ID': 14,
+        'Health': 0,
+        'eccentricity': 0.00453710556,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9460850478,
+        'RateofRightAscen(r/s)': -8.091765626e-09,
+        'SQRT(A)(m1/2)': 5153.646973,
+        'RightAscenatWeek(rad)': -0.05153890822,
+        'ArgumentofPerigee(rad)': -2.90444207,
+        'MeanAnom(rad)': 2.095591153,
+        'Af0(s)': 0.0004148483276,
+        'Af1(s/s)': 1.091393642e-11,
+        'week': 268,
     },
-    "G14": {
-        "sqrtA": 5153.654602051,
-        "Eccentricity": 0.002398941316642,
-        "Io": 0.9509331416109,
-        "Omega0": -2.586840032956,
-        "DeltaN": 5.072354141053e-09,
-        "M0": -3.099128015556,
+    'G15': {
+        'ID': 15,
+        'Health': 0,
+        'eccentricity': 0.01564025879,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9353831349,
+        'RateofRightAscen(r/s)': -8.377491813e-09,
+        'SQRT(A)(m1/2)': 5153.592773,
+        'RightAscenatWeek(rad)': -2.323255848,
+        'ArgumentofPerigee(rad)': 1.313138113,
+        'MeanAnom(rad)': -1.532751656,
+        'Af0(s)': 0.0001659393311,
+        'Af1(s/s)': 3.637978807e-12,
+        'week': 268,
     },
-    "G15": {
-        "sqrtA": 5153.639408112,
-        "Eccentricity": 0.01473562791944,
-        "Io": 0.9308411672366,
-        "Omega0": 1.433009514964,
-        "DeltaN": 5.402725045184e-09,
-        "M0": 0.5968220513483,
+    'G16': {
+        'ID': 16,
+        'Health': 0,
+        'eccentricity': 0.01390171051,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9622517672,
+        'RateofRightAscen(r/s)': -7.954617056e-09,
+        'SQRT(A)(m1/2)': 5153.736816,
+        'RightAscenatWeek(rad)': 0.01081389044,
+        'ArgumentofPerigee(rad)': 0.839942865,
+        'MeanAnom(rad)': 0.3180785563,
+        'Af0(s)': -0.0002756118774,
+        'Af1(s/s)': 1.091393642e-11,
+        'week': 268,
     },
-    "G16": {
-        "sqrtA": 5153.741518021,
-        "Eccentricity": 0.0130136271473,
-        "Io": 0.9673317423013,
-        "Omega0": -2.53275059436,
-        "DeltaN": 4.798414158924e-09,
-        "M0": 1.414200471469,
+    'G17': {
+        'ID': 17,
+        'Health': 0,
+        'eccentricity': 0.01339912415,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9688430909,
+        'RateofRightAscen(r/s)': -8.171768958e-09,
+        'SQRT(A)(m1/2)': 5153.683105,
+        'RightAscenatWeek(rad)': 1.031727165,
+        'ArgumentofPerigee(rad)': -1.320440625,
+        'MeanAnom(rad)': -0.5810285545,
+        'Af0(s)': 0.0006999969482,
+        'Af1(s/s)': -3.637978807e-12,
+        'week': 268,
     },
-    "G17": {
-        "sqrtA": 5153.662157059,
-        "Eccentricity": 0.01386858872138,
-        "Io": 0.9764788731217,
-        "Omega0": -1.512184715832,
-        "DeltaN": 4.190531695323e-09,
-        "M0": 1.579598681471,
+    'G18': {
+        'ID': 18,
+        'Health': 0,
+        'eccentricity': 0.004152297974,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9744097633,
+        'RateofRightAscen(r/s)': -7.771752296e-09,
+        'SQRT(A)(m1/2)': 5153.567383,
+        'RightAscenatWeek(rad)': 2.037151204,
+        'ArgumentofPerigee(rad)': -3.053585,
+        'MeanAnom(rad)': -2.541779201,
+        'Af0(s)': -0.0006189346313,
+        'Af1(s/s)': -3.637978807e-12,
+        'week': 268,
     },
-    "G18": {
-        "sqrtA": 5153.717258453,
-        "Eccentricity": 0.002958950237371,
-        "Io": 0.9730390758061,
-        "Omega0": -0.5080921579978,
-        "DeltaN": 4.092313318419e-09,
-        "M0": -2.573028358582,
+    'G19': {
+        'ID': 19,
+        'Health': 0,
+        'eccentricity': 0.00988483429,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9680101872,
+        'RateofRightAscen(r/s)': -8.148910863e-09,
+        'SQRT(A)(m1/2)': 5153.655762,
+        'RightAscenatWeek(rad)': 1.076056813,
+        'ArgumentofPerigee(rad)': 2.550191378,
+        'MeanAnom(rad)': 1.40855389,
+        'Af0(s)': 0.0004901885986,
+        'Af1(s/s)': 3.637978807e-12,
+        'week': 268,
     },
-    "G19": {
-        "sqrtA": 5153.736066818,
-        "Eccentricity": 0.009025134611875,
-        "Io": 0.9754319840746,
-        "Omega0": -1.46748027561,
-        "DeltaN": 4.196960534538e-09,
-        "M0": -2.597371486582,
+    'G20': {
+        'ID': 20,
+        'Health': 0,
+        'eccentricity': 0.003585338593,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9541803917,
+        'RateofRightAscen(r/s)': -7.943188009e-09,
+        'SQRT(A)(m1/2)': 5153.75,
+        'RightAscenatWeek(rad)': 2.889131848,
+        'ArgumentofPerigee(rad)': -2.593903089,
+        'MeanAnom(rad)': -2.143387238,
+        'Af0(s)': 0.0003747940063,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
-    "G20": {
-        "sqrtA": 5153.68563652,
-        "Eccentricity": 0.004738848540001,
-        "Io": 0.9458958201976,
-        "Omega0": 0.3571140938869,
-        "DeltaN": 5.090569185497e-09,
-        "M0": -0.6831181493329,
+    'G21': {
+        'ID': 21,
+        'Health': 0,
+        'eccentricity': 0.02516078949,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9614368399,
+        'RateofRightAscen(r/s)': -7.908900866e-09,
+        'SQRT(A)(m1/2)': 5153.640625,
+        'RightAscenatWeek(rad)': 1.927475697,
+        'ArgumentofPerigee(rad)': -0.566707031,
+        'MeanAnom(rad)': -0.727667905,
+        'Af0(s)': 0.0001182556152,
+        'Af1(s/s)': -3.637978807e-12,
+        'week': 268,
     },
-    "G21": {
-        "sqrtA": 5153.682523727,
-        "Eccentricity": 0.02450640965253,
-        "Io": 0.961270995584,
-        "Omega0": -0.6100139253685,
-        "DeltaN": 4.374110770699e-09,
-        "M0": 1.56039474811,
+    'G22': {
+        'ID': 22,
+        'Health': 0,
+        'eccentricity': 0.01427221298,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9615746585,
+        'RateofRightAscen(r/s)': -7.966046104e-09,
+        'SQRT(A)(m1/2)': 5153.65332,
+        'RightAscenatWeek(rad)': 0.01410730525,
+        'ArgumentofPerigee(rad)': -1.134888122,
+        'MeanAnom(rad)': -0.06024619663,
+        'Af0(s)': -2.193450928e-05,
+        'Af1(s/s)': -3.637978807e-12,
+        'week': 268,
     },
-    "G22": {
-        "sqrtA": 5153.758422852,
-        "Eccentricity": 0.01353631168604,
-        "Io": 0.96154129018,
-        "Omega0": 1.649745493653,
-        "DeltaN": 4.729839873959e-09,
-        "M0": 1.354359463651,
+    'G23': {
+        'ID': 23,
+        'Health': 0,
+        'eccentricity': 0.004188537598,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9796229012,
+        'RateofRightAscen(r/s)': -7.748894201e-09,
+        'SQRT(A)(m1/2)': 5153.670898,
+        'RightAscenatWeek(rad)': 3.037822748,
+        'ArgumentofPerigee(rad)': -2.969010452,
+        'MeanAnom(rad)': 2.539609682,
+        'Af0(s)': 0.0002403259277,
+        'Af1(s/s)': 1.091393642e-11,
+        'week': 268,
     },
-    "G23": {
-        "sqrtA": 5153.634134293,
-        "Eccentricity": 0.002874290454201,
-        "Io": 0.9712571640508,
-        "Omega0": 0.4909592850763,
-        "DeltaN": 4.563404369823e-09,
-        "M0": 2.725174638851,
+    'G24': {
+        'ID': 24,
+        'Health': 0,
+        'eccentricity': 0.01531219482,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.933627446,
+        'RateofRightAscen(r/s)': -8.068907531e-09,
+        'SQRT(A)(m1/2)': 5153.657227,
+        'RightAscenatWeek(rad)': -1.219678011,
+        'ArgumentofPerigee(rad)': 0.979932843,
+        'MeanAnom(rad)': -2.420004496,
+        'Af0(s)': -0.0004749298096,
+        'Af1(s/s)': -3.637978807e-12,
+        'week': 268,
     },
-    "G24": {
-        "sqrtA": 5153.672504425,
-        "Eccentricity": 0.01344625093043,
-        "Io": 0.9342043866425,
-        "Omega0": 2.530835287883,
-        "DeltaN": 4.985921969377e-09,
-        "M0": 0.6806253939796,
+    'G25': {
+        'ID': 25,
+        'Health': 0,
+        'eccentricity': 0.01162719727,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9506929822,
+        'RateofRightAscen(r/s)': -8.023191341e-09,
+        'SQRT(A)(m1/2)': 5153.733398,
+        'RightAscenatWeek(rad)': -0.09362638257,
+        'ArgumentofPerigee(rad)': 1.090139026,
+        'MeanAnom(rad)': 2.086611223,
+        'Af0(s)': 0.0004968643188,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
-    "G25": {
-        "sqrtA": 5153.588817596,
-        "Eccentricity": 0.0108018493047,
-        "Io": 0.9551740050713,
-        "Omega0": -2.631476678629,
-        "DeltaN": 4.860559604675e-09,
-        "M0": 0.9919328822375,
+    'G26': {
+        'ID': 26,
+        'Health': 0,
+        'eccentricity': 0.008870124817,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9314283407,
+        'RateofRightAscen(r/s)': -8.206056101e-09,
+        'SQRT(A)(m1/2)': 5153.590332,
+        'RightAscenatWeek(rad)': -0.1561686818,
+        'ArgumentofPerigee(rad)': 0.541729285,
+        'MeanAnom(rad)': 1.280126442,
+        'Af0(s)': 0.0001440048218,
+        'Af1(s/s)': -7.275957614e-12,
+        'week': 268,
     },
-    "G26": {
-        "sqrtA": 5153.592493057,
-        "Eccentricity": 0.007475657272153,
-        "Io": 0.9359940050502,
-        "Omega0": -2.683364873169,
-        "DeltaN": 5.407368095729e-09,
-        "M0": 2.311529408318,
+    'G27': {
+        'ID': 27,
+        'Health': 0,
+        'eccentricity': 0.01254272461,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9621319249,
+        'RateofRightAscen(r/s)': -8.206056101e-09,
+        'SQRT(A)(m1/2)': 5153.625977,
+        'RightAscenatWeek(rad)': 0.9634163342,
+        'ArgumentofPerigee(rad)': 0.795262679,
+        'MeanAnom(rad)': -0.5175788248,
+        'Af0(s)': -2.670288086e-05,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
-    "G27": {
-        "sqrtA": 5153.6606884,
-        "Eccentricity": 0.01079550944269,
-        "Io": 0.9698891966695,
-        "Omega0": -1.576526173146,
-        "DeltaN": 4.545189325379e-09,
-        "M0": 0.5371347801282,
+    'G28': {
+        'ID': 28,
+        'Health': 0,
+        'eccentricity': 0.0003271102905,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9610593368,
+        'RateofRightAscen(r/s)': -7.748894201e-09,
+        'SQRT(A)(m1/2)': 5153.608887,
+        'RightAscenatWeek(rad)': -1.155560161,
+        'ArgumentofPerigee(rad)': 1.685558763,
+        'MeanAnom(rad)': 1.466470653,
+        'Af0(s)': -0.0002698898315,
+        'Af1(s/s)': -1.818989404e-11,
+        'week': 268,
     },
-    "G28": {
-        "sqrtA": 5153.6606884,
-        "Eccentricity": 0.00379550944269,
-        "Io": 0.9678891966695,
-        "Omega0": -1.776526173146,
-        "DeltaN": 4.545189325379e-09,
-        "M0": 1.5371347801282,
+    'G29': {
+        'ID': 29,
+        'Health': 0,
+        'eccentricity': 0.002945423126,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9712579122,
+        'RateofRightAscen(r/s)': -8.137481816e-09,
+        'SQRT(A)(m1/2)': 5153.53418,
+        'RightAscenatWeek(rad)': 1.046747144,
+        'ArgumentofPerigee(rad)': 2.552183381,
+        'MeanAnom(rad)': -0.5697218128,
+        'Af0(s)': -0.0005960464478,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
-    "G29": {
-        "sqrtA": 5153.619853973,
-        "Eccentricity": 0.002124657155946,
-        "Io": 0.9786308300051,
-        "Omega0": -1.498704054468,
-        "DeltaN": 4.231961992489e-09,
-        "M0": -1.650469007585,
+    'G30': {
+        'ID': 30,
+        'Health': 0,
+        'eccentricity': 0.007164955139,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.935119482,
+        'RateofRightAscen(r/s)': -8.011762293e-09,
+        'SQRT(A)(m1/2)': 5153.580566,
+        'RightAscenatWeek(rad)': -1.121981112,
+        'ArgumentofPerigee(rad)': -2.461502121,
+        'MeanAnom(rad)': 2.693733555,
+        'Af0(s)': -0.0003814697266,
+        'Af1(s/s)': 7.275957614e-12,
+        'week': 268,
     },
-    "G30": {
-        "sqrtA": 5153.685945511,
-        "Eccentricity": 0.005939403316006,
-        "Io": 0.9358649786014,
-        "Omega0": 2.627325868017,
-        "DeltaN": 4.928062416438e-09,
-        "M0": -2.455302208827,
+    'G31': {
+        'ID': 31,
+        'Health': 0,
+        'eccentricity': 0.01047277451,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9539646756,
+        'RateofRightAscen(r/s)': -7.806039439e-09,
+        'SQRT(A)(m1/2)': 5153.681152,
+        'RightAscenatWeek(rad)': -1.100986997,
+        'ArgumentofPerigee(rad)': 0.679280473,
+        'MeanAnom(rad)': 1.963850067,
+        'Af0(s)': -0.0002279281616,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
-    "G31": {
-        "sqrtA": 5153.62371254,
-        "Eccentricity": 0.01073037879542,
-        "Io": 0.9548895479654,
-        "Omega0": 2.637253431985,
-        "DeltaN": 4.415183910132e-09,
-        "M0": 2.357683726168,
-    },
-    "G32": {
-        "sqrtA": 5153.671319962,
-        "Eccentricity": 0.006219985312782,
-        "Io": 0.9584264245248,
-        "Omega0": 1.558449345019,
-        "DeltaN": 4.78019911448e-09,
-        "M0": 2.319507140943,
+    'G32': {
+        'ID': 32,
+        'Health': 0,
+        'eccentricity': 0.00778055191,
+        'TimeofApplicability(s)': 589824.0,
+        'OrbitalInclination(rad)': 0.9618263272,
+        'RateofRightAscen(r/s)': -8.068907531e-09,
+        'SQRT(A)(m1/2)': 5153.620605,
+        'RightAscenatWeek(rad)': -2.180563053,
+        'ArgumentofPerigee(rad)': -2.130164518,
+        'MeanAnom(rad)': 0.139394512,
+        'Af0(s)': -0.0006170272827,
+        'Af1(s/s)': 0.0,
+        'week': 268,
     },
 }
 
 
-def gps_factory(prn: str) -> KepelerianSatellite:
-    """Factory function to create a GNSS satellite object based on the PRN number.
+def from_almanac(almanac: tp.Optional[Path] = None) -> dict[str, KepelerianSatellite]:
+    """Reads the almanac file and returns a list of KepelerianSatellite objects.
 
     Args:
-        prn (str): PRN number of the satellite.  [G01, G02, ..., G32]
+        almanac (Path): Path to the almanac file.
 
     Returns:
-        GNSSsatellite: A GNSSsatellite object with the Keplerian orbital elements.
+        list[KepelerianSatellite]: List of KepelerianSatellite objects.
     """
-    return KepelerianSatellite(prn=prn, **GPS_CONSTELLATION[prn])
+    # Read the almanac file
+    if almanac is None:
+        almanac_data = ALMANAC_STATIC
+    else:
+        almanac_data = IParseYumaAlm()(filepath=almanac)[1].to_dict(orient="index")
+
+    # Create KepelerianSatellite objects
+    satellites = {}
+    for prn, records in almanac_data.items():
+        satellites[prn] = KepelerianSatellite(
+            prn=prn,
+            sqrtA=records["SQRT(A)(m1/2)"],
+            eccentricty=records["eccentricity"],
+            time_of_almanac=records["TimeofApplicability(s)"],
+            inclination=records["OrbitalInclination(rad)"],
+            right_ascension=records["RightAscenatWeek(rad)"],
+            rate_of_right_ascension=records["RateofRightAscen(r/s)"],
+            argument_of_perigee=records["ArgumentofPerigee(rad)"],
+            mean_anomaly=records["MeanAnom(rad)"],
+            week=records["week"],
+            health=records["Health"],
+            af0=records["Af0(s)"],
+            af1=records["Af1(s/s)"],
+        )
+
+    return satellites

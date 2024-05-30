@@ -127,8 +127,12 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         self.track_f2_loss = track_f2_loss
 
         # Innovation parameters
-        self.W_innov = torch.nn.Parameter(torch.randn(dim_measurement, dim_measurement), requires_grad=True)
-        self.b_innov = torch.nn.Parameter(torch.randn(dim_measurement), requires_grad=True)
+        self.W_innov = torch.nn.Parameter(
+            torch.randn(dim_measurement, dim_measurement), requires_grad=True
+        )
+        self.b_innov = torch.nn.Parameter(
+            torch.randn(dim_measurement), requires_grad=True
+        )
 
         # Set the internal state of the filter
         self.reset_trackers(batch_dim=self.batch_dim)
@@ -419,7 +423,12 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
 
         # Update the state vector
         x_posterior = x_prior + torch.einsum(
-            "ijk,ik->ij", kalman_gain, torch.tanh(torch.einsum("jj,ij->ij", self.W_innov, combinations["F2"]) + self.b_innov)
+            "ijk,ik->ij",
+            kalman_gain,
+            torch.tanh(
+                torch.einsum("jj,ij->ij", self.W_innov, combinations["F2"])
+                + self.b_innov
+            ),
         )
 
         # Update the states of the filter for next time step
@@ -506,7 +515,7 @@ class AbstractKalmanNet(pl.LightningModule, ABC):
         return sum([torch.norm(error) for error in self.f2_loss_tracker.get()])
 
     @f2_loss.setter
-    def f2_loss(self, value: torch.Tensor) -> None:
+    def f2_loss(self, value: torch.Tensor) -> None:  # noqa: ARG002
         """Enables or disables the robust error tracker.
 
         Args:

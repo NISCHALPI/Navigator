@@ -28,6 +28,7 @@ class LinearBlocks(nn.Module):
             output_dim (int): The output dimension of the linear block.
             hidden_dim (int): The hidden dimension of the linear block.
             layers (int): The number of layers in the linear block.
+            output_layer (bool, optional): Whether to add an output layer. Defaults to False.
         """
         super().__init__()
 

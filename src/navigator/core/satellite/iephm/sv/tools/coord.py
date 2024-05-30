@@ -112,7 +112,6 @@ def _eccentric_anomaly(
         float64,
         float64,
     ),
-    fastmath=True,
     cache=True,
 )
 def ephm_to_coord_gps(

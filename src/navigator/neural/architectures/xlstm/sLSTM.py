@@ -18,9 +18,10 @@ References:
     "xLSTM: Extended Long Short-Term Memory" - https://arxiv.org/abs/2405.04517
 """
 
+from typing import List, Optional, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional, List
 
 
 class sLSTMCell(nn.Module):
@@ -41,6 +42,16 @@ class sLSTMCell(nn.Module):
     """
 
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True) -> None:
+        """Initializes the sLSTMCell.
+
+        Args:
+            input_size (int): The size of the input features.
+            hidden_size (int): The size of the hidden state.
+            bias (bool, optional): Indicates whether bias is included in the calculations. Default is True.
+
+        Returns:
+            None
+        """
         super().__init__()
 
         # Store the input and hidden size
@@ -68,7 +79,7 @@ class sLSTMCell(nn.Module):
     ) -> Tuple[
         torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
     ]:
-        """Forward pass of the sLSTMCell model
+        """Forward pass of the sLSTMCell model.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, input_size)
@@ -122,8 +133,7 @@ class sLSTMCell(nn.Module):
     def init_hidden(
         self, batch_size: int
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Initializes the hidden state of the model.
+        """Initializes the hidden state of the model.
 
         Args:
             batch_size (int): Batch size of the input tensor.
@@ -165,8 +175,7 @@ class sLSTM(nn.Module):
         bias: bool = True,
         batch_first: bool = False,
     ) -> None:
-        """
-        Initializes the sLSTM.
+        """Initializes the sLSTM.
 
         Args:
             input_size (int): The size of the input features.
@@ -198,8 +207,7 @@ class sLSTM(nn.Module):
     ) -> Tuple[
         torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
     ]:
-        """
-        Performs a forward pass of the sLSTM.
+        """Performs a forward pass of the sLSTM.
 
         Args:
             x (torch.Tensor): Input tensor of shape (seq_len, batch_size, input_size) if batch_first is False,
@@ -258,8 +266,7 @@ class sLSTM(nn.Module):
     def init_hidden(
         self, batch_size: int
     ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
-        """
-        Initializes the hidden state of the model.
+        """Initializes the hidden state of the model.
 
         Args:
             batch_size (int): Batch size of the input tensor.

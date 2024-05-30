@@ -38,7 +38,6 @@ wide_lane_result = gpr.wide_lane_combination(p1, p2)
 narrow_lane_result = gpr.narrow_lane_combination(p1, p2)
 """
 
-import numba as nb
 import numpy as np
 
 # Constants

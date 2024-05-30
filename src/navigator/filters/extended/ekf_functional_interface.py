@@ -14,7 +14,6 @@ Note:
 
 """
 
-import numba as nb
 import numpy as np
 
 __all__ = [

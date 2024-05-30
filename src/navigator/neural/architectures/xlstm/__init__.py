@@ -21,6 +21,6 @@ Examples:
     >>> input_tensor = torch.randn(10, 32, 128)  # seq_len=10, batch_size=32, input_size=128
     >>> output, (H, C, N, M) = model(input_tensor)
 """
+
 from .mLSTM import mLSTM, mLSTMCell
 from .sLSTM import sLSTM, sLSTMCell
-

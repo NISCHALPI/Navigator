@@ -18,9 +18,10 @@ References:
     "xLSTM: Extended Long Short-Term Memory" - https://arxiv.org/abs/2405.04517
 """
 
+from typing import List, Optional, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional, List
 
 
 class mLSTMCell(nn.Module):
@@ -147,7 +148,9 @@ class mLSTMCell(nn.Module):
         m_t = torch.max(torch.log(f_t) + m, torch.log(i_t))
         i_prime = torch.exp(i_tilda - m_t)
 
-        C_t = f_t.unsqueeze(-1) * C + torch.einsum("bi, bk -> bik", v_t, k_t)
+        C_t = f_t.unsqueeze(-1) * C + i_prime.unsqueeze(-1) * torch.einsum(
+            "bi, bk -> bik", v_t, k_t
+        )
         n_t = f_t * n + i_prime * k_t
 
         normalize_inner = torch.diagonal(torch.matmul(n_t, q_t.T))
@@ -201,8 +204,7 @@ class mLSTM(nn.Module):
         bias: bool = True,
         batch_first: bool = False,
     ) -> None:
-        """
-        Initializes the sLSTM.
+        """Initializes the sLSTM.
 
         Args:
             input_size (int): The size of the input features.
@@ -230,8 +232,7 @@ class mLSTM(nn.Module):
         x: torch.Tensor,
         hidden_states: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Performs a forward pass of the sLSTM.
+        """Performs a forward pass of the sLSTM.
 
         Args:
             x (torch.Tensor): Input tensor of shape (seq_len, batch_size, input_size) if batch_first is False,
@@ -289,8 +290,7 @@ class mLSTM(nn.Module):
     def init_hidden(
         self, batch_size: int
     ) -> List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-        """
-        Initializes the hidden state of the model.
+        """Initializes the hidden state of the model.
 
         Args:
             batch_size (int): Batch size of the input tensor.

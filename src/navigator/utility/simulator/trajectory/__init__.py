@@ -11,8 +11,8 @@ Classes:
     - gps_factory: Factory method to create a trajectory based on the type of trajectory.
 """
 
-from .gps import gps_factory, KepelerianSatellite
 from .eight import EightTrajctory
-from .stationary import StationaryTrajectory
-from .orbit import SatelliteLikeTrajectory
 from .ellipsoidal import EllipticalTrajectory
+from .gps import KepelerianSatellite, from_almanac
+from .orbit import SatelliteLikeTrajectory
+from .stationary import StationaryTrajectory

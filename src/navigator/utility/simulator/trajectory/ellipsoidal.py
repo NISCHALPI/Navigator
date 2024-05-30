@@ -1,13 +1,14 @@
+"""Module containing the EllipticalTrajectory class."""
+
 import numpy as np
+
 from .trajectory import Trajectory
 
 __all__ = ["EllipticalTrajectory"]
 
 
 class EllipticalTrajectory(Trajectory):
-    """
-    Represents an elliptical trajectory where the car moves along an elliptical path.
-    """
+    """Represents an elliptical trajectory where the car moves along an elliptical path."""
 
     def __init__(
         self,
@@ -16,16 +17,15 @@ class EllipticalTrajectory(Trajectory):
         eccentricity: float,
         angular_velocity: float,
         z_perturbation: float = 0.1,
-    ):
-        """
-        Initializes the EllipticalTrajectory.
+    ) -> None:
+        """Initializes the EllipticalTrajectory.
 
         Args:
             name (str): Name of the trajectory.
             semi_major_axis (float): Semi-major axis of the ellipse.
             eccentricity (float): Eccentricity of the ellipse.
             angular_velocity (float): Angular velocity determining the rate of rotation along the trajectory.
-            amplitude (float): Amplitude of the sinusoidal perturbation in the z-direction.
+            z_perturbation (float, optional): Perturbation in the z-direction. Defaults to 0.1.
         """
         super().__init__(trajectory_name=name)
         self.semi_major_axis = semi_major_axis
@@ -41,8 +41,7 @@ class EllipticalTrajectory(Trajectory):
         self.time_offset = np.random.rand() * 2 * np.pi / angular_velocity
 
     def get_pos_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the position of the car at a given time.
+        """Calculates the position of the car at a given time.
 
         Args:
             time (float): Time at which the position is calculated.
@@ -57,8 +56,7 @@ class EllipticalTrajectory(Trajectory):
         return np.array([x, y, z])
 
     def get_velocity_at_time(self, time: float) -> np.ndarray:
-        """
-        Calculates the velocity of the car at a given time.
+        """Calculates the velocity of the car at a given time.
 
         Args:
             time (float): Time at which the velocity is calculated.

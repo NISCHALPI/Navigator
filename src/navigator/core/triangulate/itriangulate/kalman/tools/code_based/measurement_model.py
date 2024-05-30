@@ -10,7 +10,6 @@ Note:
     Do not optimize the functions using Numba. They become slower.
 """
 
-import numba as nb
 import numpy as np
 
 __all__ = ["measurement_function", "jacobian_measurement_function"]

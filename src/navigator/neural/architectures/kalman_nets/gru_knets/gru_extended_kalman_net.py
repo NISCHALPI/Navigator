@@ -63,7 +63,7 @@ class GRUExtendedKalmanBlock(LightningModule):
         measurement_expansion_factor: int = 2,
         gain_layers: int = 1,
         layer_norm: bool = False,
-        **kwargs,
+        **kwargs,  # noqa :ARG002
     ) -> None:
         """The extended Kalman Net class for the KalmanNet.
 
@@ -184,7 +184,7 @@ class GRUExtendedKalmanBlock(LightningModule):
             dtype=self.dtype,
         )
 
-    def to(self, *args, **kwargs):
+    def to(self, *args, **kwargs) -> "GRUExtendedKalmanBlock":
         """Move the extended Kalman Net to the specified device.
 
         This is needed to copy the internal state of the GRU cells to the new device.
@@ -239,6 +239,7 @@ class GRUExtendedKalmanBlock(LightningModule):
                 - "F2" : The F2 combination tensor. DIM: (batch, dim_measurement)
                 - "F3" : The F3 combination tensor. DIM: (batch, dim_state)
                 - "F4" : The F4 combination tensor. DIM: (batch, dim_state)
+
         Returns:
             torch.Tensor: The Kalman Gain tensor. DIM: (batch, dim_state, dim_measurement)
 
