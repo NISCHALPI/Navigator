@@ -97,7 +97,7 @@ class Epoch:
     # Dual Frequency Profile
     DUAL = {
         "apply_tropo": True,
-        "apply_iono": False,  # Iono free combination is used
+        "apply_iono": True,
         "mode": "dual",
     }
     # Initial Profile [Doesn't apply any corrections]
@@ -119,7 +119,7 @@ class Epoch:
     IGS_NETWORK = IGSNetwork()
 
     # Mandatory keys for real coordinates
-    MANDATORY_REAL_COORD_KEYS = ["x", "y", "z"]
+    MANDATORY_COORDS_KEYS = ["x", "y", "z"]
 
     def __init__(
         self,
@@ -131,6 +131,7 @@ class Epoch:
         trim: bool = False,
         purify: bool = False,
         real_coord: pd.Series | dict | None = None,
+        approximate_coords: pd.Series | dict | None = None,
         station: str | None = None,
         override_relevant_columns: list[str] | None = None,
     ) -> None:
@@ -145,6 +146,7 @@ class Epoch:
             trim (bool, optional): Intersect satellite vehicles in observation and navigation data. Defaults to False.
             purify (bool, optional): Remove observations with missing data. Defaults to False.
             real_coord (pd.Series | dict | None, optional): The real coordinates of the station. Defaults to None.
+            approximate_coords (pd.Series | dict | None, optional): The approximate coordinates of the station. Defaults to None.
             station (str | None, optional): The station name. Defaults to None.
             override_relevant_columns (list[str] | None, optional): Override the relevant columns. Defaults to Epoch.RELEVANT_COLUMNS.
 
@@ -181,6 +183,9 @@ class Epoch:
         # Set the real coordinates of the station
         self.real_coord = real_coord
 
+        # Set the approximate coordinates of the station
+        self.approximate_coords = approximate_coords
+
         # Set the station name
         self.station = station
 
@@ -209,12 +214,40 @@ class Epoch:
 
         """
         if value is not None and not all(
-            keys in value for keys in Epoch.MANDATORY_REAL_COORD_KEYS
+            keys in value for keys in Epoch.MANDATORY_COORDS_KEYS
         ):
             raise ValueError(
                 f"Real coordinates must contain the following keys: ['x', 'y', 'z']. Got {value.keys()} instead."
             )
         self._real_coord = pd.Series(value) if value is not None else pd.Series()
+
+    @property
+    def approximate_coords(self) -> pd.Series:
+        """Get the approximate coordinates of the station.
+
+        Returns:
+            pd.Series: The approximate coordinates of the station.
+
+        """
+        return self._approximate_coords
+
+    @approximate_coords.setter
+    def approximate_coords(self, value: pd.Series | dict | None) -> None:
+        """Set the approximate coordinates of the station.
+
+        Args:
+            value (pd.Series): The value to set.
+
+        """
+        if value is not None and not all(
+            keys in value for keys in Epoch.MANDATORY_COORDS_KEYS
+        ):
+            raise ValueError(
+                f"Approximate coordinates must contain the following keys: ['x', 'y', 'z']. Got {value.keys()} instead."
+            )
+        self._approximate_coords = (
+            pd.Series(value) if value is not None else pd.Series()
+        )
 
     @property
     def timestamp(self) -> pd.Timestamp:

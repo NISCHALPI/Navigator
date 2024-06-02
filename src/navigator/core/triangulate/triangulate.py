@@ -152,35 +152,6 @@ class AbstractTriangulate(ABC):
 
         self._interface = interface
 
-    @staticmethod
-    def _get_initial_approx_using_wls(
-        epoch: Epoch,
-        **kwargs,
-    ) -> pd.Series:
-        """Computes the initial approximation for the reciever position using a weighted least squares method.
-
-        This is needed for most triangulation algorithms to provide an initial approximation for the receiver position to apply the
-        approximate location dependedn error model. This method computes the initial approximation using a weighted least squares method
-        that is crude since no error model is applied.
-
-        Args:
-            epoch (Epoch): Epoch containing observation data and navigation data.
-            **kwargs: Additional keyword arguments.
-
-        Returns:
-            pd.Series: The initial approximation.
-        """
-        # Copy  the epoch to avoid modifying the original
-        epoch_inital = deepcopy(epoch)
-        # Set the initial  epoch profile
-
-        # Initial profile doesn;t need any prior approximation of user position since no error model is applied
-        # Check that it is not the dummy profile
-        if epoch_inital.profile["mode"] != "dummy":
-            epoch_inital.profile = Epoch.INITIAL
-        # Compute the initial approximation using the weighted least squares method
-        return IterativeTriangulationInterface()._compute(epoch=epoch_inital, **kwargs)
-
 
 class Triangulate(AbstractTriangulate):
     """Concrete class for triangulation algorithms.
@@ -318,14 +289,12 @@ class Triangulate(AbstractTriangulate):
         # Compute the triangulated location for each epoch
         results = []
 
-        # Get the initial approximation using the first epoch
-        prior = self._get_initial_approx_using_wls(epoches[0])
-
         with tqdm.tqdm(total=len(epoches), desc="Triangulating") as pbar:
             for e in epoches:
                 try:
-                    results.append(compute_func(e, prior=prior, **kwargs))
-                    prior = results[-1]
+                    # Use previous approximate coordinates if available
+                    e.approximate_coords = results[-1] if len(results) > 0 else None
+                    results.append(compute_func(e, **kwargs))
                     pbar.update(1)
                 except Exception as e:
                     # If override is set, continue to the next epoch

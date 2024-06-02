@@ -25,8 +25,12 @@ def test_gps_preprocessor(epoch):
     pseudoranges, sat_pos = preprocessor(epoches[0])
 
     # Check that the pseudoranges and sat_pos are the correct shape
-    assert isinstance(pseudoranges, pd.Series)
+    assert isinstance(pseudoranges, pd.DataFrame)
     assert isinstance(sat_pos, pd.DataFrame)
+    # Check that sat_pos has the correct columns
+    assert all(
+        col in sat_pos.columns for col in ["x", "y", "z", "dt", "elevation", "azimuth"]
+    )
 
     # Check that the pseudoranges and sat_pos are the correct shape
     assert pseudoranges.shape[0] == sat_pos.shape[0]

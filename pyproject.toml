@@ -69,13 +69,9 @@ convention = "google"
 
 
 [tool.black]
-use-single-quotes = false
 line-length = 88
 skip-string-normalization = true
 target-version = ["py310"]
-
-[tool.black.paths]
-include = ["./src/navigator"]
 
 [tool.pytest.ini_options]
 pythonpath = [

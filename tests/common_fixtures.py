@@ -16,13 +16,13 @@ __all__ = [
 @pytest.fixture
 def navfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/YELL00CAN_R_20231841500_01H_MN.rnx")
+    return os.path.join(cwd, "rinexsamples/AMC400USA_R_20230391700_01H_GN.rnx")
 
 
 @pytest.fixture
 def obsfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/YELL00CAN_R_20231841500_01H_30S_MO.crx")
+    return os.path.join(cwd, "rinexsamples/AMC400USA_R_20230391700_01H_30S_MO.crx")
 
 
 @pytest.fixture

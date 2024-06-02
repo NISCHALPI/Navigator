@@ -5,6 +5,6 @@ Adapter Modules:
 
 """
 
-from .tensor_adapter.gps_tensor_adapter import DummyDataset, GPSTensorAdatper
+from .tensor_adapter.gps_tensor_adapter import GPSTensorAdatper
 
 # Path: src/navigator/neural/adapters/__init__.py

@@ -68,6 +68,9 @@ class IterativeTriangulationInterface(Itriangulate):
         """
         pseuorange, coords = self._preprocess(epoch=epoch, **kwargs)
 
+        # Get only the code measurements
+        code_measurements = pseuorange[Epoch.L1_CODE_ON].to_numpy(dtype=np.float64)
+
         # Initial Guess
         x0 = np.zeros(4)
         if "prior" in kwargs:
@@ -76,10 +79,10 @@ class IterativeTriangulationInterface(Itriangulate):
 
         # Send to the least squares solver to compute the solution and DOPs
         sols = wls_triangulation(
-            pseudorange=pseuorange.values,
-            sv_pos=coords.values,
-            W=kwargs.get("weight", np.eye(pseuorange.shape[0])),
-            x0=x0,
+            pseudorange=code_measurements,
+            sv_pos=coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
+            W=kwargs.get("weight", np.eye(pseuorange.shape[0])).astype(np.float64),
+            x0=x0.astype(np.float64),
             max_iter=1000,
             eps=1e-5,
         )
@@ -124,7 +127,7 @@ class IterativeTriangulationInterface(Itriangulate):
             "x": solution[0],
             "y": solution[1],
             "z": solution[2],
-            "dt": solution[3],
+            "cdt": solution[3],
             "lat": lat,
             "lon": lon,
             "height": height,

@@ -9,9 +9,9 @@ Classes:
 
 import typing as tp
 from abc import ABC, abstractmethod
-import pyubx2 as ubx
-import pandas as pd
 
+import pandas as pd
+import pyubx2 as ubx
 
 __all__ = ["BaseCommand", "NAV_POSLLH", "NAV_POSECEF", "NAV_PVT", "RXM_RAWX"]
 

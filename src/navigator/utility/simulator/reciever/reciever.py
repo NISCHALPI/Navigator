@@ -184,8 +184,16 @@ class Reciever:
         # Initialize the tracer map and text map
         if tracer_map is None:
             tracer_map = {name: False for name in names}
+        else:
+            for name in names:
+                if name not in tracer_map:
+                    tracer_map[name] = False
         if text_map is None:
             text_map = {name: True for name in names}
+        else:
+            for name in names:
+                if name not in text_map:
+                    text_map[name] = True
 
         # Stack the position measurements as (T,1 + C, 3)
         positions = np.concatenate(

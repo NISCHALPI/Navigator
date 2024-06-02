@@ -1,13 +1,10 @@
-"""Implementation of the Weighted Least Squares (WLS) method for linear and non-linear observation models."""
-
 import numpy as np
 
 __all__ = ["weighted_least_square", "non_linear_weighted_least_squares"]
 
 
 def weighted_least_square(y: np.ndarray, H: np.ndarray, W: np.ndarray) -> np.ndarray:
-    """
-    Estimates the constant vector x using the weighted least squares method given noisy measurements y and a linear observation model H.
+    """Estimates the constant vector x using the weighted least squares method given noisy measurements y and a linear observation model H.
 
     Args:
         y (np.ndarray): The measurements of shape (M,).
@@ -17,15 +14,12 @@ def weighted_least_square(y: np.ndarray, H: np.ndarray, W: np.ndarray) -> np.nda
     Returns:
         np.ndarray: The estimated constant vector x of shape (N,).
     """
-    # Check if measurment if bigger than the state
-    if y.shape[0] > H.shape[0]:
+    # Check if the number of measurements is greater than the number of states
+    if y.shape[0] <= H.shape[1]:
         raise ValueError(
-            "The number of measurements must be less than the number of states"
+            f"Number of measurements ({y.shape[0]}) must be greater than the number of states ({H.shape[1]})."
         )
-    H_T_W_H = H.T @ W @ H
-    H_T_W_y = H.T @ W @ y
-    x_est = np.linalg.inv(H_T_W_H) @ H_T_W_y
-    return x_est
+    return np.linalg.inv(H.T @ W @ H) @ H.T @ W @ y
 
 
 def non_linear_weighted_least_squares(
@@ -39,8 +33,7 @@ def non_linear_weighted_least_squares(
     f_args: tuple = (),
     HJacobian_args: tuple = (),
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Estimates the constant vector x using the non-linear weighted least squares method given noisy measurements y and a non-linear observation model f.
+    """Estimates the constant vector x using the non-linear weighted least squares method given noisy measurements y and a non-linear observation model f.
 
     Args:
         y (np.ndarray): The measurements of shape (M,)
@@ -55,14 +48,15 @@ def non_linear_weighted_least_squares(
 
     Returns:
         tuple[np.ndarray, np.ndarray]:
-            - The estimated constant vector x of shape (N, 1).
-            - The final change in x (dx) of shape (N, 1) indicating convergence status.
+            - The estimated constant vector x of shape (N,).
+            - The final change in x (dx) of shape (N,) indicating convergence status.
     """
     x_prev = x0
     for _ in range(max_iter):
         # Linearize the observation model
         y_0 = f(x_prev, *f_args)
 
+        # Get the Jacobian
         H = HJacobian(x_prev, *HJacobian_args)
 
         # Compute the residual
@@ -75,7 +69,7 @@ def non_linear_weighted_least_squares(
         # Update the guess
         x_prev += dx
 
-    # Compute the error covariance matrix
+    # Compute the error covariance matrix of the residuals
     Q = np.outer(dx, dx)
 
     return x_prev, Q

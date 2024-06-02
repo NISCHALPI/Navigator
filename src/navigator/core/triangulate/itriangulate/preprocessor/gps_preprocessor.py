@@ -23,7 +23,9 @@ from ..algos.ionosphere.klobuchar_ionospheric_model import (
 from ..algos.rotations import earth_rotation_correction
 from ..algos.smoothing.base_smoother import BaseSmoother
 from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
+from ..algos.wls.wls_triangulator import wls_triangulation
 from .preprocessor import Preprocessor
+from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 
 __all__ = ["GPSPreprocessor"]
 
@@ -35,12 +37,10 @@ class GPSPreprocessor(Preprocessor):
         Preprocessor (_type_): Abstract class for a data preprocessor.
     """
 
-    L1_CODE_ON = "C1C"
-    L2_CODE_ON = "C2W"
-    L1_PHASE_ON = "L1C"
-    L2_PHASE_ON = "L2W"
-
-    PRIOR_KEY = "prior"
+    L1_CODE_ON = Epoch.L1_CODE_ON
+    L2_CODE_ON = Epoch.L2_CODE_ON
+    L1_PHASE_ON = Epoch.L1_PHASE_ON
+    L2_PHASE_ON = Epoch.L2_PHASE_ON
 
     def __init__(self) -> None:
         """Initializes the preprocessor with the GPS constellation."""
@@ -133,12 +133,111 @@ class GPSPreprocessor(Preprocessor):
             ).apply(lambda row: row.dot(row) ** 0.5 / 299792458, axis=1)
 
         # Rotate the satellite coordinates to the reception epoch
-        sv_coords[["x", "y", "z"]] = earth_rotation_correction(
+        rotated = earth_rotation_correction(
             sv_position=sv_coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
             dt=dt.to_numpy(dtype=np.float64).ravel(),
         )
 
-        return sv_coords
+        return pd.DataFrame(
+            data=rotated,
+            index=sv_coords.index,
+            columns=["x", "y", "z"],
+        )
+
+    def process_sv_coordinate(
+        self,
+        reception_time: pd.Timestamp,
+        navigation_data: pd.DataFrame,
+        navigation_metadata: pd.Series,
+        pseudorange: pd.Series,
+        approx_receiver_location: pd.Series | None = None,
+        no_clock_correction: bool = False,
+    ) -> pd.DataFrame:
+        """Process the satellite coordinates at the reception epoch.
+
+        Args:
+            reception_time (pd.Timestamp): Reception time of the GPS observations.
+            navigation_data (pd.DataFrame): Navigation data.
+            navigation_metadata (pd.Series): Metadata for the navigation data.
+            pseudorange (pd.Series): Pseudorange of the GPS observations.
+            approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
+            no_clock_correction (bool, optional): If True, then no satellite clock correction is applied. Defaults to False.
+
+        Returns:
+            pd.DataFrame: The processed satellite coordinates at the reception epoch.
+        """
+        # Compute the satellite coordinates at the emission epoch
+        coords = self._compute_sv_coordinates_at_emission_epoch(
+            reception_time=reception_time,
+            pseudorange=pseudorange,
+            nav=navigation_data,
+            nav_metadata=navigation_metadata,
+            no_clock_correction=no_clock_correction,
+        )
+
+        # Rotate the satellite coordinates to the reception epoch
+        rotated_coords = self._rotate_satellite_coordinates_to_reception_epoch(
+            sv_coords=coords,
+            pseudorange=pseudorange,
+            approx_receiver_location=approx_receiver_location,
+        )
+
+        # Update the satellite coordinates
+        coords[["x", "y", "z"]] = rotated_coords
+
+        return coords
+
+    def bootstrap(
+        self,
+        epoch: Epoch,
+    ) -> pd.Series:
+        """Bootstrap the receiver location using the WLS.
+
+        Args:
+            epoch (Epoch): Epoch containing observation data and navigation data.
+
+        Returns:
+            pd.Series: The approximate receiver location in ECEF coordinate.
+        """
+        # Process the satellite coordinates at the reception epoch
+        coords = self.process_sv_coordinate(
+            reception_time=epoch.timestamp,
+            navigation_data=epoch.nav_data,
+            navigation_metadata=epoch.nav_meta,
+            pseudorange=epoch.obs_data[self.L1_CODE_ON],
+            approx_receiver_location=None,
+            no_clock_correction=False,
+        )
+
+        # Get the base solution using WLS
+        base_solution = wls_triangulation(
+            pseudorange=epoch.obs_data[self.L1_CODE_ON].to_numpy(),
+            sv_pos=coords[["x", "y", "z"]].to_numpy(),
+            x0=np.zeros(4),
+        )
+        # Convert the base solution to a pandas series
+        solution = pd.Series(
+            {
+                "x": base_solution["solution"][0],
+                "y": base_solution["solution"][1],
+                "z": base_solution["solution"][2],
+                "cdt": base_solution["solution"][3],
+            }
+        )
+        # Compute the latitude, longitude and height of the receiver based on the base solution
+        lat, lon, height = geocentric_to_ellipsoidal(
+            x=solution["x"],
+            y=solution["y"],
+            z=solution["z"],
+            max_iter=1000,
+        )
+
+        # Attach the latitude, longitude and height to the solution
+        solution["lat"] = lat
+        solution["lon"] = lon
+        solution["height"] = height
+
+        return solution
 
     def _compute_satellite_azimuth_and_elevation(
         self, sv_coords: np.ndarray, approx_receiver_location: pd.Series
@@ -243,416 +342,163 @@ class GPSPreprocessor(Preprocessor):
             data=iono_corr, index=sv_coords.index, name="ionospheric_correction"
         )
 
-    def _check_keys(self, data: pd.DataFrame, key: list[str]) -> None:
-        """Check if the required keys are present in the data.
-
-        Args:
-            data (pd.DataFrame): Data to be checked.
-            key (list[str]): List of keys to be checked.
-
-        Raises:
-            ValueError: If any of the keys is not present in the data.
-        """
-        for k in key:
-            if k not in data.columns:
-                raise KeyError(f"Key {k} not found in the data.")
-
-    def _dual_mode_processing(
-        self,
-        time: pd.Timestamp,
-        obs_data: pd.DataFrame,
-        coords: pd.DataFrame,
-        approx: pd.Series = None,
-        apply_tropo: bool = True,
-        apply_iono: bool = True,
-    ) -> tuple[pd.Series, pd.DataFrame]:
-        """Dual mode processing for the GPS observations.
-
-        Args:
-            time (pd.Timestamp): Reception time of the GPS observations.
-            obs_data (pd.DataFrame): GPS observations data.
-            coords (pd.DataFrame): Satellite coordinates at the reception epoch.
-            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
-            apply_iono (bool, optional): If True, then ionospheric correction is applied. Defaults to True.
-
-        Returns:
-            tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
-        """
-        # Check if all the data is available
-        try:
-            self._check_keys(data=obs_data, key=[self.L1_CODE_ON, self.L2_CODE_ON])
-        except KeyError:
-            raise ValueError(
-                f"Invalid observation data. Must contain both L1 Code({self.L1_CODE_ON}) and L2 Code observations({self.L2_CODE_ON}) to perform dual mode processing."
-            )
-
-        # Compute the ionospheric free combination
-        pseudorange = (
-            pd.Series(
-                ionosphere_free_combination(
-                    p1=obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64),
-                    p2=obs_data[self.L2_CODE_ON].to_numpy(dtype=np.float64),
-                ),
-                name="code",
-                index=obs_data.index,
-            )
-            if apply_iono
-            else obs_data[
-                self.L1_CODE_ON
-            ]  # Do not apply ionospheric correction if explicitly set to False
-        )
-
-        if apply_tropo:
-            if approx is None:
-                raise ValueError(
-                    """A priori receiver location not provided in dual mode!. Tropospheric correction cannot be applied.
-                    Explictly pass apply_tropo=False to kwargs to proceed without tropospheric correction."""
-                )
-
-            # Compute the azimuth and elevation of the satellites
-            (
-                coords["elevation"],
-                coords["azimuth"],
-            ) = self._compute_satellite_azimuth_and_elevation(
-                sv_coords=coords, approx_receiver_location=approx
-            )
-
-            coords["tropospheric_correction"] = self._compute_tropospheric_correction(
-                day_of_year=time.dayofyear,
-                sv_coords=coords,
-                approx_receiver_location=approx,
-            )
-
-            # Correct the psedurange for the tropospheric correction
-            pseudorange -= coords[
-                "tropospheric_correction"
-            ]  # Apply the tropospheric correction
-
-        return pseudorange, coords
-
-    def _single_mode_processing(
-        self,
-        time: pd.Timestamp,
-        obs_data: pd.DataFrame,
-        coords: pd.DataFrame,
-        nav_metadata: pd.Series = None,
-        approx: pd.Series = None,
-        apply_tropo: bool = True,
-        apply_iono: bool = True,
-        verbose: bool = False,
-    ) -> tuple[pd.Series, pd.DataFrame]:
-        """Single mode processing for the GPS observations.
-
-        Args:
-            time (pd.Timestamp): Reception time of the GPS observations.
-            obs_data (pd.DataFrame): GPS observations data.
-            coords (pd.DataFrame): Satellite coordinates at the reception epoch.
-            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            nav_metadata (pd.Series, optional): Metadata for the navigation data. Defaults to None.
-            apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
-            apply_iono (bool, optional): If True, then ionospheric correction is applied. Defaults to True.
-            verbose (bool, optional): If True, then warning is raised. Defaults to False.
-
-        Returns:
-            tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
-        """
-        # Check if the L1 code is available
-        try:
-            self._check_keys(data=obs_data, key=[self.L1_CODE_ON])
-        except KeyError:
-            raise ValueError(
-                f"Invalid observation data. Must contain L1 Code observations({self.L1_CODE_ON}) to perform single mode processing"
-            )
-
-        # Get the pseudorange
-        pseudorange = obs_data[self.L1_CODE_ON]
-
-        # Compute the satellite azimuth and elevation if any of the apply_tropo or apply_iono is True
-        if (apply_tropo or apply_iono) and approx is not None:
-            # Compute the azimuth and elevation of the satellites
-            (
-                coords["elevation"],
-                coords["azimuth"],
-            ) = self._compute_satellite_azimuth_and_elevation(
-                sv_coords=coords, approx_receiver_location=approx
-            )
-        else:
-            if verbose:
-                warn(
-                    "Tropospheric and Ionospheric correction are not applied. Expect degeraded accuracy!."
-                )
-
-        # Apply the tropospheric correction if the approximate receiver location is provided
-        if apply_tropo:
-            if approx is None:
-                raise ValueError(
-                    """Approximate receiver location not provided in single mode!. Tropospheric correction cannot be applied.
-                    Explictly pass apply_tropo=False to kwargs to proceed without tropospheric correction."""
-                )
-            # TROPOSPHERIC CORRECTION
-            # Compute the tropospheric correction
-
-            coords["tropospheric_correction"] = self._compute_tropospheric_correction(
-                day_of_year=time.dayofyear,
-                sv_coords=coords,
-                approx_receiver_location=approx,
-            )
-            # Correct the psedurange for the tropospheric correction
-            pseudorange -= coords[
-                "tropospheric_correction"
-            ]  # Apply the tropospheric correction
-
-        # Apply the ionospheric correction if the ionospheric parameters are provided
-        if apply_iono:
-            if nav_metadata is None or "IONOSPHERIC CORR" not in nav_metadata:
-                raise ValueError(
-                    """Ionospheric parameters not provided in single mode!. Ionospheric correction cannot be applied.
-                    Explictly pass apply_iono=False to kwargs to proceed without ionospheric correction."""
-                )
-            # IONOSPHERIC CORRECTION
-            # Compute the ionospheric correction
-            coords["ionospheric_correction"] = self._compute_ionospheric_correction(
-                sv_coords=coords,
-                approx_receiver_location=approx,
-                time=time,
-                iono_params=nav_metadata["IONOSPHERIC CORR"],
-            )
-
-            # Apply the ionospheric correction
-            pseudorange -= coords[
-                "ionospheric_correction"
-            ]  # Apply the ionospheric correction
-
-        return pseudorange, coords
-
-    def _phase_kalman_filter_processing(
-        self,
-        time: pd.Timestamp,
-        obs_data: pd.DataFrame,
-        coords: pd.DataFrame,
-        approx: pd.Series = None,
-        apply_tropo: bool = True,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Process the mode flag for the GPS observations.
-
-        Args:
-            time (pd.Timestamp): Reception time of the GPS observations.
-            mode (str): Mode flag for the GPS observations ['dual', 'single']
-            obs_data (pd.DataFrame): GPS observations data.
-            coords (pd.DataFrame): Satellite coordinates at the reception epoch.
-            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
-
-        Returns:
-            tuple[pd.Series, pd.DataFrame]: The processed pseudorange and intermediate results.
-        """
-        # Check if all the data is available
-        try:
-            self._check_keys(
-                data=obs_data,
-                key=[
-                    self.L1_PHASE_ON,
-                    self.L2_PHASE_ON,
-                    self.L1_CODE_ON,
-                    self.L2_CODE_ON,
-                ],
-            )
-        except KeyError:
-            raise ValueError(
-                f"""Invalid observation data. Must contain both L1 Code({self.L1_CODE_ON}) and L2 Code observations({self.L2_CODE_ON}) 
-                and L1 Phase({self.L1_PHASE_ON}) and L2 Phase({self.L2_PHASE_ON}) to perform phase based processing."""
-            )
-
-        # Approx is needed for the phase based measurements
-        if approx is None:
-            raise ValueError(
-                """Approximate receiver location not provided in phase based processing!. Phase based measurements cannot be computed.
-                To avoid this,use WLS with initial epoch profile to get initial receiver location."""
-            )
-
-        # Scale the phase measurements to the meters from cycles
-        obs_data[self.L1_PHASE_ON] *= L1_WAVELENGTH
-        obs_data[self.L2_PHASE_ON] *= L2_WAVELENGTH
-
-        # Compute the ionospheric free combination
-        phase_if = pd.Series(
-            ionosphere_free_combination(
-                p1=obs_data[self.L1_PHASE_ON].to_numpy(),
-                p2=obs_data[self.L2_PHASE_ON].to_numpy(),
-            ),
-            index=obs_data.index,
-            name="phase",
-        )
-        code_if = pd.Series(
-            ionosphere_free_combination(
-                p1=obs_data[self.L1_CODE_ON].to_numpy(),
-                p2=obs_data[self.L2_CODE_ON].to_numpy(),
-            ),
-            index=obs_data.index,
-            name="code",
-        )
-
-        # Kalman Filter needs the elevation and azimuth of satellites
-        # Hence compute the azimuth and elevation of the satellites
-        (
-            coords["elevation"],
-            coords["azimuth"],
-        ) = self._compute_satellite_azimuth_and_elevation(
-            sv_coords=coords, approx_receiver_location=approx
-        )
-
-        # Apply the tropospheric correction if required
-        if apply_tropo:
-            coords["tropospheric_correction"] = self._compute_tropospheric_correction(
-                day_of_year=time.dayofyear,
-                sv_coords=coords,
-                approx_receiver_location=approx,
-            )
-            code_if -= coords["tropospheric_correction"]
-            phase_if -= coords["tropospheric_correction"]
-
-        return pd.concat([code_if, phase_if], axis=1), coords
-
-    def _dispatch_mode(
-        self,
-        time: pd.Timestamp,
-        mode: str,
-        obs_data: pd.DataFrame,
-        coords: pd.DataFrame,
-        approx: pd.Series = None,
-        nav_metadata: pd.Series = None,
-        apply_tropo: bool = True,
-        apply_iono: bool = True,
-        verbose: bool = False,
-    ) -> tuple[pd.Series | pd.DataFrame, pd.DataFrame]:
-        """Process the mode flag for the GPS observations.
-
-        Args:
-            time (pd.Timestamp): Reception time of the GPS observations.
-            mode (str): Mode flag for the GPS observations ['dual', 'single']
-            obs_data (pd.DataFrame): GPS observations data.
-            coords (pd.DataFrame): Satellite coordinates at the reception epoch.
-            approx (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            nav_metadata (pd.Series, optional): Metadata for the navigation data. Defaults to None.
-            apply_tropo (bool, optional): If True, then tropospheric correction is applied. Defaults to True.
-            apply_iono (bool, optional): If True, then ionospheric correction is applied. Defaults to True.
-            verbose (bool, optional): If True, then warning is raised. Defaults to False.
-
-        Returns:
-            tuple[pd.Series | pd.Dataframe, pd.DataFrame]: The processed pseudorange and intermediate results.
-        """
-        if mode.lower() == "dual":
-            return self._dual_mode_processing(
-                time=time,
-                obs_data=obs_data,
-                coords=coords,
-                approx=approx,
-                apply_iono=apply_iono,
-                apply_tropo=apply_tropo,
-            )
-        if mode.lower() == "single":
-            return self._single_mode_processing(
-                time=time,
-                obs_data=obs_data,
-                coords=coords,
-                approx=approx,
-                nav_metadata=nav_metadata,
-                apply_iono=apply_iono,
-                apply_tropo=apply_tropo,
-                verbose=verbose,
-            )
-        if mode.lower() == "phase":
-            return self._phase_kalman_filter_processing(
-                time=time,
-                obs_data=obs_data,
-                coords=coords,
-                approx=approx,
-                apply_tropo=apply_tropo,
-            )
-        raise ValueError(
-            f"Invalid mode flag: {mode}. Supported modes are ['dual', 'single', 'phase']"
-        )
-
     def preprocess(
         self,
         epoch: Epoch,
         **kwargs,
-    ) -> tuple[pd.Series, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Preprocess the observation and navigation data to be used for triangulation!
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
             **kwargs: Additional keyword arguments.
 
-        Additional Keyword Arguments:
-            prior (pd.Series, optional): Prior receiver location in ECEF coordinate. Defaults to None.
-
-
         Returns:
-            tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates at the common reception epoch.
+            tuple[pd.DataFrame, pd.DataFrame]: Pseduorange and satellite coordinates and intermediate results at the common reception epoch.
         """
-        # Use Epoch to get the navigation message for the observation epoch. Held at "Epoch.nav_data" attribute
-        obs_data, nav_data = epoch.obs_data, epoch.nav_data
+        # Check for the L1 observation data
+        if (
+            self.L1_CODE_ON not in epoch.obs_data.columns
+            or self.L1_PHASE_ON not in epoch.obs_data.columns
+        ):
+            raise ValueError(
+                f"Invalid observation data. Must contain L1 Code({self.L1_CODE_ON}) and L1 Phase observations({self.L1_PHASE_ON}) to perform processing."
+            )
 
-        # Compute the satellite coordinates at the emission epoch
-        # This also computes satellite clock correction which is stored in the 'dt' column.
-        coords = self._compute_sv_coordinates_at_emission_epoch(
+        # Get the prior receiver location if available or use base WLS to solve for it
+        # without the need for the prior receiver location
+        # This will result in degraded accuracy but it is good enough for applying the corrections
+        if epoch.approximate_coords.empty or any(
+            [
+                val in epoch.approximate_coords
+                for val in ["x", "y", "z", "lat", "lon", "height"]
+            ]
+        ):
+            # Get the bootstrap receiver location
+            epoch.approximate_coords = self.bootstrap(epoch)
+
+        # Get the satellite coordinates at the emission epoch
+        coords = self.process_sv_coordinate(
             reception_time=epoch.timestamp,
-            pseudorange=obs_data[self.L1_CODE_ON],  # Use the L1 code pseudorange
-            nav=nav_data,
-            nav_metadata=epoch.nav_meta,
+            navigation_data=epoch.nav_data,
+            navigation_metadata=epoch.nav_meta,
+            pseudorange=epoch.obs_data[self.L1_CODE_ON],
+            approx_receiver_location=epoch.approximate_coords,
             no_clock_correction=kwargs.get("no_clock_correction", False),
         )
 
-        # Need to apply the earth rotation correction since SV coordinates are in ECEF in emission epoch
-        # Need to rotate each satellite coordinate to the reception epoch since it is common epoch for all satellites
-        coords = self._rotate_satellite_coordinates_to_reception_epoch(
-            sv_coords=coords,
-            pseudorange=obs_data[self.L1_CODE_ON],  # Use the L1 code pseudorange
-            approx_receiver_location=kwargs.get(self.PRIOR_KEY, None),
+        # Get the elevation and azimuth of the satellites and attach it to the coords
+        coords["elevation"], coords["azimuth"] = (
+            self._compute_satellite_azimuth_and_elevation(
+                sv_coords=coords, approx_receiver_location=epoch.approximate_coords
+            )
         )
-
-        # Get the kwargs
-        approx = kwargs.get(self.PRIOR_KEY, None)
-        verbose = kwargs.get("verbose", False)
 
         # If the epoch is smoothed, then apply swap the smoothed key as C1C
         if epoch.is_smoothed:
-            if BaseSmoother.SMOOOTHING_KEY in obs_data.columns:
-                obs_data["C1C"] = obs_data[
+            if BaseSmoother.SMOOOTHING_KEY in epoch.obs_data.columns:
+                epoch.obs_data["C1C"] = epoch.obs_data[
                     BaseSmoother.SMOOOTHING_KEY
                 ]  # Swap the smoothed key as C1C
 
-        # Process the mode flag for the GPS observations
-        pseudorange, coords = self._dispatch_mode(
-            time=epoch.timestamp,
-            mode=epoch.profile.get("mode", "single"),
-            obs_data=obs_data,
-            coords=coords,
-            approx=approx,
-            nav_metadata=epoch.nav_meta,
-            apply_iono=epoch.profile.get("apply_iono", False),
-            apply_tropo=epoch.profile.get("apply_tropo", False),
-            verbose=verbose,
-        )
+        # Extract the keyword arguments
+        if kwargs.get("verbose", False):
+            print(f"Epoch: {epoch.timestamp}")
+            print(f"Mode: {epoch.profile.get('mode', 'single')}")
+            print(
+                f"Apply Ionosphere Correction: {epoch.profile.get('apply_iono', False)}"
+            )
+            print(
+                f"Apply Troposphere Correction: {epoch.profile.get('apply_tropo', False)}"
+            )
 
-        # hence it needs to be corrected for both
-        if isinstance(pseudorange, pd.DataFrame):
-            # Correct code
-            pseudorange["code"] += coords["dt"] * SPEED_OF_LIGHT
-            # Correct phase
-            pseudorange["phase"] += coords["dt"] * SPEED_OF_LIGHT
+        # Check if the mode is dual or single and process the observations accordingly
+        if epoch.profile.get("mode", "single") == "dual":
+            # Check if the L1 and L2 code observations are available
+            if (
+                self.L1_CODE_ON not in epoch.obs_data.columns
+                or self.L2_CODE_ON not in epoch.obs_data.columns
+            ):
+                raise ValueError(
+                    f"Invalid observation data. Must contain both L1 Code({self.L1_CODE_ON}) and L2 Code observations({self.L2_CODE_ON}) to perform dual mode processing."
+                )
+            # Compute the ionospheric free combination
+            pseudorange = pd.Series(
+                ionosphere_free_combination(
+                    p1=epoch.obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64),
+                    p2=epoch.obs_data[self.L2_CODE_ON].to_numpy(dtype=np.float64),
+                ),
+                index=epoch.obs_data.index,
+                name=self.L1_CODE_ON,
+            )
 
-            # # Stack the code and phase measurements in a single pandas series
-            # # So that it can be used for triangulation since the triangulation
-            # # uses pd.Series to compute the position
-            pseudorange = pd.concat([pseudorange["code"], pseudorange["phase"]], axis=0)
+            # Check if the L1 and L2 phase observations are available
+            if (
+                self.L1_PHASE_ON not in epoch.obs_data.columns
+                or self.L2_PHASE_ON not in epoch.obs_data.columns
+            ):
+                raise ValueError(
+                    f"Invalid observation data. Must contain both L1 Phase({self.L1_PHASE_ON}) and L2 Phase observations({self.L2_PHASE_ON}) to perform dual mode processing."
+                )
+            # Scale the phase measurements to the meters from cycles
+            epoch.obs_data[self.L1_PHASE_ON] *= L1_WAVELENGTH
+            epoch.obs_data[self.L2_PHASE_ON] *= L2_WAVELENGTH
+            # Compute the ionospheric free combination for the phase measurements
+            phase = pd.Series(
+                ionosphere_free_combination(
+                    p1=epoch.obs_data[self.L1_PHASE_ON].to_numpy(dtype=np.float64),
+                    p2=epoch.obs_data[self.L2_PHASE_ON].to_numpy(dtype=np.float64),
+                ),
+                index=epoch.obs_data.index,
+                name=self.L1_PHASE_ON,
+            )
+
+        elif epoch.profile.get("mode", "single") == "single":
+            # Get the pseudorange
+            pseudorange = epoch.obs_data[self.L1_CODE_ON]
+            # Scale the phase measurements to the meters from cycles
+            epoch.obs_data[self.L1_PHASE_ON] *= L1_WAVELENGTH
+            phase = epoch.obs_data[self.L1_PHASE_ON]
+
         else:
-            # Correct the pseudorange for the satellite clock correction
-            pseudorange += coords["dt"] * SPEED_OF_LIGHT
+            raise ValueError(
+                f"Invalid mode flag: {epoch.profile.get('mode', 'single')}. Supported modes are ['dual', 'single']"
+            )
 
-        return pseudorange, coords
+        # Apply Troposheric Correction
+        if epoch.profile.get("apply_tropo", False):
+            coords["tropospheric_correction"] = self._compute_tropospheric_correction(
+                day_of_year=epoch.timestamp.dayofyear,
+                sv_coords=coords,
+                approx_receiver_location=epoch.approximate_coords,
+            )
+            # Correct the pseudorange for the tropospheric correction
+            pseudorange -= coords["tropospheric_correction"]
+            phase -= coords["tropospheric_correction"]
+
+        if epoch.profile.get("apply_iono", False):
+            # Check if the ionospheric correction parameters are available
+            if epoch.nav_meta.get("IONOSPHERIC CORR", None) is None:
+                raise ValueError(
+                    "Invalid ionospheric correction parameters. Must contain ['IONOSPHERIC CORR'] in the navigation metadata."
+                )
+
+            coords["ionospheric_correction"] = self._compute_ionospheric_correction(
+                sv_coords=coords,
+                approx_receiver_location=epoch.approximate_coords,
+                time=epoch.timestamp,
+                iono_params=epoch.nav_meta.get("IONOSPHERIC CORR", None),
+            )
+            # Apply the ionospheric correction
+            pseudorange -= coords["ionospheric_correction"]
+            phase -= coords["ionospheric_correction"]
+
+        # Apply the satelllite color correction to the pseudorange and phase measurements
+        # The clock bias is calculated as the product of the satellite clock bias and the speed of light
+        pseudorange += SPEED_OF_LIGHT * coords["dt"]
+        phase += SPEED_OF_LIGHT * coords["dt"]
+
+        return pd.concat([pseudorange, phase], axis=1), coords
 
     def __call__(
         self,

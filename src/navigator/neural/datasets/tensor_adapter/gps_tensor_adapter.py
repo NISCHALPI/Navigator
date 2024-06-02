@@ -22,8 +22,6 @@ from ....core.triangulate.itriangulate.preprocessor.gps_preprocessor import (
     GPSPreprocessor,
 )
 from ....epoch.epoch import Epoch
-from ....utility.simulator.target.gps_reciever_target import RecieverSimulator
-from ....utility.simulator.target.target_tracking_simulator import TrackingSimulator
 
 __all__ = ["TensorAdapter", "GPSTensorAdatper", "DummyDataset"]
 
@@ -113,44 +111,13 @@ class GPSTensorAdatper(TensorAdapter):
         """
         super().__init__(features="GPS")
 
-    def _mask_sv(self, sv_coords: DataFrame, mask_sv: int) -> DataFrame:
-        """Masks the satellite coordinates based on the number of satellites to track.
-
-        Args:
-            sv_coords: The satellite coordinates to be masked.
-            mask_sv: The number of satellites to track and train on.
-
-        Returns:
-            DataFrame: The masked satellite coordinates.
-
-        """
-        # If the number of satellite to track is greater than the number of available satellites
-        # return the first mask_sv satellites based on the elevation
-        if len(sv_coords) >= mask_sv:
-            return sv_coords.nlargest(mask_sv, "elevation")
-
-        # If the number of satellite to track is less than the number of available satellites
-        # return the sv_coords padded with entries of the satellite with the highest elevation
-        to_pad = mask_sv - len(sv_coords)
-
-        # Get the satellite with the highest elevation
-        max_elevation = sv_coords.nlargest(1, "elevation").iloc[0]
-
-        # Pad the sv_coords with the satellite with the highest elevation
-        for i in range(to_pad):
-            sv_coords.loc[f"{max_elevation.name}_Pad{i}"] = max_elevation
-
-        # Sort the sv_coords by elevation
-        return sv_coords.sort_values("elevation", ascending=False)
-
     def _dummy_tensor_adapter(
-        self, epoch: Epoch, mask: int, **kwargs
+        self, epoch: Epoch, **kwargs
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Tensor adapter for simulated dummy epoch data.
 
         Args:
             epoch: The GPS epoch data to be converted to tensor data.
-            mask: The number of satellites to track and train on.
             kwargs: Additional keyword arguments.
 
         Returns:
@@ -162,25 +129,15 @@ class GPSTensorAdatper(TensorAdapter):
             **kwargs,
         )
 
-        # Mask the satellite coordinates based on the number of satellites to track
-        get_first_n_prns = pseudorange.index.sort_values()[:mask]
-
-        pseudorange = pseudorange.loc[get_first_n_prns]
-        sv_coords = sv_coords.loc[get_first_n_prns]
-
-        # Return the range and satellite coordinates as tensors
         return torch.from_numpy(
             pseudorange.to_numpy(dtype=np.float32)
         ), torch.from_numpy(sv_coords.to_numpy(dtype=np.float32))
 
-    def to_tensor(
-        self, epoch: Epoch, mask_sv: int = -1, **kwargs
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def to_tensor(self, epoch: Epoch, **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
         """Converts the GPS epoch data to tensor data.
 
         Args:
             epoch: The GPS epoch data to be converted to tensor data.
-            mask_sv: The number of satellites to track and train on. Defaults to -1.
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -192,7 +149,7 @@ class GPSTensorAdatper(TensorAdapter):
 
         # If dummy profile, dispatch to dummy tensor adapter
         if epoch.profile["mode"] == "dummy":
-            return self._dummy_tensor_adapter(epoch, mask=mask_sv, **kwargs)
+            return self._dummy_tensor_adapter(epoch, **kwargs)
 
         # Set epoch profile to initial
         # Note: This ensure nothing prior to the current epoch is used
@@ -204,9 +161,6 @@ class GPSTensorAdatper(TensorAdapter):
         # Get the range and satellite coordinates
         sv_coords["range"] = pseudorange[: len(sv_coords)]
         sv_coords["phase"] = pseudorange[len(sv_coords) :]
-
-        # Mask the satellite coordinates
-        sv_coords = self._mask_sv(sv_coords, mask_sv)
 
         # Stack the range and phase [range, phase] to from measurement
         pseudorange = np.hstack(
@@ -221,120 +175,20 @@ class GPSTensorAdatper(TensorAdapter):
         # Convert the range and coords to tensors
         return torch.from_numpy(pseudorange), torch.from_numpy(sv_coords)
 
-
-class DummyDataset(Dataset):
-    """A class for converting dummy epoch data to tensor data for NN training.
-
-    Attributes:
-        num_points: The number of data points to generate.
-        trajectory: The trajectory to generate the data points.
-        mask_sv: The number of satellites to track and train on.
-
-    Defination:
-        STATE : The true state of the system. [x, x_dot, y, y_dot, z, z_dot]
-        CODE : The code measurements from the satellites.
-        SV_COORDS : The satellite coordinates.
-        DIM_STATE : The dimension of the state.
-        DIM_MEASUREMENT : The dimension of the measurement.
-
-    Raises:
-        TypeError: If epochs is not an instance of EpochCollection.
-    """
-
-    # GPS tensor adapter
-    tensor_adapter = GPSTensorAdatper()
-
-    def __init__(
-        self,
-        num_points: int,
-        simulator: RecieverSimulator | TrackingSimulator,
-        timestep: int = 10,
-        mask_sv: int = -1,
-        dt: float = 1.0,
-        **kwargs,  # noqa : ARG002
-    ) -> None:
-        """Initializes the DummyEpoch class.
+    def to_tensor_bulk(
+        self, epochs: list[Epoch], mask_sv: int = -1, **kwargs
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Converts the GPS epoch data to tensor data in bulk.
 
         Args:
-            num_points: The number of data points to generate.
-            simulator: The simulator to generate the data points.
-            timestep: The time step to generate the data points.
-            mask_sv: The number of satellites to track and train on.
-            dt : The sampling time interval. Defaults to 1.0.
+            epochs: The GPS epoch data to be converted to tensor data.
+            mask_sv: The number of satellites to track and train on. Defaults to -1.
             **kwargs: Additional keyword arguments.
 
-        Raises:
-            TypeError: If epochs is not an instance of EpochCollection.
-
-        """
-        if not isinstance(simulator, (RecieverSimulator, TrackingSimulator)):
-            raise TypeError(
-                "simulator must be an instance of RecieverSimulator or TrackingSimulator"
-            )
-        # Store the number of data points
-        self.num_points = num_points
-        self.simulator = simulator
-        self.trajectory = timestep
-        self.mask_sv = mask_sv
-        self.dt = dt
-
-        # Add the time offset as a random number between 0 and 10000
-        self.TIME_OFFSET = np.random.randint(0, 10000)
-
-    def __len__(self) -> int:
-        """Returns the length of the dataset."""
-        return self.num_points
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Returns the item at the given index.
-
-        Args:
-            idx: The index of the item to be returned.
-
         Returns:
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:   The true state (T, DIM_STATE), code measurements (T, DIM_MEASUREMENT), and satellite coordinates (T, DIM_MEASUREMENT, 3) as tensor data.
+            tuple[torch.Tensor, torch.Tensor]: The code, phase and sv_coords as tensor data.
+
         """
-        # Get idx : idx + num_points epochs
-        epoches = [
-            self.simulator.get_epoch(self.TIME_OFFSET + i * self.dt)
-            for i in range(idx, idx + self.trajectory)
-        ]
-        # Loop to get the code measurements and satellite coordinates
-        true_state, code_measurements, sv_coords = [], [], []
-
-        for epoch in epoches:
-            # If the simulator is a reciever simulator, use GPS tensor adapter
-            if isinstance(self.simulator, RecieverSimulator):
-                code, sv = self.tensor_adapter.to_tensor(epoch, mask_sv=self.mask_sv)
-                code_measurements.append(code)
-                sv_coords.append(sv)
-
-            else:
-                # Append the satellite coordinates
-                code = torch.from_numpy(
-                    epoch.obs_data[epoch.L1_CODE_ON].to_numpy(dtype=np.float32)
-                )
-                code_measurements.append(code)
-
-                # Get Tower coordinates
-                sv_coords.append(
-                    torch.from_numpy(
-                        epoch.nav_data[["x", "y", "z"]].to_numpy(dtype=np.float32)
-                    )
-                )
-
-            # Grab the true state from the real_coord attribute
-            true_state.append(
-                torch.from_numpy(
-                    epoch.real_coord[
-                        ["x", "x_dot", "y", "y_dot", "z", "z_dot"]
-                    ].to_numpy(dtype=np.float32)
-                )
-            )
-
-        # Stack on the temporal axis
-        return (
-            torch.stack(true_state),
-            torch.stack(code_measurements),
-            torch.stack(sv_coords),
-        )
+        data = [self.to_tensor(epoch, mask_sv=mask_sv, **kwargs) for epoch in epochs]
+        range_data, sv_coords_data = zip(*data)
+        return torch.stack(range_data), torch.stack(sv_coords_data)

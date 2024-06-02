@@ -23,6 +23,8 @@ def test_traingulation_gps(epoch):
     # coords list
     coords = []
 
+    print(epoches[0].nav_meta)
+
     # Trianguate all the epochs
     df = triangulator.triangulate_time_series(epoches)
 
@@ -40,10 +42,10 @@ def test_traingulation_gps(epoch):
     assert np.linalg.norm(avg_coords) > 6371 - 10
     assert np.linalg.norm(avg_coords) < 6371 + 10
 
-    # Real coords of YELLCAN (from NASA)
-    real_coords = np.array([-1224452.4000, -2689216.0000, 5633638.2000])
+    # Real coords of AMC400USA_R_20230391700_01H_30S_MO.crx
+    real_coords = np.array([-1248596.405, -4819428.21, 3976505.93])
 
     # Rescale the coords
     avg_coords = avg_coords * 1000
     # Assert the coords are close to the real coords
-    assert np.linalg.norm(avg_coords - real_coords) < 100
+    assert np.linalg.norm(avg_coords - real_coords) < 50

@@ -1,5 +1,4 @@
-"""
-Ublox Receiver Streaming Profile Module.
+"""Ublox Receiver Streaming Profile Module.
 
 This module defines the StreamingProfile class, which provides methods for controlling Ublox receivers
 through serial communication streams. The StreamingProfile class is designed to collect and manage data
@@ -20,8 +19,8 @@ from pathlib import Path
 import pyubx2 as ubx
 from serial import Serial
 
-from .controller import Controller
 from .commands import BaseCommand
+from .controller import Controller
 
 __all__ = ["StreamingProfile"]
 
@@ -29,8 +28,7 @@ COLLECTION_TOUT = 1.2
 
 
 class StreamingProfile:
-    """
-    StreamingProfile class for the Ublox receiver.
+    """StreamingProfile class for the Ublox receiver.
 
     This class provides methods for controlling Ublox receivers through Serial communication streams.
     The streaming profile is used to collect two types of data:
@@ -60,8 +58,7 @@ class StreamingProfile:
         logger: tp.Optional[Logger] = None,
         no_check: bool = False,
     ) -> None:
-        """
-        Initializes the StreamingProfile object.
+        """Initializes the StreamingProfile object.
 
         Args:
             commands (List[BaseCommand]): The list of commands to send to the receiver.
@@ -85,8 +82,7 @@ class StreamingProfile:
         self.controller = Controller(self.serial_port, logger=logger, no_check=no_check)
 
     def send_message_recording_command(self) -> None:
-        """
-        Sends the collection command to the controller.
+        """Sends the collection command to the controller.
 
         Returns:
             None
@@ -96,8 +92,7 @@ class StreamingProfile:
             self.controller.send_config_command(command=command.config_command())
 
     def collect(self, n: int = -1) -> dict[str, list[ubx.UBXMessage]]:
-        """
-        Collects data from the receiver.
+        """Collects data from the receiver.
 
         Args:
             n (int): The number of messages to collect. Defaults to -1.
@@ -128,8 +123,7 @@ class StreamingProfile:
         return cmd_data_map
 
     def start(self) -> None:
-        """
-        Starts the collection of data.
+        """Starts the collection of data.
 
         Returns:
             None
@@ -138,8 +132,7 @@ class StreamingProfile:
         self.send_message_recording_command()
 
     def stop(self) -> None:
-        """
-        Stops the collection of data.
+        """Stops the collection of data.
 
         Returns:
             None
