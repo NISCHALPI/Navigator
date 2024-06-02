@@ -134,7 +134,6 @@ class Constellation:
     def animate(
         self,
         times: np.ndarray,
-        range_dict: dict,
         tracer: bool = True,
         no_text: bool = False,
     ) -> go.Figure:
@@ -159,6 +158,13 @@ class Constellation:
         # If the number of trajectories is greater than the number of colors, generate random colors
         if len(names) > len(colors):
             colors = px.colors.qualitative.Light24 * (len(names) // len(colors) + 1)
+
+        # Get the max and min values for the x, y and z coordinates
+        range_dict = {
+            "x": [time_series[:, :, 0].min(), time_series[:, :, 0].max()],
+            "y": [time_series[:, :, 1].min(), time_series[:, :, 1].max()],
+            "z": [time_series[:, :, 2].min(), time_series[:, :, 2].max()],
+        }
 
         # Get the timeseries data for the constellation
         fig = timeseries_animation(

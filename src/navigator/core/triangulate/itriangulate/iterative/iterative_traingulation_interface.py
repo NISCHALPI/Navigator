@@ -18,7 +18,7 @@ import pandas as pd
 
 from .....epoch import Epoch
 from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
-from ..algos.linear_iterative_method import least_squares
+from ..algos.wls import wls_triangulation
 from ..itriangulate import Itriangulate
 
 __all__ = ["IterativeTriangulationInterface"]
@@ -56,7 +56,7 @@ class IterativeTriangulationInterface(Itriangulate):
 
     def _get_coords_and_covar_matrix(
         self, epoch: Epoch, **kwargs
-    ) -> pd.DataFrame | pd.Series:
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
         """Get the satellite coordinates and the covariance matrix.
 
         Args:
@@ -64,21 +64,26 @@ class IterativeTriangulationInterface(Itriangulate):
             **kwargs: Additional keyword arguments.
 
         Returns:
-            pd.DataFrame | pd.Series: The satellite coordinates and the covariance matrix and UREA.
+           tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]: The satellite coordinates, error covariance matrix, and DOPs.
         """
         pseuorange, coords = self._preprocess(epoch=epoch, **kwargs)
 
-        # Send to the least squares solver to compute the solution and DOPs
-        solution, covar, sigma = least_squares(
-            pseudorange=pseuorange.to_numpy(dtype=np.float64).reshape(-1, 1),
-            sv_pos=coords[["x", "y", "z"]].to_numpy(
-                dtype=np.float64
-            ),  # Get the satellite position in ECEF
-            weight=kwargs.get("weight", np.eye(coords.shape[0], dtype=np.float64)),
-            eps=1e-6,
-        )
+        # Initial Guess
+        x0 = np.zeros(4)
+        if "prior" in kwargs:
+            x0 = kwargs["prior"][["x", "y", "z", "dt"]].values
+            x0[3] *= 299792458.0
 
-        return solution, covar, sigma
+        # Send to the least squares solver to compute the solution and DOPs
+        sols = wls_triangulation(
+            pseudorange=pseuorange.values,
+            sv_pos=coords.values,
+            W=kwargs.get("weight", np.eye(pseuorange.shape[0])),
+            x0=x0,
+            max_iter=1000,
+            eps=1e-5,
+        )
+        return sols["solution"], sols["error_covariance"], sols["dops"]
 
     def _compute(
         self,
@@ -105,37 +110,25 @@ class IterativeTriangulationInterface(Itriangulate):
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """
         # Get the satellite coordinates and the covariance matrix
-        solution, covar, sigma = self._get_coords_and_covar_matrix(
-            epoch=epoch, **kwargs
-        )
-
+        solution, covar, dops = self._get_coords_and_covar_matrix(epoch=epoch, **kwargs)
         # Calculate Q
-        Q = covar / sigma[0, 0] ** 2
-
-        # Calculate the DOPs
-        dops = {
-            "GDOP": np.sqrt(np.trace(Q)),
-            "PDOP": np.sqrt(np.trace(Q[:3, :3])),
-            "TDOP": np.sqrt(Q[3, 3]),
-            "HDOP": np.sqrt(Q[0, 0] + Q[1, 1]),
-            "VDOP": np.sqrt(Q[2, 2]),
-            "sigma": sigma[0, 0],
-        }
+        UREA = np.sqrt(np.trace(covar))
 
         # Convert the geocentric coordinates to ellipsoidal coordinates
         lat, lon, height = geocentric_to_ellipsoidal(
-            x=solution[0, 0], y=solution[1, 0], z=solution[2, 0], max_iter=1000
+            x=solution[0], y=solution[1], z=solution[1], max_iter=1000
         )
 
         # Convert the solution
         solution = {
-            "x": solution[0, 0],
-            "y": solution[1, 0],
-            "z": solution[2, 0],
-            "dt": solution[3, 0] / 299792458,  # Convert the clock offset to seconds
+            "x": solution[0],
+            "y": solution[1],
+            "z": solution[2],
+            "dt": solution[3],
             "lat": lat,
             "lon": lon,
             "height": height,
+            "UREA": UREA,
         }
 
         # Add the DOPs to the solution

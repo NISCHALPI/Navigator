@@ -293,14 +293,14 @@ class Triangulate(AbstractTriangulate):
 
     def triangulate_time_series(
         self,
-        epochs: list[Epoch],
+        epoches: list[Epoch],
         override: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Computes the triangulated location for a time series of epochs.
 
         Args:
-            epochs (list[Epoch]): A list of Epochs containing observation data and navigation data.
+            epoches (list[Epoch]): A list of Epochs containing observation data and navigation data.
             override (bool): A flag to override errors in triangulation. Defaults to False.
             **kwargs: Additional keyword arguments.
 
@@ -310,7 +310,7 @@ class Triangulate(AbstractTriangulate):
         # Choose the compute function based on the type of epoch
         # If the epoch contains real coordinates, use the diff method
         compute_func = None
-        if all([not epoch.real_coord.empty for epoch in epochs]):
+        if all([not epoch.real_coord.empty for epoch in epoches]):
             compute_func = self.diff
         else:
             compute_func = self._compute
@@ -319,10 +319,10 @@ class Triangulate(AbstractTriangulate):
         results = []
 
         # Get the initial approximation using the first epoch
-        prior = self._get_initial_approx_using_wls(epochs[0])
+        prior = self._get_initial_approx_using_wls(epoches[0])
 
-        with tqdm.tqdm(total=len(epochs), desc="Triangulating") as pbar:
-            for e in epochs:
+        with tqdm.tqdm(total=len(epoches), desc="Triangulating") as pbar:
+            for e in epoches:
                 try:
                     results.append(compute_func(e, prior=prior, **kwargs))
                     prior = results[-1]

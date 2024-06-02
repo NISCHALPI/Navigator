@@ -162,7 +162,6 @@ class Reciever:
     def animate(
         self,
         times: np.ndarray,
-        range_dict: dict[str, np.ndarray],
         tracer_map: tp.Optional[dict[str, bool]] = None,
         text_map: tp.Optional[dict[str, bool]] = None,
     ) -> Figure:
@@ -170,7 +169,6 @@ class Reciever:
 
         Args:
             times (np.ndarray): Array of times at which the signal is received.
-            range_dict (dict[str, np.ndarray]): Dictionary containing the range data for different signals i.e xlim, ylim, zlim.
             tracer_map (dict[str, bool]): Dictionary containing the trace status for different signals.
             text_map (dict[str, str]): Dictionary containing the text for different signals.
 
@@ -193,6 +191,14 @@ class Reciever:
         positions = np.concatenate(
             [true_states[:, None, :3], nav_data[:, :, :3]], axis=1
         )
+
+        # Get the max and min values for the x, y and z coordinates
+        range_dict = {
+            "x": [positions[:, :, 0].min(), positions[:, :, 0].max()],
+            "y": [positions[:, :, 1].min(), positions[:, :, 1].max()],
+            "z": [positions[:, :, 2].min(), positions[:, :, 2].max()],
+        }
+
         # Generate random colors from continuous colormap
         colors = px.colors.qualitative.Light24
 

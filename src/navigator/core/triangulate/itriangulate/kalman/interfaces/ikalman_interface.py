@@ -125,7 +125,6 @@ class IKalman(Itriangulate, ABC):
                 satellite_positions=sv_coords[["x", "y", "z"]].values,
                 observer_position=observer_position,
             )
-
             # Sort the prns by elevationW
             sv_coords["elevation"] = elevation
 

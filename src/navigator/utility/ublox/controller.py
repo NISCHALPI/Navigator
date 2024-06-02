@@ -90,14 +90,17 @@ class Controller:
         self.logger: tp.Optional[Logger] = logger
         self.no_check: bool = no_check
 
-        self.io_queue: Queue[ubx.UBXMessage] = Queue()
-        self.ack_queue: Queue[ubx.UBXMessage] = Queue()
+        self.__io_queue: Queue[ubx.UBXMessage] = Queue()
+        self.__ack_queue: Queue[ubx.UBXMessage] = Queue()
 
-        self.stop_event = Event()
-        self.lock: Lock = Lock()
+        self._stop_event = Event()
+        self._lock: Lock = Lock()
 
-        self.io_thread: Thread = Thread(target=self._start_io_logic, daemon=True)
-        self.io_thread.start()
+        self._io_thread: Thread = Thread(target=self._start_io_logic, daemon=True)
+        self._io_thread.start()
+
+        # Flush counter
+        self.__flush_counter = 0
 
         if not self.no_check:
             self._clear_output_rate()
@@ -107,16 +110,17 @@ class Controller:
         reader: ubx.UBXReader = ubx.UBXReader(
             datastream=self.stream, msgmode=ubx.GET, protfilter=ubx.UBX_PROTOCOL
         )
-        while not self.stop_event.is_set():
+        while not self._stop_event.is_set():
             if self.stream.in_waiting:
                 try:
-                    with self.lock:
+                    with self._lock:
                         _, parsed = reader.read()
                         if parsed is not None:
                             if parsed.identity.startswith("ACK"):
-                                self.ack_queue.put(parsed)
+                                self.__ack_queue.put(parsed)
                             else:
-                                self.io_queue.put(parsed)
+                                self.__io_queue.put(parsed)
+                                self.__flush_counter += 1
 
                             if self.has_logger:
                                 self.logger.info(f"Received: {parsed}")
@@ -132,8 +136,8 @@ class Controller:
         Args:
             command: The command to be sent.
         """
-        if not self.stop_event.is_set():
-            with self.lock:
+        if not self._stop_event.is_set():
+            with self._lock:
                 self.stream.write(command.serialize())
 
             if self.has_logger:
@@ -153,15 +157,15 @@ class Controller:
             The acknowledgment from the receiver if wait_for_ack is True, else None.
         """
         # Clear the acknowledgment queue
-        while not self.ack_queue.empty():
-            self.ack_queue.get()
+        while not self.__ack_queue.empty():
+            self.__ack_queue.get()
 
         # Write the command to the stream
         self._send_control_command(command)
 
         # Write the command to the stream
         if wait_for_ack:
-            return self.ack_queue.get(timeout=DEFAULT_COMMAND_WAIT_TIME)
+            return self.__ack_queue.get(timeout=DEFAULT_COMMAND_WAIT_TIME)
 
         return None
 
@@ -195,17 +199,17 @@ class Controller:
             )
 
         # Clear the queue
-        while not self.ack_queue.empty():
-            self.ack_queue.get()
-        while not self.io_queue.empty():
-            self.io_queue.get()
+        while not self.__ack_queue.empty():
+            self.__ack_queue.get()
+        while not self.__io_queue.empty():
+            self.__io_queue.get()
         return
 
     def stop(self) -> None:
         """Stop the controller."""
         # Stop the I/O thread
-        self.stop_event.set()
-        self.io_thread.join()
+        self._stop_event.set()
+        self._io_thread.join()
 
         # user is responsible for closing the stream
         return
@@ -220,8 +224,24 @@ class Controller:
             The flushed messages.
         """
         messages = []
-        with self.lock:
+        with self._lock:
+            if self.__flush_counter < n:
+                raise ValueError(
+                    "The number of messages to flush is greater than the number of messages in the queue."
+                )
+
             for _ in range(n):
-                messages.append(self.io_queue.get())
+                messages.append(self.__io_queue.get())
+
+            self.__flush_counter -= n
 
         return messages
+
+    def __len__(self) -> int:
+        """Return the number of messages in the queue."""
+        with self._lock:
+            return self.__flush_counter
+
+    def __repr__(self) -> str:
+        """Return the string representation of the object."""
+        return f"Controller(stream={self.stream}, logger={self.logger}, no_check={self.no_check})"
