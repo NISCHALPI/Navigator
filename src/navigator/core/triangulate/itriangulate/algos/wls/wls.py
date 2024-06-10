@@ -1,3 +1,5 @@
+"""Implements the least squares method for linear and non-linear observation models."""
+
 import numpy as np
 
 __all__ = ["weighted_least_square", "non_linear_weighted_least_squares"]
@@ -14,8 +16,8 @@ def weighted_least_square(y: np.ndarray, H: np.ndarray, W: np.ndarray) -> np.nda
     Returns:
         np.ndarray: The estimated constant vector x of shape (N,).
     """
-    # Check if the number of measurements is greater than the number of states
-    if y.shape[0] <= H.shape[1]:
+    # Check if the number of measurements is greater than or equal to the number of states
+    if y.shape[0] < H.shape[1]:
         raise ValueError(
             f"Number of measurements ({y.shape[0]}) must be greater than the number of states ({H.shape[1]})."
         )
@@ -70,6 +72,7 @@ def non_linear_weighted_least_squares(
         x_prev += dx
 
     # Compute the error covariance matrix of the residuals
-    Q = np.outer(dx, dx)
+    residuals = y - f(x_prev, *f_args)
+    Q = np.outer(residuals, residuals)
 
     return x_prev, Q

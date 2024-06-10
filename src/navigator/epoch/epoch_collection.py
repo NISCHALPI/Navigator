@@ -143,10 +143,10 @@ class EpochCollection:
             value (Series): The value to set.
         """
         if value is not None and not all(
-            [key in value for key in Epoch.MANDATORY_REAL_COORD_KEYS]
+            [key in value for key in Epoch.MANDATORY_COORDS_KEYS]
         ):
             raise ValueError(
-                f"Real coordinates must contain the following keys: {Epoch.MANDATORY_REAL_COORD_KEYS}. Got {value.keys()} instead."
+                f"Real coordinates must contain the following keys: {Epoch.MANDATORY_COORDS_KEYS}. Got {value.keys()} instead."
             )
         self._real_coords = value if value is not None else None
 

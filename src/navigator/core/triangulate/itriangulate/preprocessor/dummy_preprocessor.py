@@ -20,8 +20,8 @@ class DummyPreprocessor(Preprocessor):
         super().__init__(constellation="SimGPS")
 
     def preprocess(
-        self, epoch: Epoch, **kwargs
-    ) -> tuple[Series, DataFrame]:  # noqa : ARG003
+        self, epoch: Epoch, **kwargs  # noqa : ARG003
+    ) -> tuple[Series, DataFrame]:
         """Preprocess the epoch data.
 
         Args:
@@ -37,22 +37,23 @@ class DummyPreprocessor(Preprocessor):
             p2=epoch.obs_data[epoch.L2_CODE_ON].to_numpy(),
         )
         # Convert to series
-        code_ion_free = Series(code_ion_free, index=epoch.obs_data.index)
+        code_ion_free = Series(
+            code_ion_free, index=epoch.obs_data.index, name=Epoch.L1_CODE_ON
+        )
 
-        if kwargs.get("stack_phase", False):
-            # Get the ionosphere-free combination of the phase data
-            phase_ion_free = ionosphere_free_combination(
-                p1=epoch.obs_data[epoch.L1_PHASE_ON].to_numpy(),
-                p2=epoch.obs_data[epoch.L2_PHASE_ON].to_numpy(),
-            )
-            # Rename the index to match the code_ion_free with Phase suffix
-            additional_idx = [f"{prn}_L" for prn in epoch.obs_data.index]
+        # Get the ionosphere-free combination of the phase data
+        phase_ion_free = ionosphere_free_combination(
+            p1=epoch.obs_data[epoch.L1_PHASE_ON].to_numpy(),
+            p2=epoch.obs_data[epoch.L2_PHASE_ON].to_numpy(),
+        )
 
-            # Convert to series
-            phase_ion_free = Series(phase_ion_free, index=additional_idx)
+        # Convert to series
+        phase_ion_free = Series(
+            phase_ion_free, index=epoch.obs_data.index, name=Epoch.L1_PHASE_ON
+        )
 
-            # Concatenate the series [code_ion_free, phase_ion_free]
-            code_ion_free = pd.concat([code_ion_free, phase_ion_free], axis=0)
+        # Concatenate the series [code_ion_free, phase_ion_free]
+        code_ion_free = pd.concat([code_ion_free, phase_ion_free], axis=1)
 
         # Return the preprocessed data
         return (

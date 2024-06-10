@@ -28,4 +28,5 @@ Todo:
 from .itriangulate.iterative.iterative_traingulation_interface import (
     IterativeTriangulationInterface,
 )
+from .itriangulate.kalman.ekf_triangulation_interface import ExtendedKalmanInterface
 from .triangulate import Triangulate

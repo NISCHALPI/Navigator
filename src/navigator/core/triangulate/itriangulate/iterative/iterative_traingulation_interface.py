@@ -103,12 +103,6 @@ class IterativeTriangulationInterface(Itriangulate):
         Additional Keyword Arguments:
             weight (np.ndarray): The weight matrix for the least squares solver.
 
-        Additional Keyword Arguments to GPSPreprocessor:
-            mode (str): The mode of operation for the preprocessor. [dual, single]
-            prior (pd.Series): The prior estimate for the user's position.
-            apply_iono (bool): A flag to apply ionospheric corrections to the pseudorange.
-            apply_tropo (bool): A flag to apply tropospheric corrections to the pseudorange.
-
         Returns:
             pd.Series | pd.DataFrame: The computed iterative triangulation.
         """

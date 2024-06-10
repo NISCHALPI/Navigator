@@ -36,6 +36,7 @@ Example:
 
 from abc import ABC, abstractmethod
 
+import numpy as np
 import pandas as pd
 
 from .....epoch.epoch import Epoch
@@ -73,3 +74,49 @@ class Preprocessor(ABC):
     def __repr__(self) -> str:
         """Returns the representation of the preprocessor."""
         return f"{self.__class__.__name__}(constellation={self.constellation})"
+
+    def to_computational_format(
+        self,
+        range_data: pd.DataFrame,
+        sv_data: pd.DataFrame,
+        sv_filter: list[str] | None = None,
+        code_only: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Converts the preprocessed data to the format required for triangulation i.e numpy arrays.
+
+        This method converts the preprocessed range and satellite position data which
+        are by default in pandas DataFrame format to numpy arrays for the triangulation algorithm.
+
+        The first array is of shape (2*num_sv,) and contains the code and phase range data
+        and second array is of shape (2*num_sv, 3) and contains the satellite position data
+        arranged to crosspond to respective code and phase range data.
+
+
+        Args:
+            range_data (pd.DataFrame): The preprocessed range data.
+            sv_data (pd.DataFrame): The preprocessed satellite data.
+            sv_filter (list[str], optional): The SVs to be included in the computation. Defaults to None i.e all SVs.
+            code_only (bool, optional): Whether to include phase measurements or not. Defaults to False.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: The range and satellite position data in numpy array format.
+        """
+        # If no SV filter is provided, include all SVs
+        if sv_filter is None:
+            sv_filter = sv_data.index
+
+        else:
+            # Check that all sv in sv_filter are present in sv_data
+            if not set(sv_filter).issubset(sv_data.index):
+                raise ValueError("SVs in sv_filter not present in sv_data")
+
+        # Extract the code and phase range data
+        code = range_data.loc[sv_filter, Epoch.L1_CODE_ON].to_numpy(np.float64)
+        phase = range_data.loc[sv_filter, Epoch.L1_PHASE_ON].to_numpy(np.float64)
+        sv_coords = sv_data.loc[sv_filter, ["x", "y", "z"]].to_numpy(np.float64)
+
+        # If code_only is True, return only the code measurements
+        if code_only:
+            return code, sv_coords
+
+        return np.hstack([code, phase]), np.vstack([sv_coords] * 2)

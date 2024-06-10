@@ -96,7 +96,7 @@ class IParseGPSObs(IParse):
         metadata = pd.Series(gr.rinexheader(fn=filename))
 
         # Filter the dataframme to drop all null rows
-        rinex_data.dropna(axis=0, thresh=4, inplace=True)
+        rinex_data.dropna(axis=1, thresh=4, inplace=True)
 
         # Return the metadata and data
         return metadata, rinex_data
@@ -128,9 +128,6 @@ class IParseGPSObs(IParse):
 
         # Add the header information to the metadata
         metadata = pd.Series(gr.rinexheader(fn=filename))
-
-        # Filter the dataframme to drop all null rows
-        rinex_data.dropna(axis=0, thresh=4, inplace=True)
 
         # Return the metadata and data
         return metadata, rinex_data

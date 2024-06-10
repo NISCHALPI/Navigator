@@ -19,6 +19,7 @@ See Also:
 
 from .satellite import IGPSEphemeris, IGPSSp3, Satellite
 from .triangulate import (
+    ExtendedKalmanInterface,
     IterativeTriangulationInterface,
     Triangulate,
 )

@@ -10,6 +10,7 @@ readme = "README.md"
 rinex3-download-nasa = "navigator.utility.scripts.cddis_download:main"
 rinex3-dir-ops = "navigator.utility.scripts.dir_ops:main"
 triangulate = "navigator.utility.scripts.gps_traingulate:main"
+ubx-reciever = "navigator.utility.scripts.ublox_reciever:main"
 
 [tool.poetry.dependencies]
 python =  ">=3.10,<3.12"
@@ -33,6 +34,7 @@ pytorch-lightning = "^2.2.0.post0"
 plotly = "^5.22.0"
 pyubx2 = "^1.2.42"
 pyserial = "^3.5"
+statsmodels = "^0.14.2"
 
 
 

@@ -91,11 +91,16 @@ class StreamingProfile:
         for command in self.commands:
             self.controller.send_config_command(command=command.config_command())
 
-    def collect(self, n: int = -1) -> dict[str, list[ubx.UBXMessage]]:
+    def collect(
+        self,
+        n: int = -1,
+        parse: bool = False,
+    ) -> dict[str, list[ubx.UBXMessage]]:
         """Collects data from the receiver.
 
         Args:
             n (int): The number of messages to collect. Defaults to -1.
+            parse (bool): If True, the messages are parsed. Defaults to False.
 
         Returns:
             Tuple[List[UBXMessage], List[UBXMessage]]: The collected navigation and rinex data.
@@ -119,7 +124,9 @@ class StreamingProfile:
             # Change "-" to "_" for comaptiblaity NAV-POSLLH" -> "NAV_POSLLH"
             for cmd in self.commands:
                 if cmd == msg.identity:
-                    cmd_data_map[msg.identity].append(cmd.parse_ubx_message(msg))
+                    cmd_data_map[msg.identity].append(
+                        cmd.parse_ubx_message(msg) if parse else msg
+                    )
         return cmd_data_map
 
     def start(self) -> None:
@@ -139,5 +146,6 @@ class StreamingProfile:
         """
         # Stop the collection of data
         self.controller.stop()
+
         # Close the serial port
         self.serial_port.close()

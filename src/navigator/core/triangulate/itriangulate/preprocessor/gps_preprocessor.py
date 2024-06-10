@@ -1,11 +1,10 @@
 """Preprocessor for GPS epoch data."""
 
-from warnings import warn
-
 import numpy as np
 import pandas as pd
 
 from .....epoch.epoch import Epoch
+from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
 from ....satellite.iephm.sv.tools.elevation_and_azimuthal import (
     elevation_and_azimuthal,
@@ -25,7 +24,6 @@ from ..algos.smoothing.base_smoother import BaseSmoother
 from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
 from ..algos.wls.wls_triangulator import wls_triangulation
 from .preprocessor import Preprocessor
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 
 __all__ = ["GPSPreprocessor"]
 
@@ -440,14 +438,14 @@ class GPSPreprocessor(Preprocessor):
                 raise ValueError(
                     f"Invalid observation data. Must contain both L1 Phase({self.L1_PHASE_ON}) and L2 Phase observations({self.L2_PHASE_ON}) to perform dual mode processing."
                 )
-            # Scale the phase measurements to the meters from cycles
-            epoch.obs_data[self.L1_PHASE_ON] *= L1_WAVELENGTH
-            epoch.obs_data[self.L2_PHASE_ON] *= L2_WAVELENGTH
+
             # Compute the ionospheric free combination for the phase measurements
             phase = pd.Series(
                 ionosphere_free_combination(
-                    p1=epoch.obs_data[self.L1_PHASE_ON].to_numpy(dtype=np.float64),
-                    p2=epoch.obs_data[self.L2_PHASE_ON].to_numpy(dtype=np.float64),
+                    p1=epoch.obs_data[self.L1_PHASE_ON].to_numpy(dtype=np.float64)
+                    * L1_WAVELENGTH,  # Scale the L1 phase to meters
+                    p2=epoch.obs_data[self.L2_PHASE_ON].to_numpy(dtype=np.float64)
+                    * L2_WAVELENGTH,  # Scale the L2 phase to meters
                 ),
                 index=epoch.obs_data.index,
                 name=self.L1_PHASE_ON,
@@ -456,9 +454,7 @@ class GPSPreprocessor(Preprocessor):
         elif epoch.profile.get("mode", "single") == "single":
             # Get the pseudorange
             pseudorange = epoch.obs_data[self.L1_CODE_ON]
-            # Scale the phase measurements to the meters from cycles
-            epoch.obs_data[self.L1_PHASE_ON] *= L1_WAVELENGTH
-            phase = epoch.obs_data[self.L1_PHASE_ON]
+            phase = epoch.obs_data[self.L1_PHASE_ON] * L1_WAVELENGTH
 
         else:
             raise ValueError(
@@ -476,7 +472,7 @@ class GPSPreprocessor(Preprocessor):
             pseudorange -= coords["tropospheric_correction"]
             phase -= coords["tropospheric_correction"]
 
-        if epoch.profile.get("apply_iono", False):
+        if epoch.profile.get("apply_iono", False) and epoch.profile.get("mode", "dual") == "single": # Only apply ionospheric correction for single mode
             # Check if the ionospheric correction parameters are available
             if epoch.nav_meta.get("IONOSPHERIC CORR", None) is None:
                 raise ValueError(

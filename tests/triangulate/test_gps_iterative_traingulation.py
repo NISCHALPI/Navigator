@@ -9,7 +9,7 @@ from pathlib import Path
 
 @pytest.fixture
 def epoch(navfilepath, obsfilepath) -> list[Epoch]:
-    return Epoch.epochify(Path(obsfilepath), Path(navfilepath))
+    return Epoch.epochify(Path(obsfilepath), Path(navfilepath), column_map={k :k for k in Epoch.OBSERVABLES})
 
 
 def test_traingulation_gps(epoch):
@@ -22,9 +22,7 @@ def test_traingulation_gps(epoch):
 
     # coords list
     coords = []
-
-    print(epoches[0].nav_meta)
-
+    print(epoches[0].obs_data)
     # Trianguate all the epochs
     df = triangulator.triangulate_time_series(epoches)
 

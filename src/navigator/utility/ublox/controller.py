@@ -96,7 +96,7 @@ class Controller:
         self._stop_event = Event()
         self._lock: Lock = Lock()
 
-        self._io_thread: Thread = Thread(target=self._start_io_logic, daemon=True)
+        self._io_thread: Thread = Thread(target=self._start_io_logic)
         self._io_thread.start()
 
         # Flush counter
@@ -136,12 +136,11 @@ class Controller:
         Args:
             command: The command to be sent.
         """
-        if not self._stop_event.is_set():
-            with self._lock:
-                self.stream.write(command.serialize())
+        with self._lock:
+            self.stream.write(command.serialize())
 
-            if self.has_logger:
-                self.logger.info(f"Sent: {command}")
+        if self.has_logger:
+            self.logger.info(f"Sent: {command}")
         return
 
     def send_config_command(
@@ -157,13 +156,14 @@ class Controller:
             The acknowledgment from the receiver if wait_for_ack is True, else None.
         """
         # Clear the acknowledgment queue
-        while not self.__ack_queue.empty():
-            self.__ack_queue.get()
+        with self._lock:
+            while not self.__ack_queue.empty():
+                self.__ack_queue.get()
 
         # Write the command to the stream
         self._send_control_command(command)
 
-        # Write the command to the stream
+        # Wait for the acknowledgment if required
         if wait_for_ack:
             return self.__ack_queue.get(timeout=DEFAULT_COMMAND_WAIT_TIME)
 
@@ -224,6 +224,7 @@ class Controller:
             The flushed messages.
         """
         messages = []
+        # Acquire the lock to ensure thread safety
         with self._lock:
             if self.__flush_counter < n:
                 raise ValueError(

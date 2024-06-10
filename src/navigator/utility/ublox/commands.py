@@ -13,7 +13,14 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import pyubx2 as ubx
 
-__all__ = ["BaseCommand", "NAV_POSLLH", "NAV_POSECEF", "NAV_PVT", "RXM_RAWX"]
+__all__ = [
+    "BaseCommand",
+    "NAV_POSLLH",
+    "NAV_POSECEF",
+    "NAV_PVT",
+    "RXM_RAWX",
+    "RXM_SFRBX",
+]
 
 
 class BaseCommand(ABC):
@@ -49,6 +56,8 @@ class BaseCommand(ABC):
 
 
 class NAV_POSLLH(BaseCommand):
+    """Class for the NAV-POSLLH command."""
+
     def __init__(self) -> None:
         """Constructor for the NAV-POSLLH class."""
         return super().__init__("NAV", "POSLLH")
@@ -107,6 +116,8 @@ class NAV_POSLLH(BaseCommand):
 
 
 class NAV_POSECEF(BaseCommand):
+    """Class for the NAV-POSECEF command."""
+
     def __init__(self) -> None:
         """Constructor for the NAV-POSECEF class."""
         return super().__init__("NAV", "POSECEF")
@@ -396,3 +407,37 @@ class RXM_RAWX(BaseCommand):
             "subHalfCyc": "cycles",
             "reserved": "reserved",
         }
+
+
+class RXM_SFRBX(BaseCommand):
+    def __init__(self) -> None:
+        """Constructor for the RXM-SFRBX class."""
+        super().__init__("RXM", "SFRBX")
+
+    def config_command(self, on: str = "USB") -> ubx.UBXMessage:
+        """Return the configuration command message rate.
+
+        Args:
+            on (str): The message rate configuration on channel. Defaults to "USB".
+
+        Returns:
+            UBXMessage: The configuration command message rate.
+        """
+        return ubx.UBXMessage.config_set(
+            layers=ubx.SET_LAYER_RAM,
+            transaction=ubx.TXN_NONE,
+            cfgData=[(f"CFG_MSGOUT_UBX_{self.msg_cls}_{self.msg_id}_{on}", 1)],
+        )
+
+    def parse_ubx_message(self, ubx_message: ubx.UBXMessage) -> pd.DataFrame:
+        raise NotImplementedError(
+            "The parse_ubx_message method is not implemented for RXM-SFRBX."
+        )
+
+    def units(self) -> tp.Dict[str, str]:
+        """Return the units for the parsed payload data.
+
+        Returns:
+            Dict[str, str]: The units for the parsed payload data.
+        """
+        raise NotImplementedError("The units method is not implemented for RXM-SFRBX.")

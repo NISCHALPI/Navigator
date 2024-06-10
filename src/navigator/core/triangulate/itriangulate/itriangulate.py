@@ -110,11 +110,14 @@ class Itriangulate(ABC):
         # If the constellation is not supported, raise an error
         raise ValueError(f"Invalid constellation: {first_prn}")
 
-    def _preprocess(self, epoch: Epoch, **kwargs) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _preprocess(
+        self, epoch: Epoch, computational_format: bool = False, **kwargs
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Preprocesses the data.
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
+            computational_format (bool): Flag to return the data in computational format.
             **kwargs: Additional keyword arguments passed to the preprocessor.
 
         Returns:
@@ -124,7 +127,14 @@ class Itriangulate(ABC):
         preprocesser = self._auto_dispatch_preprocessor(epoch)
 
         # Preprocess the data
-        return preprocesser.preprocess(epoch, **kwargs)
+        range_df, sv_df = preprocesser.preprocess(epoch, **kwargs)
+
+        if computational_format:
+            return preprocesser.to_computational_format(
+                range_df, sv_df, sv_filter=kwargs.get("sv_filter", None)
+            )
+
+        return range_df, sv_df
 
     def __call__(
         self,

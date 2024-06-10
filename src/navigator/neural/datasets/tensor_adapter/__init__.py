@@ -1,1 +1,0 @@
-"""Tensor adapter package."""

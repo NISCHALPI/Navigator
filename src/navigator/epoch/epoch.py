@@ -84,9 +84,11 @@ class Epoch:
     L2_CODE_ON = "C2W"
     L1_PHASE_ON = "L1C"
     L2_PHASE_ON = "L2W"
+    
+    OBSERVABLES = [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON]
 
     # Relvant columns
-    RELEVANT_COLUMNS = [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON]
+    MINIMUM_REQUIRED_COLUMNS = [L1_CODE_ON, L2_CODE_ON]
 
     # Single Frequency Profile
     SINGLE = {
@@ -121,6 +123,9 @@ class Epoch:
     # Mandatory keys for real coordinates
     MANDATORY_COORDS_KEYS = ["x", "y", "z"]
 
+    # Ionospheric Correction Keys
+    IONOSPHERIC_KEY = "IONOSPHERIC CORR"
+
     def __init__(
         self,
         timestamp: pd.Timestamp,
@@ -133,7 +138,7 @@ class Epoch:
         real_coord: pd.Series | dict | None = None,
         approximate_coords: pd.Series | dict | None = None,
         station: str | None = None,
-        override_relevant_columns: list[str] | None = None,
+        columns_mapping: dict | None = None,
     ) -> None:
         """Initialize an Epoch instance with a timestamp and observational data and navigation data.
 
@@ -148,16 +153,41 @@ class Epoch:
             real_coord (pd.Series | dict | None, optional): The real coordinates of the station. Defaults to None.
             approximate_coords (pd.Series | dict | None, optional): The approximate coordinates of the station. Defaults to None.
             station (str | None, optional): The station name. Defaults to None.
-            override_relevant_columns (list[str] | None, optional): Override the relevant columns. Defaults to Epoch.RELEVANT_COLUMNS.
+            columns_mapping (dict | None, optional): The columns mapping to map names of columns to appropriate definitions. Defaults to None.
 
         Returns:
             None
+
+        Note:
+            - The code and phase observables are expected to be in the following format:
+                - L1 Code: 'C1C'
+                - L2 Code: 'C2W'
+                - L1 Phase: 'L1C'
+                - L2 Phase: 'L2W'
+            - If the name of the columns are different, a columns_mapping dictionary can be provided to map the names to the appropriate definitions.
+                for example:
+                columns_mapping = {
+                    'C1C': 'C1C',
+                    'C2W': 'C2X',
+                    'L1C': 'L1C',
+                    'L2W': 'L2X'
+                }
         """
-        # Override the relevant columns if provided
-        if override_relevant_columns is not None:
-            self.RELEVANT_COLUMNS = override_relevant_columns
+        # Rename the colums to default names
+        if columns_mapping is not None:
+            # Reverse the dictionary
+            columns_mapping = {v: k for k, v in columns_mapping.items()}
+            obs_data = obs_data.rename(columns=columns_mapping)
+
         # Purify the data if required
-        obs_data = self.purify(obs_data) if purify else obs_data
+        obs_data = (
+            self.purify(
+                obs_data,
+                relevant_columns=(self.MINIMUM_REQUIRED_COLUMNS),
+            )
+            if purify
+            else obs_data
+        )
 
         # Store the timestamp
         self.timestamp = timestamp
@@ -448,24 +478,21 @@ class Epoch:
         ]  # Nav data is multi-indexed
         return
 
-    def purify(self, data: pd.DataFrame) -> pd.DataFrame:
+    def purify(self, data: pd.DataFrame, relevant_columns: list[str]) -> pd.DataFrame:
         """Remove observations with missing data.
 
         Args:
             data (pd.DataFrame): DataFrame containing observational or navigation data.
+            relevant_columns (list[str]): List of relevant columns to consider.
 
         Returns:
             pd.DataFrame: DataFrame with missing data observations removed.
         """
         # Drop duplicates columns
         data = data[~data.index.duplicated(keep="first")]
-        relevant_columns = data.columns.intersection(Epoch.RELEVANT_COLUMNS)
+        relevant_columns = data.columns.intersection(relevant_columns)
         # Drop any rows with NA values on to_drop_na columns
         data.dropna(subset=relevant_columns, how="any", axis=0, inplace=True)
-
-        # Drop Unnecessary columns
-        data.drop(columns=data.columns.difference(relevant_columns), inplace=True)
-
         return data
 
     @property
@@ -510,17 +537,20 @@ class Epoch:
         return len(self.obs_data)
 
     @staticmethod
-    def _cddis_fetch(date: datetime) -> tuple[pd.Series, pd.DataFrame]:
+    def _cddis_fetch(
+        date: datetime, logging: bool = False
+    ) -> tuple[pd.Series, pd.DataFrame]:
         """Fetch the data from CDDIS for the given date.
 
         Args:
             date (datetime): The date to fetch the data for.
+            logging (bool, optional): Enable logging. Defaults to False.
 
         Returns:
             tuple[pd.Series, pd.DataFrame]: A tuple containing the metadata as a Pandas Series and the parsed data as a Pandas DataFrame.
         """
         # Fetch the data from CDDIS
-        downloader = NasaCddisV3(logging=True)
+        downloader = NasaCddisV3(logging=logging)
         parser = Parser(iparser=IParseGPSNav())
 
         # Set up an temporary directory
@@ -545,14 +575,24 @@ class Epoch:
 
     @staticmethod
     def epochify(
-        obs: Path | str, nav: Path | str | None = None, mode: str = "maxsv", **kwargs
+        obs: Path | str,
+        nav: Path | str | None = None,
+        trim: bool = True,
+        purify: bool = True,
+        mode: str = "maxsv",
+        column_map: dict | None = None,
+        logging: bool = False,
+        **kwargs,
     ) -> list["Epoch"]:
         """Generate Epoch instances from observation and navigation data files.
 
         Args:
             obs (Path): Path to the observation data file.
             nav (Path): Path to the navigation data file. Defaults to None.
+            trim (bool, optional): Intersect satellite vehicles in observation and navigation data. Defaults to True.
+            purify (bool, optional): Remove observations with missing data. Defaults to True.
             mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
+            columns_map (dict, optional): The columns mapping to map names of columns to appropriate definitions. Defaults to None.
             **kwargs: Additional keyword arguments to pass to the parser.
 
         Yields:
@@ -579,7 +619,7 @@ class Epoch:
             # Fetch the navigation data from CDDIS
             try:
                 nav_meta, nav_data = Epoch._cddis_fetch(
-                    date=data.index[0][0]
+                    date=data.index[0][0], logging=logging
                 )  # Data is multi-indexed (time, sv)
             except Exception as e:
                 raise ValueError(
@@ -592,17 +632,13 @@ class Epoch:
         obs_frags = FragObs.fragmentify(
             obs_data=data, parent=obs.name, obs_meta=obs_meta
         )
+
         # Get the navigation fragments
         nav_frags = FragNav.fragmentify(
             nav_data=nav_data,
             parent=nav.name if nav is not None else None,  # Guard against None
             nav_meta=nav_meta,
         )
-
-        # # Filter at least 4 satellites
-        obs_frags = [frag for frag in obs_frags if len(frag) >= 4]
-        nav_frags = [frag for frag in nav_frags if len(frag) >= 4]
-
         return [
             Epoch(
                 timestamp=obs_frag.epoch_time,
@@ -610,27 +646,14 @@ class Epoch:
                 obs_meta=obs_frag.metadata,
                 nav_data=nav_frag.nav_data,
                 nav_meta=nav_frag.metadata,
-                trim=True,
-                purify=True,
+                trim=trim,
+                purify=purify,
                 station=obs_frag.station if hasattr(obs_frag, "station") else None,
+                columns_mapping=column_map,
             )
             for obs_frag in obs_frags
             if (nav_frag := obs_frag.nearest_nav_fragment(nav_frags, mode)) is not None
         ]
-
-        # # Iterate over the fragments
-        # yield from [
-        #     Epoch.load_from_fragment(
-        #         obs_frag=observational_fragments, nav_frag=nearest_nav
-        #     )
-        #     for observational_fragments in obs_frags
-        #     if (
-        #         nearest_nav := observational_fragments.nearest_nav_fragment(
-        #             nav_fragments=nav_frags, mode=mode
-        #         )
-        #     )
-        #     is not None
-        # ]
 
     @staticmethod
     def parallel_epochify(
@@ -711,6 +734,15 @@ class Epoch:
             )
 
         return epoch
+
+    @property
+    def has_ionospheric_correction(self) -> bool:
+        """Check if the epoch has ionospheric correction applied.
+
+        Returns:
+            bool: True if ionospheric correction is applied, False otherwise.
+        """
+        return self.IONOSPHERIC_KEY in self.nav_meta
 
     def __gt__(self, other: "Epoch") -> bool:
         """Check if the epoch is greater than another epoch.

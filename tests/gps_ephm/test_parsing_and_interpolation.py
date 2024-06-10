@@ -26,7 +26,7 @@ def test_ephemeris_gps_and_sv_interpolation(navfilepath, nav_data):
         step=60,  # Every 60 seconds resolution
     )
 
-    assert trajectory.shape == (23, 3, 120)
+    assert trajectory.shape == (21, 3, 120)
 
     # Get One coordinate of the satellite
     x = trajectory[0, :, 0] / 1000

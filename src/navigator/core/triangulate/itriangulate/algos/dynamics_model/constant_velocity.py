@@ -14,7 +14,7 @@ velocities in the ECEF frame. cdt is the clock drift of the target and cdt_dot i
 
 import numpy as np
 
-__all__ = ["F", "G", "h", "HJacobian", "Q"]
+__all__ = ["G", "hx", "HJacobian", "Q"]
 
 
 # Constant Velocity State Transition Matrix
@@ -27,7 +27,7 @@ def G(dt: float) -> np.ndarray:
     Returns:
         np.ndarray: State transition matrix.
     """
-    A = np.array(
+    return np.array(
         [
             [1, dt, 0, 0, 0, 0, 0, 0],
             [0, 1, 0, 0, 0, 0, 0, 0],
@@ -37,13 +37,12 @@ def G(dt: float) -> np.ndarray:
             [0, 0, 0, 0, 0, 1, 0, 0],
             [0, 0, 0, 0, 0, 0, 1, dt],
             [0, 0, 0, 0, 0, 0, 0, 1],
-        ]
+        ],
+        dtype=np.float64,
     )
 
-    return A
 
-
-def h(x: np.ndarray, sv_pos: np.ndarray) -> np.ndarray:
+def hx(x: np.ndarray, sv_pos: np.ndarray) -> np.ndarray:
     """Returns the measurement matrix for the constant velocity model.
 
     Args:

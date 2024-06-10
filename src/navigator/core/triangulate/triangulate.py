@@ -41,9 +41,6 @@ import tqdm
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...epoch import Epoch
 from ...utility.transforms.coordinate_transforms import geocentric_to_enu
-from .itriangulate.iterative.iterative_traingulation_interface import (
-    IterativeTriangulationInterface,
-)
 from .itriangulate.itriangulate import Itriangulate
 
 __all__ = ["AbstractTriangulate", "Triangulate"]

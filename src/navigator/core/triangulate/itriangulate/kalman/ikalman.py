@@ -8,16 +8,11 @@ This interface is generic and can be used with any state definition and measurem
 """
 
 from abc import ABC, abstractmethod
-from copy import deepcopy
 
 import numpy as np
-from pandas.core.api import DataFrame, Series
+from pandas.core.api import Series
 
-from .....epoch.epoch import Epoch
 from ...itriangulate import Itriangulate
-from ..iterative.iterative_traingulation_interface import (
-    IterativeTriangulationInterface,
-)
 
 
 class IKalman(Itriangulate, ABC):
@@ -29,7 +24,7 @@ class IKalman(Itriangulate, ABC):
         Args:
             num_sv (int): The number of satellites to track.
             dt (float): The sampling time interval in seconds.
-            filter (str): The filter name to be used for the Kalman filter. i.e. EKF, UKF, etc.
+            filter_name (str): The filter name to be used for the Kalman filter. i.e. EKF, UKF, etc.
         """
         if num_sv < 4:
             raise ValueError(
@@ -59,33 +54,6 @@ class IKalman(Itriangulate, ABC):
             - x: The x-coordinate of the position.
             - y: The y-coordinate of the position.
             - z: The z-coordinate of the position.
-        """
-        pass
-
-    @abstractmethod
-    def predict_update_loop(
-        self, ranges: np.ndarray, sv_coords: np.ndarray
-    ) -> np.ndarray:
-        """Runs the predict and update loop of the Kalman filter.
-
-        Args:
-            ranges (np.ndarray): The range measurements.
-            sv_coords (np.ndarray): The coordinates of the satellites.
-
-        Returns:
-            np.ndarray: The state vector after the predict and update loop.
-        """
-        pass
-
-    @abstractmethod
-    def epoch_profile(self) -> str:
-        """Get the epoch profile for the respective Kalman filter.
-
-        Some might apply Ionospheric correction, tropospheric correction, etc while
-        others might not. This is controlled by the epoch profile set to the epoch.
-
-        Returns:
-            str: The epoch profile that is updated for each epoch.
         """
         pass
 
