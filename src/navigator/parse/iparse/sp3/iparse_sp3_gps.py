@@ -69,9 +69,13 @@ class IParseSP3GPS(IParse):
         # Pivot the dataframe with ECEF coordinates
         df = df.pivot(columns="ECEF")
         # Get the position table
-        pos = df["position"]
-        clock = df["clock"][["x"]].rename({"x": "clock"}, axis=1)
-        dclock = df["dclock"][["x"]].rename({"x": "dclock"}, axis=1)
+        pos = df["position"] * 1e3  # Convert to meters
+        clock = (
+            df["clock"][["x"]].rename({"x": "clock"}, axis=1) * 1e-6
+        )  # Convert to seconds from microseconds
+        dclock = (
+            df["dclock"][["x"]].rename({"x": "dclock"}, axis=1) * 1e-6
+        )  # Convert to seconds from microseconds
 
         # Join the position and clock tables
         return pd.Series(), pd.concat([pos, clock, dclock], axis=1)

@@ -1,5 +1,5 @@
 import pytest
-from navigator.utility.matcher import SP3Matcher, LegacySP3Matcher
+from navigator.utils.matcher import SP3Matcher, LegacySP3Matcher
 
 
 @pytest.fixture

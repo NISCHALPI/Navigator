@@ -60,10 +60,13 @@ class AbstractIephemeris(ABC):
         pass
 
     @abstractmethod
-    def _compute(self, metadata: pd.Series, data: pd.Series, **kwargs) -> pd.Series:
+    def _compute(
+        self, t: pd.Timestamp, metadata: pd.Series, data: pd.Series, **kwargs
+    ) -> pd.Series:
         """Abstract method to compute satellite position based on ephemeris data.
 
         Args:
+        t (pd.Timestamp): The SV time at which to compute the satellite position.
         metadata (pd.Series): Metadata related to the ephemeris data.
         data (pd.Series): Series containing ephemeris data.
         **kwargs: Additional keyword arguments.
@@ -73,10 +76,13 @@ class AbstractIephemeris(ABC):
         """
         pass
 
-    def __call__(self, metadata: pd.Series, data: pd.Series, **kwargs) -> pd.Series:
+    def __call__(
+        self, t: pd.Timestamp, metadata: pd.Series, data: pd.Series, **kwargs
+    ) -> pd.Series:
         """Callable method that invokes the _compute method to compute satellite position.
 
         Args:
+            t (pd.Timestamp): The SV time at which to compute the satellite position.
             metadata (pd.Series): Metadata related to the ephemeris data.
             data (pd.Series): Series containing ephemeris data.
             **kwargs: Additional keyword arguments.
@@ -84,7 +90,7 @@ class AbstractIephemeris(ABC):
         Returns:
             pd.Series: A Pandas Series representing the calculated satellite position.
         """
-        return self._compute(metadata, data, **kwargs)
+        return self._compute(t, metadata, data, **kwargs)
 
     def __repr__(self) -> str:
         """Returns a string representation of the class instance, including the feature type.

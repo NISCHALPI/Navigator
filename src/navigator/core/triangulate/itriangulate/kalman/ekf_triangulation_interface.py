@@ -88,12 +88,13 @@ class ExtendedKalmanInterface(IKalman):
         # Initialize the dynamics model
         self.F = G(dt)
         self.fx = lambda x: np.dot(self.F, x)
-        self.FJacobian = lambda x: self.F
+        self.FJacobian = lambda x: self.F  # noqa : ARG
         self.hx = hx
         self.HJacobian = HJacobian
 
         # Initialize the log innovation flag
         self.log_innovation = log_innovation
+        self.code_only = code_only
 
     def process_state(self, state: np.ndarray) -> Series:
         """Processes the state vector into a pandas Series.
@@ -187,12 +188,18 @@ class ExtendedKalmanInterface(IKalman):
 
         # Process all the epoches to get a timeseries of measurements and sv positions
         meas = [
-            self._preprocess(epoch=epoch, computational_format=True, sv_filter=sv_map)
+            self._preprocess(
+                epoch=epoch,
+                computational_format=True,
+                sv_filter=sv_map,
+                code_only=self.code_only,
+            )
             for epoch in epoches
         ]
         z = np.vstack([m[0] for m in meas])  # (T, 2 * num_sv)
         sv_pos = np.stack([m[1] for m in meas])  # (T, 2 * num_sv, 3)
 
+        print(z.shape, sv_pos.shape)
         # Batch Process the epoches
         outs = self._filter.batch_smoothing(
             x0=x0,

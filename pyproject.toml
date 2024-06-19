@@ -35,6 +35,7 @@ plotly = "^5.22.0"
 pyubx2 = "^1.2.42"
 pyserial = "^3.5"
 statsmodels = "^0.14.2"
+folium = "^0.17.0"
 
 
 
@@ -54,19 +55,19 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-select =["E", "F", "I", "UP", "ANN", "ARG", "D", "RET", "TCH"]
+lint.select =["E", "F", "I", "UP", "ANN", "ARG", "D", "RET", "TCH"]
 exclude = ["tests", "docs", "*test_*"]
 src =['./src/navigator']
 # Ignore long lines and self annotations 
-ignore =['ANN101', 'E501', 'ANN002', 'ANN003']
+lint.ignore =['ANN101', 'E501', 'ANN002', 'ANN003']
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401", "D104"]
 
-[tool.ruff.flake8-quotes]
+[tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
 
 

@@ -1,5 +1,5 @@
 import pytest
-from navigator.utility.matcher.matcher import (
+from navigator.utils.matcher.matcher import (
     MixedObs3DailyMatcher,
     GpsNav3DailyMatcher,
     EpochFileMatcher,

@@ -14,7 +14,7 @@ Usage:
 
 import numpy as np  # type: ignore
 
-from ......utility.transforms.coordinate_transforms import (
+from ......utils.transforms.coordinate_transforms import (
     geocentric_to_enu,
 )
 

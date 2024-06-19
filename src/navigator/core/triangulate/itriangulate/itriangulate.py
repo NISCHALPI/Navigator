@@ -111,13 +111,20 @@ class Itriangulate(ABC):
         raise ValueError(f"Invalid constellation: {first_prn}")
 
     def _preprocess(
-        self, epoch: Epoch, computational_format: bool = False, **kwargs
+        self,
+        epoch: Epoch,
+        computational_format: bool = False,
+        sv_filter: list[str] = None,
+        code_only: bool = False,
+        **kwargs,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Preprocesses the data.
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
             computational_format (bool): Flag to return the data in computational format.
+            sv_filter (list[str]): List of satellite PRNs to filter.
+            code_only (bool): Flag to indicate if the triangulation is code-only i.e no carrier phase measurements are used.
             **kwargs: Additional keyword arguments passed to the preprocessor.
 
         Returns:
@@ -131,7 +138,10 @@ class Itriangulate(ABC):
 
         if computational_format:
             return preprocesser.to_computational_format(
-                range_df, sv_df, sv_filter=kwargs.get("sv_filter", None)
+                range_df,
+                sv_df,
+                sv_filter=sv_filter,
+                code_only=code_only,
             )
 
         return range_df, sv_df

@@ -60,7 +60,7 @@ def _rotation_matrix(theta: float) -> np.ndarray:
 
 
 @njit(float64[:, :](float64[:, :], float64[:]), parallel=True, cache=True)
-def earth_rotation_correction(
+def sagnac_correction(
     sv_position: np.ndarray,
     dt: np.ndarray,
 ) -> np.ndarray:

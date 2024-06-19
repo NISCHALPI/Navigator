@@ -75,8 +75,8 @@ class Preprocessor(ABC):
         """Returns the representation of the preprocessor."""
         return f"{self.__class__.__name__}(constellation={self.constellation})"
 
+    @staticmethod
     def to_computational_format(
-        self,
         range_data: pd.DataFrame,
         sv_data: pd.DataFrame,
         sv_filter: list[str] | None = None,

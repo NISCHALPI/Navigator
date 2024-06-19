@@ -4,9 +4,9 @@ import os
 from datetime import datetime, timedelta
 from logging import NullHandler
 
-from ....utility.ftpserver.ftpfs_server import FTPFSServer
-from ....utility.logger.logger import get_logger
-from ....utility.matcher.sp3_matcher import LegacySP3Matcher, SP3Matcher
+from ....logger.logger import get_logger
+from ....utils.matcher.sp3_matcher import LegacySP3Matcher, SP3Matcher
+from ...ftpserver.ftpfs_server import FTPFSServer
 
 
 class NasaCddisIgsSp3:

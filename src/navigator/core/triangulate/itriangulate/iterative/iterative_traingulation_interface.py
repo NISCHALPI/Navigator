@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from .....epoch import Epoch
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
+from .....utils.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 from ..algos.wls import wls_triangulation
 from ..itriangulate import Itriangulate
 
@@ -43,49 +43,55 @@ class IterativeTriangulationInterface(Itriangulate):
 
     """
 
-    def __init__(self) -> None:
+    def __init__(self, code_only: bool = False) -> None:
         """Initialize the GPSIterativeTriangulationInterface.
 
         Args:
-            None
+            code_only (bool): A boolean flag to indicate if the triangulation is code-only i.e no carrier phase measurements are used.
 
         Returns:
             None
         """
+        self.code_only = code_only
         super().__init__(feature="GPS(Iterative)")
 
     def _get_coords_and_covar_matrix(
-        self, epoch: Epoch, **kwargs
+        self,
+        epoch: Epoch,
+        sv_filter: list[str] = None,
+        **kwargs,
     ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
         """Get the satellite coordinates and the covariance matrix.
 
         Args:
             epoch (Epoch): Epoch containing observation data and navigation data.
-            **kwargs: Additional keyword arguments.
+            sv_filter (list[str]): List of satellite PRNs to process.
+            **kwargs: Additional keyword arguments to pass to the preprocessor.
 
         Returns:
            tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]: The satellite coordinates, error covariance matrix, and DOPs.
         """
-        pseuorange, coords = self._preprocess(epoch=epoch, **kwargs)
-
-        # Get only the code measurements
-        code_measurements = pseuorange[Epoch.L1_CODE_ON].to_numpy(dtype=np.float64)
+        z, sv_coord = self._preprocess(
+            epoch=epoch,
+            computational_format=True,
+            sv_filter=sv_filter,
+            code_only=self.code_only,
+            **kwargs,
+        )
 
         # Initial Guess
-        x0 = np.zeros(4)
-        if "prior" in kwargs:
-            x0 = kwargs["prior"][["x", "y", "z", "dt"]].values
-            x0[3] *= 299792458.0
+        x0 = epoch.approximate_coords[["x", "y", "z", "cdt"]].to_numpy(dtype=np.float64)
 
         # Send to the least squares solver to compute the solution and DOPs
         sols = wls_triangulation(
-            pseudorange=code_measurements,
-            sv_pos=coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
-            W=kwargs.get("weight", np.eye(pseuorange.shape[0])).astype(np.float64),
+            pseudorange=z,
+            sv_pos=sv_coord,
+            W=kwargs.get("weight", np.eye(z.shape[0])).astype(np.float64),
             x0=x0.astype(np.float64),
             max_iter=1000,
-            eps=1e-5,
+            eps=1e-7,
         )
+
         return sols["solution"], sols["error_covariance"], sols["dops"]
 
     def _compute(
@@ -108,12 +114,13 @@ class IterativeTriangulationInterface(Itriangulate):
         """
         # Get the satellite coordinates and the covariance matrix
         solution, covar, dops = self._get_coords_and_covar_matrix(epoch=epoch, **kwargs)
+
         # Calculate Q
         UREA = np.sqrt(np.trace(covar))
 
         # Convert the geocentric coordinates to ellipsoidal coordinates
         lat, lon, height = geocentric_to_ellipsoidal(
-            x=solution[0], y=solution[1], z=solution[1], max_iter=1000
+            x=solution[0], y=solution[1], z=solution[2], max_iter=1000
         )
 
         # Convert the solution

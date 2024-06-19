@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from navigator.epoch import Epoch
+from navigator.epoch.loaders import from_rinex_files
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
 from pathlib import Path
 
@@ -11,7 +12,14 @@ def test_epochify(obsfilepath, navfilepath):
     nav_path = Path(navfilepath)
 
     # Epochify the data
-    epochified = list(Epoch.epochify(obs_path, nav_path, mode="maxsv"))
+    epochified = list(
+        from_rinex_files(
+            observation_file=obs_path,
+            navigation_file=nav_path,
+            station_name="AMC400USA",
+            column_mapper={k: k for k in Epoch.OBSERVABLES},
+        )
+    )
 
     # Check the length of the epochified data
     assert len(epochified) == 120
@@ -37,7 +45,7 @@ def test_mode(obsfilepath, navfilepath):
     nav = Path(navfilepath)
 
     with pytest.raises(ValueError):
-        list(Epoch.epochify(obs=obs, nav=nav, mode="invalid_mode"))
+        list(from_rinex_files(obs, nav, mode="invalid_mode"))
 
 
 def test_epochify_different_modes(obsfilepath, navfilepath):
@@ -46,9 +54,9 @@ def test_epochify_different_modes(obsfilepath, navfilepath):
     nav = Path(navfilepath)
 
     # Test mode 'meansv'
-    epochified_mean = list(Epoch.epochify(obs=obs, nav=nav, mode="nearest"))
+    epochified_mean = list(from_rinex_files(obs, nav, mode="nearest"))
     assert len(epochified_mean) == 120
 
     # Test mode 'maxsv'
-    epochified_max = list(Epoch.epochify(obs=obs, nav=nav, mode="maxsv"))
+    epochified_max = list(from_rinex_files(obs, nav, mode="maxsv"))
     assert len(epochified_max) == 120

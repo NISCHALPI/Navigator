@@ -77,21 +77,6 @@ class IParseGPSObs(IParse):
         # Convert the `xarray.Dataset` to a `pandas.DataFrame` and metadata to a `pandas.Series`
         rinex_data = rinex_data.to_dataframe()
 
-        # Rename the columns to match the RINEX 3 format
-        rinex_data.rename(
-            columns={
-                "C1": self.L1_CODE_ON,
-                "L1": self.L1_PHASE_ON,
-                "P2": self.L2_CODE_ON,
-                "L2": self.L2_PHASE_ON,
-                "D1": "D1C",
-                "S1": "S1C",
-                "S2": "S2W",
-                "D2": "D2W",
-            },
-            inplace=True,
-        )
-
         # Add the header information to the metadata
         metadata = pd.Series(gr.rinexheader(fn=filename))
 

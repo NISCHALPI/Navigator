@@ -29,11 +29,10 @@ Sources:
    - https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf.
 """
 
-import numpy as np
 import pandas as pd
 
 from ..iephm import AbstractIephemeris
-from .tools.coord import _eccentric_anomaly, ephm_to_coord_gps, week_anamonaly
+from .tools.ephemeris_algos import clock_correction, ephm_to_coord_gps
 
 __all__ = ["IGPSEphemeris"]
 
@@ -42,7 +41,6 @@ __all__ = ["IGPSEphemeris"]
 gps_start_time = pd.Timestamp(
     year=1980, day=6, month=1, hour=0, minute=0, second=0, microsecond=0, nanosecond=0
 )
-F = -4.442807633e-10  # Constant used in relativistic clock correction
 
 
 class IGPSEphemeris(AbstractIephemeris):
@@ -60,23 +58,11 @@ class IGPSEphemeris(AbstractIephemeris):
     """
 
     MAX_CLOCK_CORRECTION_ITERATIONS = 20
+    SV_CLOCK_BIAS_KEY = "SVclockBias"
 
     def __init__(self) -> None:
         """Initialize an IGPSEphemeris instance."""
         super().__init__(feature="GPS")
-
-    def _relativistic_clock_correction(
-        self, sqrt_A: float, Ek: float, e: float
-    ) -> float:
-        """Calculate the relativistic clock correction.
-
-        Args:
-            sqrt_A (pd.Series): Square root of the semi-major axis of the orbit.
-            Ek (pd.Series): Keplers eccentric anomaly.
-            e (pd.Series): Eccentricity of the orbit.
-        """
-        # See : https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf page 98
-        return F * e * sqrt_A * np.sin(Ek)
 
     def _to_seconds_gps_week(self, t: pd.Timestamp, week: int) -> float:
         """Convert a timestamp to seconds of GPS week from current week.
@@ -89,78 +75,43 @@ class IGPSEphemeris(AbstractIephemeris):
         Returns:
             float: Seconds of GPS week.
         """
-        return (t - gps_start_time).total_seconds() - (week * 604800)
+        return (t - gps_start_time).total_seconds() - (week * 604800.0)
 
-    def _clock_correction(self, data: pd.Series) -> float:
-        """Calculate the clock correction. See GPS ICD 200 Page 98: https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf X.
-
-        Args:
-            data (pd.Series): Data for specific satellite.
-
-        Returns:
-            float: Clock correction.
-        """
-        # Sv clock correction rates
-        a_f0 = data["SVclockBias"]
-        a_f1 = data["SVclockDrift"]
-        a_f2 = data["SVclockDriftRate"]
-
-        # Week number
-        week = data["GPSWeek"]
-
-        # Time from ephemeris reference epoch
-        t_oc: pd.Timestamp = self._to_seconds_gps_week(data["Toc"], week=week)
-
-        # SV time
-        t_sv: pd.Timestamp = self._to_seconds_gps_week(data["Tsv"], week=week)
-
-        # Toe
-        t_oe = data["Toe"]  # Given in seconds of GPS week
-
-        # Compute Ek usinge pre-corrected time
-        Ek = _eccentric_anomaly(
-            t_k=week_anamonaly(t=t_sv, t_oe=t_oe),
-            sqrt_a=data["sqrtA"],
-            delta_n=data["DeltaN"],
-            M_0=data["M0"],
-            e=data["Eccentricity"],
-        )
-
-        # Get Relativitic clock correction
-        t_r = self._relativistic_clock_correction(
-            sqrt_A=data["sqrtA"],
-            Ek=Ek,
-            e=data["Eccentricity"],
-        )
-
-        # Group delay differential
-        t_gd = data["TGD"]
-
-        # Compute delta_t with week anomally
-        delta_t = week_anamonaly(t=t_sv, t_oe=t_oc)
-
-        # Compute clock correction
-        return a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 + t_r - t_gd
-
-    def clock_correction(self, data: pd.Series) -> float:
+    def iterative_clock_correction(self, t: float, data: pd.Series) -> float:
         """Calculate the clock correction for specific satellite data.
 
+        Uses iterative method to compute the clock correction to sovle the implicit equation.
+
         Args:
+            t (float): Satellite time in seconds of GPS week.
             data (pd.Series): Data for specific satellite.
 
         Returns:
             float: Clock correction.
         """
+        additional_kwargs = {
+            "a_f0": data["SVclockBias"],
+            "a_f1": data["SVclockDrift"],
+            "a_f2": data["SVclockDriftRate"],
+            "t_oc": self._to_seconds_gps_week(t=data["Toc"], week=data["GPSWeek"]),
+            "t_oe": data["Toe"],
+            "sqrt_A": data["sqrtA"],
+            "delta_n": data["DeltaN"],
+            "M_0": data["M0"],
+            "e": data["Eccentricity"],
+            "t_gd": data["TGD"],
+        }
+
         # Initial clock correction
-        dt = self._clock_correction(data=data)
+        dt = clock_correction(t=t, **additional_kwargs)
 
         # Iteratively compute the clock correction
         for _ in range(self.MAX_CLOCK_CORRECTION_ITERATIONS):
             # Compute the satellite time i.e. Tsv
-            data["Tsv"] -= pd.Timedelta(seconds=dt)
+            t -= dt
 
             # Compute the clock correction
-            dt = self._clock_correction(data=data)
+            dt = clock_correction(t=t, **additional_kwargs)
 
             # If the clock correction is within 1 ns, break
             if abs(dt) < 1e-11:
@@ -169,11 +120,16 @@ class IGPSEphemeris(AbstractIephemeris):
         return dt
 
     def _compute(
-        self, metadata: pd.Series, data: pd.Series, **kwargs  # noqa: ARG002
+        self,
+        t: pd.Timestamp,
+        metadata: pd.Series,  # noqa: ARG002
+        data: pd.Series,
+        **kwargs,  # noqa: ARG002
     ) -> pd.Series:
         """Calculate the satellite's position based on ephemeris data.
 
         Args:
+            t (pd.Timestamp): The SV time at which to calculate the satellite position.
             metadata (pd.Series): Metadata of the RINEX file.
             data (pd.Series): Data for specific satellite.
             **kwargs: Additional keyword arguments.
@@ -185,17 +141,18 @@ class IGPSEphemeris(AbstractIephemeris):
             pd.Series: Return a Series containing the calculated position information [x, y , z] in WGS84-ECFC coordinates.
 
         """
+        t = self._to_seconds_gps_week(
+            t=t, week=data["GPSWeek"]
+        )  # Convert the system time to seconds of GPS week
+
         # Get clock correction for the satellite time i.e. Tsv
-        dt = self.clock_correction(data=data)
+        dt = self.iterative_clock_correction(t=t, data=data)
 
-        # Correct the satellite time i.e. Tsv
-        t_sv: pd.Timestamp = data["Tsv"] - pd.Timedelta(seconds=dt)
-
-        # If no clock correction is specified, use the original satellite time
-        if kwargs.get("no_clock_correction", False):
-            t_sv = data["Tsv"]
-
-        t = self._to_seconds_gps_week(t=t_sv, week=data["GPSWeek"])
+        # Apply clock correction to the satellite time
+        # Unless the user specifies not to apply clock correction
+        # i.e the system time is provided instead of the satellite time
+        if not kwargs.get("system_time", False):
+            t -= dt
 
         # Compute the coordinates of the satellite
         coords = ephm_to_coord_gps(
@@ -217,12 +174,11 @@ class IGPSEphemeris(AbstractIephemeris):
             c_rc=data["Crc"],
             c_rs=data["Crs"],
         )
-
         return pd.Series(
             {
                 "x": coords[0],
                 "y": coords[1],
                 "z": coords[2],
-                "dt": dt,
+                self.SV_CLOCK_BIAS_KEY: dt,
             }
         )

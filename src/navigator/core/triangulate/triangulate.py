@@ -30,17 +30,17 @@ Note:
     This module is part of a triangulation library and includes an abstract base class (AbstractTriangulate) for implementing specific triangulation algorithms. Subclasses of AbstractTriangulate must implement the _compute method to provide triangulation functionality.
 """
 
-import webbrowser
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
+import folium
 import numpy as np
 import pandas as pd
 import tqdm
 
 from ...dispatch.base_dispatch import AbstractDispatcher
 from ...epoch import Epoch
-from ...utility.transforms.coordinate_transforms import geocentric_to_enu
+from ...utils.transforms.coordinate_transforms import geocentric_to_enu
 from .itriangulate.itriangulate import Itriangulate
 
 __all__ = ["AbstractTriangulate", "Triangulate"]
@@ -270,7 +270,7 @@ class Triangulate(AbstractTriangulate):
         Args:
             epoches (list[Epoch]): A list of Epochs containing observation data and navigation data.
             override (bool): A flag to override errors in triangulation. Defaults to False.
-            **kwargs: Additional keyword arguments.
+            **kwargs: Additional keyword arguments to pass to the compute function.
 
         Returns:
             pd.DataFrame: The computed triangulated location for the time series of epochs.
@@ -345,76 +345,21 @@ class Triangulate(AbstractTriangulate):
         )
 
     @staticmethod
-    def google_earth_view(lat: float, lon: float) -> None:
-        """Open Google Earth in a web browser centered at the specified coordinates.
+    def plot_coordinates(lat: float, lon: float, zoom: int = 20) -> folium.Map:
+        """Plots the coordinates on a map.
 
         Args:
-            lat (float): The latitude of the location.
-            lon (float): The longitude of the location.
+            lat (float): The latitude of the coordinates.
+            lon (float): The longitude of the coordinates.
+            zoom (int): The zoom level of the map. Defaults to 10.
 
         Returns:
-            None
+            folium.Map: The map with the coordinates plotted.
         """
-        try:
-            # Construct the Google Earth URL with the specified coordinates
-            url = f"https://earth.google.com/web/search/{lat},{lon}"
+        # Create a map centered at the coordinates
+        m = folium.Map(location=[lat, lon], zoom_start=zoom)
 
-            # Open the URL in the default web browser
-            webbrowser.open(url)
+        # Add a marker at the coordinates
+        folium.Marker([lat, lon], popup=f"({lat}, {lon})").add_to(m)
 
-            print("Google Earth opened successfully.")
-        except Exception as e:
-            print(f"An error occurred: {str(e)}")
-
-        return
-
-    @staticmethod
-    def google_maps_view(lat: float, lon: float) -> None:
-        """Open Google Maps in a web browser centered at the specified coordinates.
-
-        Args:
-            lat (float): The latitude of the location.
-            lon (float): The longitude of the location.
-
-        Returns:
-            None
-        """
-        try:
-            # Construct the Google Maps URL with the specified coordinates
-            url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-
-            # Open the URL in the default web browser
-            webbrowser.open(url)
-
-            print("Google Maps opened successfully.")
-        except Exception as e:
-            print(f"An error occurred: {str(e)}")
-
-        return
-
-    @staticmethod
-    def google_earth_view_cartisian(x: float, y: float, z: float) -> None:
-        """Open Google Earth in a web browser centered at the specified coordinates with a marker.
-
-        Args:
-            x (float): The x coordinate of the location.
-            y (float): The y coordinate of the location.
-            z (float): The z coordinate of the location.
-
-        Returns:
-            None
-        """
-        try:
-            # Construct the Google Earth URL with the specified coordinates and a marker
-            url = (
-                f"https://earth.google.com/web/search/?q={x},{y},{z}&place={x},{y},{z}"
-            )
-
-            # Open the URL in the default web browser
-            webbrowser.open(url)
-
-            print("Google Earth opened successfully.")
-        except Exception as e:
-            print(f"An error occurred: {str(e)}")
-
-        return
+        return m

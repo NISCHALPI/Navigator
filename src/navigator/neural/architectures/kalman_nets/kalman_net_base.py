@@ -41,7 +41,7 @@ from abc import ABC, abstractmethod
 import pytorch_lightning as pl
 import torch
 
-from ....utility.tracker import HistoryTracker
+from ....utils.tracker import HistoryTracker
 
 
 class AbstractKalmanNet(pl.LightningModule, ABC):

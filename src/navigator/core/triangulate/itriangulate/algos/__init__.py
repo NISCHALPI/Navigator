@@ -20,5 +20,4 @@ from .combinations import (
     wide_lane_combination,
 )
 from .ionosphere.klobuchar_ionospheric_model import klobuchar_ionospheric_correction
-from .linear_iterative_method import least_squares
 from .troposphere.tropospheric_delay import tropospheric_delay_correction

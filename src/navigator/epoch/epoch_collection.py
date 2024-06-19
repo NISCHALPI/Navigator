@@ -216,7 +216,7 @@ class EpochCollection:
 
         return metadata
 
-    def track(self, mode: str = "visiblity") -> list["EpochCollection"]:
+    def track(self, mode: str = VISIBILITY) -> list["EpochCollection"]:
         """Returns a list of EpochCollection objects, each representing a segment with consistently tracked satellites.
 
         Satellite tracking is deemed continuous when the same set of satellites is observed in each epoch. The tracking can be conducted in either strict or non-strict mode.

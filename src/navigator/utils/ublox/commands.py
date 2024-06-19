@@ -52,6 +52,7 @@ class BaseCommand(ABC):
         pass
 
     def __eq__(self, value: str) -> bool:
+        """Return True if the string representation of the command is equal to the value."""
         return str(self) == value
 
 
@@ -172,6 +173,8 @@ class NAV_POSECEF(BaseCommand):
 
 
 class NAV_PVT(BaseCommand):
+    """Class for the NAV-PVT command."""
+
     def __init__(self) -> None:
         """Constructor for the NAV-PVT class."""
         return super().__init__("NAV", "PVT")
@@ -217,7 +220,6 @@ class NAV_PVT(BaseCommand):
                 "nano": ubx_message.nano,
                 "fixType": ubx_message.fixType,
                 "gnssFixOk": ubx_message.gnssFixOk,
-                "difSoln": ubx_message.difSoln,
                 "psmState": ubx_message.psmState,
                 "headVehValid": ubx_message.headVehValid,
                 "carrSoln": ubx_message.carrSoln,
@@ -302,6 +304,8 @@ class NAV_PVT(BaseCommand):
 
 
 class RXM_RAWX(BaseCommand):
+    """Class for the RXM-RAWX command to get the raw Mesurement data range and carrier phase."""
+
     def __init__(self) -> None:
         """Constructor for the RXM-RAWX class."""
         super().__init__("RXM", "RAWX")
@@ -336,7 +340,7 @@ class RXM_RAWX(BaseCommand):
         # Loop through the Mesurements
         rcvTow = ubx_message.rcvTow
         rcvWeek = ubx_message.week
-        leapS = ubx_message.leapS
+        leapS = ubx_message.leapS  #
         numMeas = ubx_message.numMeas
         leapSec = ubx_message.leapSec
         clkReset = ubx_message.clkReset
@@ -360,11 +364,11 @@ class RXM_RAWX(BaseCommand):
             subData["prValid"] = getattr(ubx_message, f"prValid_{id}")
             subData["halfCyc"] = getattr(ubx_message, f"halfCyc_{id}")
             subData["subHalfCyc"] = getattr(ubx_message, f"subHalfCyc_{id}")
-
-            # Add some of these to the data list
             subData["rcvTow"] = rcvTow
             subData["rcvWeek"] = rcvWeek
             subData["clockReset"] = clkReset
+            subData["leapS"] = leapS
+            subData["leapSec"] = leapSec
 
             data.append(subData)
 
@@ -410,6 +414,8 @@ class RXM_RAWX(BaseCommand):
 
 
 class RXM_SFRBX(BaseCommand):
+    """Class for the RXM-SFRBX command."""
+
     def __init__(self) -> None:
         """Constructor for the RXM-SFRBX class."""
         super().__init__("RXM", "SFRBX")
@@ -430,6 +436,7 @@ class RXM_SFRBX(BaseCommand):
         )
 
     def parse_ubx_message(self, ubx_message: ubx.UBXMessage) -> pd.DataFrame:
+        """Return the parsed payload data as a pandas DataFrame."""
         raise NotImplementedError(
             "The parse_ubx_message method is not implemented for RXM-SFRBX."
         )

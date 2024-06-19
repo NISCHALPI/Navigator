@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from navigator.epoch.loaders import from_rinex_files
 from navigator.epoch import Epoch
 from tests.common_fixtures import nav_data, obs_data, navfilepath, obsfilepath
 from navigator.core.triangulate import Triangulate, IterativeTriangulationInterface
@@ -9,7 +10,12 @@ from pathlib import Path
 
 @pytest.fixture
 def epoch(navfilepath, obsfilepath) -> list[Epoch]:
-    return Epoch.epochify(Path(obsfilepath), Path(navfilepath), column_map={k :k for k in Epoch.OBSERVABLES})
+    return from_rinex_files(
+        observation_file=Path(obsfilepath),
+        navigation_file=Path(navfilepath),
+        station_name="AMC400USA",
+        column_mapper={k: k for k in Epoch.OBSERVABLES},
+    )
 
 
 def test_traingulation_gps(epoch):
@@ -22,7 +28,6 @@ def test_traingulation_gps(epoch):
 
     # coords list
     coords = []
-    print(epoches[0].obs_data)
     # Trianguate all the epochs
     df = triangulator.triangulate_time_series(epoches)
 

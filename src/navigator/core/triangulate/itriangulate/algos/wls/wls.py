@@ -1,10 +1,14 @@
 """Implements the least squares method for linear and non-linear observation models."""
 
+import numba as nb
 import numpy as np
 
 __all__ = ["weighted_least_square", "non_linear_weighted_least_squares"]
 
 
+@nb.njit(
+    "float64[:](float64[:], float64[:, :], float64[:, :])", fastmath=True, cache=True
+)
 def weighted_least_square(y: np.ndarray, H: np.ndarray, W: np.ndarray) -> np.ndarray:
     """Estimates the constant vector x using the weighted least squares method given noisy measurements y and a linear observation model H.
 

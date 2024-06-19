@@ -48,9 +48,9 @@ from pathlib import Path
 
 import tqdm
 
-from ....utility.ftpserver import FTPFSServer
-from ....utility.logger.logger import get_logger
-from ....utility.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+from ....logger.logger import get_logger
+from ....utils.matcher.matcher import GpsNav3DailyMatcher, MixedObs3DailyMatcher
+from ...ftpserver.ftpfs_server import FTPFSServer
 
 __all__ = ["NasaCddisV3"]
 

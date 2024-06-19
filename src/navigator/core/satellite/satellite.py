@@ -24,7 +24,6 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -88,7 +87,7 @@ class AbstractSatellite(ABC):
     @abstractmethod
     def _compute(
         self,
-        Tsv: pd.DataFrame | pd.Timestamp | str,
+        t: pd.DataFrame | pd.Timestamp | str,
         metadata: pd.Series,
         data: pd.DataFrame,
         **kwargs,
@@ -96,8 +95,7 @@ class AbstractSatellite(ABC):
         """Abstract method to compute satellite position based on ephemeris data.
 
         Args:
-            Tsv (pd.DataFrame[pd.Timestamp] | pd.Timestamp): Timestamps for which to compute satellite positions announced by respective satellites.
-                If a DataFrame is passed, it must have same index as the data and a column name Tsv for sat specifice time stamps.
+            t (pd.DataFrame[pd.Timestamp] | pd.Timestamp): The SV time at which to compute the satellite position.
             metadata (pd.Series): Metadata related to the ephemeris data.
             data (pd.DataFrame): Data from the navigation file.
             kwargs: Keyword arguments to be passed to the '_iephemeris' method.
@@ -109,7 +107,7 @@ class AbstractSatellite(ABC):
 
     def __call__(
         self,
-        t_sv: pd.DataFrame | pd.Timestamp | str,
+        t: pd.DataFrame | pd.Timestamp | str,
         metadata: pd.Series,
         data: pd.DataFrame,
         **kwargs,
@@ -117,8 +115,7 @@ class AbstractSatellite(ABC):
         """Computes satellite position based on ephemeris data.
 
         Args:
-            t_sv (pd.DataFrame[pd.Timestamp] | pd.Timestamp): Timestamps for which to compute satellite positions announced by respective satellites.
-                If a DataFrame is passed, it must have same index as the data and a column name t_sv for sat specifice time stamps.
+            t (pd.DataFrame[pd.Timestamp] | pd.Timestamp): The SV time at which to compute the satellite position.
             metadata (pd.Series): Metadata related to the ephemeris data.
             data (pd.DataFrame): Data related to the ephemeris data.
             **kwargs: Keyword arguments to be passed to the '_iephemeris' method.
@@ -126,7 +123,7 @@ class AbstractSatellite(ABC):
         Returns:
             pd.DataFrame: A DataFrame representing the calculated satellite positions.
         """
-        return self._compute(t_sv, metadata, data, **kwargs)
+        return self._compute(t, metadata, data, **kwargs)
 
     def __repr__(self) -> str:
         """Returns a string representation of the object.
@@ -153,38 +150,43 @@ class Satellite(AbstractSatellite):
 
     def _compute(
         self,
-        Tsv: pd.DataFrame | pd.Timestamp | str,
+        t: pd.DataFrame | pd.Timestamp | str,
         metadata: pd.Series,
         data: pd.DataFrame,
         **kwargs,
     ) -> pd.DataFrame:
-        """Computes satellite position based on ephemeris data."""
+        """Computes satellite position based on ephemeris data.
+
+        Args:
+            t (pd.DataFrame[pd.Timestamp] | pd.Timestamp): The SV time at which to compute the satellite position.
+            metadata (pd.Series): Metadata related to the ephemeris data.
+            data (pd.DataFrame): Data from the navigation file.
+            **kwargs: Keyword arguments to be passed to the '_iephemeris' method.
+
+        Returns:
+            pd.DataFrame: A DataFrame representing the calculated satellite positions.
+        """
         # Change to time stamp if string is passed
-        if isinstance(Tsv, str):
-            Tsv = pd.Timestamp(Tsv)
+        if isinstance(t, str):
+            t = pd.Timestamp(t)
 
         # Instantiate empty dataframe to store satellite position
-        position_df = pd.DataFrame(index=data.index, columns=["x", "y", "z", "dt"])
+        position_df = []
 
         for (time, sv), rowdata in data.iterrows():
             # Attach time and sv to rowdata
             rowdata["Toc"] = time
             rowdata["sv"] = sv
 
-            # Get the t_sv for respective satellite
-            if isinstance(Tsv, pd.DataFrame):
-                rowdata["Tsv"] = Tsv.loc[(time, sv), "Tsv"]
-            elif isinstance(Tsv, (pd.Timestamp, datetime)):
-                rowdata["Tsv"] = Tsv
-            else:
-                raise TypeError("t_sv must be a DataFrame or Timestamp")
+            # Get the time of transmission
+            emissionT = t if isinstance(t, pd.Timestamp) else t[(time, sv)]
 
             # Compute satellite position using ephemeris data and iepehemeris interface
-            position_df.loc[(time, sv), ["x", "y", "z", "dt"]] = self._iephemeris(
-                metadata, rowdata, **kwargs
+            position_df.append(
+                self._iephemeris(t=emissionT, metadata=metadata, data=rowdata, **kwargs)
             )
 
-        return position_df
+        return pd.DataFrame(position_df, index=data.index)
 
     def trajectory(
         self,
@@ -225,7 +227,9 @@ class Satellite(AbstractSatellite):
 
         # Loop over interval and compute satellite position
         for _ in range(0, interval, step):
-            sat_pos_list.append(self(t_sv, metadata, data, **kwargs).drop(columns="dt"))
+            sat_pos_list.append(
+                self(t_sv, metadata, data, **kwargs).drop(columns="SVclockBias")
+            )
             t_sv += pd.Timedelta(seconds=step)
 
         # Convert to array

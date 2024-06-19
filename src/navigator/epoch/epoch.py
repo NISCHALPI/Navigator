@@ -54,18 +54,11 @@ Author:
 """
 
 import pickle
-from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime
 from pathlib import Path  # type: ignore
-from tempfile import TemporaryDirectory
 
 import pandas as pd  # type: ignore
 
-from ..download.idownload.rinex.nasa_cddis import NasaCddisV3
-from ..parse import Parser
-from ..parse.iparse import IParseGPSNav, IParseGPSObs
-from ..utility.igs_network import IGSNetwork
-from .fragments.gps_framgents import FragNav, FragObs
+from ..utils.igs_network import IGSNetwork
 
 __all__ = ["Epoch"]
 
@@ -84,7 +77,7 @@ class Epoch:
     L2_CODE_ON = "C2W"
     L1_PHASE_ON = "L1C"
     L2_PHASE_ON = "L2W"
-    
+
     OBSERVABLES = [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON]
 
     # Relvant columns
@@ -95,27 +88,64 @@ class Epoch:
         "apply_tropo": True,
         "apply_iono": True,
         "mode": "single",
+        "smoothed": False,
+        "navigation_format": "ephemeris",
     }
     # Dual Frequency Profile
     DUAL = {
         "apply_tropo": True,
         "apply_iono": True,
         "mode": "dual",
+        "smoothed": False,
+        "navigation_format": "ephemeris",
     }
     # Initial Profile [Doesn't apply any corrections]
     INITIAL = {
         "apply_tropo": False,
         "apply_iono": False,
         "mode": "single",
+        "smoothed": False,
+        "navigation_format": "ephemeris",
+    }
+    # SP3 Profile
+    SP3 = {
+        "apply_tropo": False,
+        "apply_iono": False,
+        "mode": "single",
+        "smoothed": True,
+        "navigation_format": "sp3",
     }
     # Phase Profile
-    PHASE = {"apply_tropo": False, "apply_iono": False, "mode": "phase"}
+    PHASE = {
+        "apply_tropo": False,
+        "apply_iono": False,
+        "mode": "phase",
+        "smoothed": False,
+        "navigation_format": "ephemeris",
+    }
 
     # DUMMY
-    DUMMY = {"apply_tropo": False, "apply_iono": False, "mode": "dummy"}
+    DUMMY = {
+        "apply_tropo": False,
+        "apply_iono": False,
+        "mode": "dummy",
+        "smoothed": False,
+        "navigation_format": "ephemeris",
+    }
 
-    ALLOWED_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
-    MANDATORY_PROFILE_KEYS = ["apply_tropo", "apply_iono", "mode"]
+    ALLOWED_PROFILE_KEYS = [
+        "apply_tropo",
+        "apply_iono",
+        "mode",
+        "smoothed",
+        "navigation_format",
+    ]
+    MANDATORY_PROFILE_KEYS = [
+        "apply_tropo",
+        "apply_iono",
+        "mode",
+        "navigation_format",
+    ]
 
     # IGS network
     IGS_NETWORK = IGSNetwork()
@@ -139,6 +169,7 @@ class Epoch:
         approximate_coords: pd.Series | dict | None = None,
         station: str | None = None,
         columns_mapping: dict | None = None,
+        profile: dict[str, bool | str] = INITIAL,
     ) -> None:
         """Initialize an Epoch instance with a timestamp and observational data and navigation data.
 
@@ -154,6 +185,7 @@ class Epoch:
             approximate_coords (pd.Series | dict | None, optional): The approximate coordinates of the station. Defaults to None.
             station (str | None, optional): The station name. Defaults to None.
             columns_mapping (dict | None, optional): The columns mapping to map names of columns to appropriate definitions. Defaults to None.
+            profile (dict[str, bool | str], optional): The profile of the epoch. Defaults to INITIAL.
 
         Returns:
             None
@@ -173,6 +205,9 @@ class Epoch:
                     'L2W': 'L2X'
                 }
         """
+        # Define a profile for the epoch can be [dual , single]
+        self.profile = profile
+
         # Rename the colums to default names
         if columns_mapping is not None:
             # Reverse the dictionary
@@ -203,9 +238,6 @@ class Epoch:
         # Trim the data if required
         if trim:
             self.trim()
-
-        # Define a profile for the epoch can be [dual , single]
-        self.profile = self.DUAL
 
         # Set the is_smoothed attribute
         self.is_smoothed = False
@@ -473,9 +505,18 @@ class Epoch:
         # Drop the satellite vehicles not present in both observation and navigation data
         common_sv = self.common_sv.copy()
         self.obs_data = self.obs_data.loc[common_sv]
-        self.nav_data = self.nav_data.loc[
-            (slice(None), common_sv), :
-        ]  # Nav data is multi-indexed
+
+        if self.profile["navigation_format"] == "ephemeris":
+            # Ephemeris profile is multi-indexed
+            self.nav_data = self.nav_data.loc[(slice(None), common_sv), :]
+        elif self.profile["navigation_format"] == "sp3":
+            # Do nothing
+            pass
+        else:
+            raise ValueError(
+                f"Navigation format must be either 'ephemeris' or 'sp3'. Got {self.profile['navigation_format']} instead."
+            )
+
         return
 
     def purify(self, data: pd.DataFrame, relevant_columns: list[str]) -> pd.DataFrame:
@@ -535,166 +576,6 @@ class Epoch:
 
         """
         return len(self.obs_data)
-
-    @staticmethod
-    def _cddis_fetch(
-        date: datetime, logging: bool = False
-    ) -> tuple[pd.Series, pd.DataFrame]:
-        """Fetch the data from CDDIS for the given date.
-
-        Args:
-            date (datetime): The date to fetch the data for.
-            logging (bool, optional): Enable logging. Defaults to False.
-
-        Returns:
-            tuple[pd.Series, pd.DataFrame]: A tuple containing the metadata as a Pandas Series and the parsed data as a Pandas DataFrame.
-        """
-        # Fetch the data from CDDIS
-        downloader = NasaCddisV3(logging=logging)
-        parser = Parser(iparser=IParseGPSNav())
-
-        # Set up an temporary directory
-
-        with TemporaryDirectory() as temp_dir:
-            # Download the navigation data
-            downloader.download(
-                year=date.year,
-                day=date.timetuple().tm_yday,
-                save_path=Path(temp_dir),
-                num_files=1,
-                match_string="JPL",  # Download from JPL Stations
-            )
-
-            # Get the navigation data file
-            nav_file = list(Path(temp_dir).glob("*GN*"))[0]
-
-            # Parse the navigation data
-            nav_meta, nav_data = parser(nav_file)
-
-        return nav_meta, nav_data
-
-    @staticmethod
-    def epochify(
-        obs: Path | str,
-        nav: Path | str | None = None,
-        trim: bool = True,
-        purify: bool = True,
-        mode: str = "maxsv",
-        column_map: dict | None = None,
-        logging: bool = False,
-        **kwargs,
-    ) -> list["Epoch"]:
-        """Generate Epoch instances from observation and navigation data files.
-
-        Args:
-            obs (Path): Path to the observation data file.
-            nav (Path): Path to the navigation data file. Defaults to None.
-            trim (bool, optional): Intersect satellite vehicles in observation and navigation data. Defaults to True.
-            purify (bool, optional): Remove observations with missing data. Defaults to True.
-            mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
-            columns_map (dict, optional): The columns mapping to map names of columns to appropriate definitions. Defaults to None.
-            **kwargs: Additional keyword arguments to pass to the parser.
-
-        Yields:
-            list[Epoch]: List of Epoch instances generated from the provided data files.
-        """
-        # Convert the paths to Path objects
-        obs = Path(obs)
-        nav = Path(nav) if nav is not None else None
-        # Parse the observation and navigation data
-        parser = Parser(iparser=IParseGPSObs())
-
-        # Parse the observation data
-        obs_meta, data = parser(obs, **kwargs)
-
-        if data.empty:
-            raise ValueError("No observation data found.")
-
-        if nav is not None:
-            # Parse the observation data
-            parser.swap(iparser=IParseGPSNav())
-            # Parse the navigation data
-            nav_meta, nav_data = parser(nav)
-        else:
-            # Fetch the navigation data from CDDIS
-            try:
-                nav_meta, nav_data = Epoch._cddis_fetch(
-                    date=data.index[0][0], logging=logging
-                )  # Data is multi-indexed (time, sv)
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to fetch navigation data from CDDIS. Got the following error: {e}"
-                )
-        if nav_data.empty:
-            raise ValueError("No navigation data found.")
-
-        # Get the observational fragments
-        obs_frags = FragObs.fragmentify(
-            obs_data=data, parent=obs.name, obs_meta=obs_meta
-        )
-
-        # Get the navigation fragments
-        nav_frags = FragNav.fragmentify(
-            nav_data=nav_data,
-            parent=nav.name if nav is not None else None,  # Guard against None
-            nav_meta=nav_meta,
-        )
-        return [
-            Epoch(
-                timestamp=obs_frag.epoch_time,
-                obs_data=obs_frag.obs_data,
-                obs_meta=obs_frag.metadata,
-                nav_data=nav_frag.nav_data,
-                nav_meta=nav_frag.metadata,
-                trim=trim,
-                purify=purify,
-                station=obs_frag.station if hasattr(obs_frag, "station") else None,
-                columns_mapping=column_map,
-            )
-            for obs_frag in obs_frags
-            if (nav_frag := obs_frag.nearest_nav_fragment(nav_frags, mode)) is not None
-        ]
-
-    @staticmethod
-    def parallel_epochify(
-        obs: list[Path | str],
-        nav: list[Path | str | None] = None,
-        mode: str = "maxsv",
-        num_workers: int = 4,
-        **kwargs,  # noqa: ARG004
-    ) -> list["Epoch"]:
-        """Generate Epoch instances from observation and navigation data files.
-
-        Args:
-            obs (list[Path | str]): List of paths to the observation data file.
-            nav (list[Path | str]): List of paths to the navigation data file. Defaults to None.
-            mode (str, optional): Ephemeris method. Either 'nearest' or 'maxsv'. Defaults to 'maxsv'.
-            num_workers (int, optional): Number of workers to use. Defaults to 4.
-            **kwargs: Additional keyword arguments to pass to the parser.
-
-        Returns:
-            list[Epoch]: List of Epoch instances generated from the provided data files.
-        """
-        list_of_all_epochs = []
-
-        # Ensure the nav list is not None
-        if nav is None:
-            nav = [None] * len(obs)
-
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            for epoch in executor.map(
-                Epoch.epochify,
-                obs,
-                nav,
-                [mode] * len(obs),
-            ):
-                # Wait for the result and append to the list
-                list_of_all_epochs.extend(epoch)
-
-            # Ensure all the workers are closed
-            executor.shutdown(wait=True)
-
-        return list_of_all_epochs
 
     def save(self, path: str | Path) -> None:
         """Save the epoch to a file.

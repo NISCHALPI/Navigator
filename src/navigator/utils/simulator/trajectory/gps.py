@@ -29,7 +29,7 @@ from pathlib import Path
 
 from numpy import ndarray
 
-from ....core.satellite.iephm.sv.tools.coord import ephm_to_coord_gps
+from ....core.satellite.iephm.sv.tools.ephemeris_algos import ephm_to_coord_gps
 from ....parse.iparse.yuma_alm.iparse_yuma_alm import IParseYumaAlm
 from .trajectory import Trajectory
 

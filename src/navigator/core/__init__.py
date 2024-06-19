@@ -29,3 +29,5 @@ from .triangulate.itriangulate.algos.smoothing import (
     HatchFilter,
     IonosphereFreeSmoother,
 )
+from .triangulate.itriangulate.algos.wls import wls_triangulation
+from .triangulate.itriangulate.preprocessor import GPSPreprocessor

@@ -76,7 +76,7 @@ def wls_triangulation(
     H = HJacobian_at(sol, sv_pos)
 
     # Calculate the covariance matrix for dops calculation
-    Q = H.T @ W @ H
+    Q = np.linalg.inv(H.T @ W @ H)
 
     # Calulate the DOPs values
     gdop = np.sqrt(np.trace(Q))

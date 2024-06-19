@@ -4,12 +4,11 @@ import numpy as np
 import pandas as pd
 
 from .....epoch.epoch import Epoch
-from .....utility.transforms.coordinate_transforms import geocentric_to_ellipsoidal
-from ....satellite.iephm.sv.igps_ephm import IGPSEphemeris
+from .....utils.transforms.coordinate_transforms import geocentric_to_ellipsoidal
+from ....satellite.iephm import IGPSEphemeris, IGPSSp3
 from ....satellite.iephm.sv.tools.elevation_and_azimuthal import (
     elevation_and_azimuthal,
 )
-from ....satellite.satellite import Satellite
 from ..algos.combinations.range_combinations import (
     L1_WAVELENGTH,
     L2_WAVELENGTH,
@@ -19,7 +18,7 @@ from ..algos.combinations.range_combinations import (
 from ..algos.ionosphere.klobuchar_ionospheric_model import (
     klobuchar_ionospheric_correction,
 )
-from ..algos.rotations import earth_rotation_correction
+from ..algos.rotations import sagnac_correction
 from ..algos.smoothing.base_smoother import BaseSmoother
 from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
 from ..algos.wls.wls_triangulator import wls_triangulation
@@ -40,202 +39,16 @@ class GPSPreprocessor(Preprocessor):
     L1_PHASE_ON = Epoch.L1_PHASE_ON
     L2_PHASE_ON = Epoch.L2_PHASE_ON
 
+    # Satellite Coord Correction Iterations
+    SV_COORD_CORRECTION_ITER = 10
+
+    # Create a GPS satellite ephemeris processor
+    ephemeris_processor = IGPSEphemeris()
+    sp3_processor = IGPSSp3()
+
     def __init__(self) -> None:
         """Initializes the preprocessor with the GPS constellation."""
         super().__init__(constellation="G")
-
-    def _compute_sv_coordinates_at_emission_epoch(
-        self,
-        reception_time: pd.Timestamp,
-        pseudorange: pd.Series,
-        nav: pd.DataFrame,
-        nav_metadata: pd.Series,
-        no_clock_correction: bool = False,
-    ) -> Epoch:
-        """Computes the satellite coordinates at the emission epoch.
-
-        This method computes the satellite coordinates at the emission epoch using the GPS observations and navigation data.
-        It instantiates the Satellite class and computes the satellite coordinate at the emission epoch.
-
-        Args:
-            reception_time (pd.Timestamp): Reception time of the GPS observations.
-            pseudorange (pd.Series): Pseudorange of the GPS observations.
-            nav (pd.DataFrame): Navigation data.
-            nav_metadata (pd.Series): Metadata for the navigation data.
-            no_clock_correction (bool, optional): If True, then no satellite clock correction is applied. Defaults to False.
-
-        Returns:
-            Epoch: The computed satellite coordinates at the emission epoch.
-        """
-        # Compute the emission epoch
-        dt = pseudorange / SPEED_OF_LIGHT
-
-        # Compute the emission epoch
-        emission_epoch = reception_time - pd.to_timedelta(dt, unit="s")
-
-        # Instantiate the Satellite class
-        satellite = Satellite(iephemeris=IGPSEphemeris())
-
-        # t_sv must have same indexed dataframes as nav. Compatibility check!!
-        t_sv = pd.DataFrame(
-            index=nav.index, columns=["Tsv"], data=emission_epoch.to_numpy()
-        )
-
-        # Compute the satellite coordinate at the emission epoch
-        return satellite(
-            t_sv=t_sv,
-            metadata=nav_metadata,
-            data=nav,
-            no_clock_correction=no_clock_correction,
-        ).droplevel("time")
-
-    def _rotate_satellite_coordinates_to_reception_epoch(
-        self,
-        sv_coords: pd.DataFrame,
-        pseudorange: pd.Series,
-        approx_receiver_location: pd.Series | None = None,
-    ) -> pd.DataFrame:
-        """Rotate the satellite coordinates to the reception epoch.
-
-        This method rotates the satellite coordinates to the reception epoch using the Earth rotation correction.
-
-        Methods:
-            - Rotate by following angule for each satellite using the omega_e * (pseudorange / speed of light).
-
-        Args:
-            sv_coords (pd.DataFrame): Satellite coordinates at the emission epoch.
-            pseudorange (pd.Series): Pseudorange of the GPS observations.
-            approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-
-        Returns:
-            Epoch: The rotated satellite coordinates at the reception epoch.
-        """
-        dt = None  # Initialize the dt to None
-        if approx_receiver_location is None:
-            # Compute the dt for each satellite naively
-            # Use the pseudorange and the speed of light to compute the dt
-            # Include the satellite clock correction and other unmodeled effects
-            dt = pseudorange / 299792458
-        else:
-            # Check if ['x', 'y', 'z'] are present in the approx_receiver_location
-            if not all(
-                [coord in approx_receiver_location.index for coord in ["x", "y", "z"]]
-            ):
-                raise ValueError(
-                    "Invalid approx_receiver_location. Must contain ['x', 'y', 'z'] coordinates."
-                )
-            # Compute the dt using method in Equation 5.13 in ESA GNSS Book
-            # https://gssc.esa.int/navipedia/GNSS_Book/ESA_GNSS-Book_TM-23_Vol_I.pdf
-            dt = (
-                sv_coords[["x", "y", "z"]] - approx_receiver_location[["x", "y", "z"]]
-            ).apply(lambda row: row.dot(row) ** 0.5 / 299792458, axis=1)
-
-        # Rotate the satellite coordinates to the reception epoch
-        rotated = earth_rotation_correction(
-            sv_position=sv_coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
-            dt=dt.to_numpy(dtype=np.float64).ravel(),
-        )
-
-        return pd.DataFrame(
-            data=rotated,
-            index=sv_coords.index,
-            columns=["x", "y", "z"],
-        )
-
-    def process_sv_coordinate(
-        self,
-        reception_time: pd.Timestamp,
-        navigation_data: pd.DataFrame,
-        navigation_metadata: pd.Series,
-        pseudorange: pd.Series,
-        approx_receiver_location: pd.Series | None = None,
-        no_clock_correction: bool = False,
-    ) -> pd.DataFrame:
-        """Process the satellite coordinates at the reception epoch.
-
-        Args:
-            reception_time (pd.Timestamp): Reception time of the GPS observations.
-            navigation_data (pd.DataFrame): Navigation data.
-            navigation_metadata (pd.Series): Metadata for the navigation data.
-            pseudorange (pd.Series): Pseudorange of the GPS observations.
-            approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
-            no_clock_correction (bool, optional): If True, then no satellite clock correction is applied. Defaults to False.
-
-        Returns:
-            pd.DataFrame: The processed satellite coordinates at the reception epoch.
-        """
-        # Compute the satellite coordinates at the emission epoch
-        coords = self._compute_sv_coordinates_at_emission_epoch(
-            reception_time=reception_time,
-            pseudorange=pseudorange,
-            nav=navigation_data,
-            nav_metadata=navigation_metadata,
-            no_clock_correction=no_clock_correction,
-        )
-
-        # Rotate the satellite coordinates to the reception epoch
-        rotated_coords = self._rotate_satellite_coordinates_to_reception_epoch(
-            sv_coords=coords,
-            pseudorange=pseudorange,
-            approx_receiver_location=approx_receiver_location,
-        )
-
-        # Update the satellite coordinates
-        coords[["x", "y", "z"]] = rotated_coords
-
-        return coords
-
-    def bootstrap(
-        self,
-        epoch: Epoch,
-    ) -> pd.Series:
-        """Bootstrap the receiver location using the WLS.
-
-        Args:
-            epoch (Epoch): Epoch containing observation data and navigation data.
-
-        Returns:
-            pd.Series: The approximate receiver location in ECEF coordinate.
-        """
-        # Process the satellite coordinates at the reception epoch
-        coords = self.process_sv_coordinate(
-            reception_time=epoch.timestamp,
-            navigation_data=epoch.nav_data,
-            navigation_metadata=epoch.nav_meta,
-            pseudorange=epoch.obs_data[self.L1_CODE_ON],
-            approx_receiver_location=None,
-            no_clock_correction=False,
-        )
-
-        # Get the base solution using WLS
-        base_solution = wls_triangulation(
-            pseudorange=epoch.obs_data[self.L1_CODE_ON].to_numpy(),
-            sv_pos=coords[["x", "y", "z"]].to_numpy(),
-            x0=np.zeros(4),
-        )
-        # Convert the base solution to a pandas series
-        solution = pd.Series(
-            {
-                "x": base_solution["solution"][0],
-                "y": base_solution["solution"][1],
-                "z": base_solution["solution"][2],
-                "cdt": base_solution["solution"][3],
-            }
-        )
-        # Compute the latitude, longitude and height of the receiver based on the base solution
-        lat, lon, height = geocentric_to_ellipsoidal(
-            x=solution["x"],
-            y=solution["y"],
-            z=solution["z"],
-            max_iter=1000,
-        )
-
-        # Attach the latitude, longitude and height to the solution
-        solution["lat"] = lat
-        solution["lon"] = lon
-        solution["height"] = height
-
-        return solution
 
     def _compute_satellite_azimuth_and_elevation(
         self, sv_coords: np.ndarray, approx_receiver_location: pd.Series
@@ -340,6 +153,277 @@ class GPSPreprocessor(Preprocessor):
             data=iono_corr, index=sv_coords.index, name="ionospheric_correction"
         )
 
+    def _approx_travel_time(
+        self,
+        pseudorange: np.ndarray,
+        approximate_sv_coords: np.ndarray | None = None,
+        approx_receiver_location: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Approximate the travel time of the GPS signal.
+
+        To compute the travel time of the GPS signal, two methods are used:
+            - If the satellite coordinates and approximate reciever location are available, then the travel time is computed as the norm of the difference between the satellite and receiver coordinates.
+            - If the satellite coordinates are not available, then the travel time is computed as the ratio of the pseudorange and the speed of light.
+
+        Args:
+            pseudorange (float): The pseudorange of the GPS signal. (N,)
+            approximate_sv_coords (np.ndarray, optional): The approximate satellite coordinates in ECEF coordinate. Defaults to None. (N, 3)
+            approx_receiver_location (np.ndarray, optional): The approximate receiver location in ECEF coordinate. Defaults to None. (3,)
+
+        Returns:
+            np.ndarray: The approximate travel time of the GPS signal. (N,)
+
+        """
+        # # Check if approx_receiver_location is None
+        if approx_receiver_location is None or approximate_sv_coords is None:
+            return pseudorange / SPEED_OF_LIGHT
+
+        # Ensure that the approx_receiver_location contains the ['x', 'y', 'z'] coordinates
+        return (
+            np.linalg.norm(approximate_sv_coords - approx_receiver_location, axis=1)
+            / SPEED_OF_LIGHT
+        )
+
+    def _compute_sv_coordinates_at_emission_epoch(
+        self,
+        reception_time: pd.Timestamp,
+        pseudorange: pd.Series,
+        nav: pd.DataFrame,
+        nav_metadata: pd.Series,
+        approx_receiver_location: pd.Series | None = None,
+        approx_sv_location: pd.DataFrame | None = None,
+        is_sp3: bool = False,
+    ) -> Epoch:
+        """Computes the satellite coordinates at the emission epoch.
+
+        This method computes the satellite coordinates at the emission epoch using the GPS observations and navigation data.
+        It instantiates the Satellite class and computes the satellite coordinate at the emission epoch.
+
+        Args:
+            reception_time (pd.Timestamp): Reception time of the GPS observations.
+            pseudorange (pd.Series): Pseudorange of the GPS observations.
+            nav (pd.DataFrame): Navigation data.
+            nav_metadata (pd.Series): Metadata for the navigation data.
+            no_clock_correction (bool, optional): If True, then no satellite clock correction is applied. Defaults to False.
+            approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
+            approx_sv_location (pd.DataFrame, optional): Approximate satellite location in ECEF coordinate. Defaults to None.
+            is_sp3 (bool, optional): If True, then the navigation data is in SP3 format. Defaults to False.
+
+        Returns:
+            Epoch: The computed satellite coordinates at the emission epoch.
+
+
+        Note:
+            - The approximate receiver location should be in ECEF coordinate and have the only keys ['x', 'y', 'z'].
+            - The approximate satellite location should be in ECEF coordinate and have the only keys ['x', 'y', 'z'].
+        """
+        # Get the approximate values of the receiver location and satellite location
+        approx_rcvr, rcvr_clock_bias = (
+            (
+                approx_receiver_location[["x", "y", "z"]].to_numpy(dtype=np.float64),
+                approx_receiver_location["cdt"] / SPEED_OF_LIGHT,
+            )
+            if approx_receiver_location is not None
+            else (None, 0.0)
+        )
+        # Get the approximate values of the satellite location
+        approx_sv = (
+            approx_sv_location.to_numpy(dtype=np.float64)
+            if approx_sv_location is not None
+            else None
+        )
+
+        # Correct the reception time for the receiver clock bias
+        reception_time -= pd.to_timedelta(rcvr_clock_bias, unit="s")
+
+        # If the data format is ephemeris, then compute the satellite coordinates at the emission epoch
+        # Compute the travel time of the GPS signal
+        travel_time = self._approx_travel_time(
+            pseudorange=pseudorange.to_numpy(dtype=np.float64),
+            approximate_sv_coords=approx_sv,
+            approx_receiver_location=approx_rcvr,
+        )
+
+        # Convert to time delta
+        emission_epoch = pd.Series(
+            reception_time - pd.to_timedelta(travel_time, unit="s"),
+            index=pseudorange.index.get_level_values("sv"),
+        )
+
+        # If sp3 data is available, then compute the satellite coordinates at the emission epoch
+        # using the sp3
+        if is_sp3:
+            sv_coords = pd.DataFrame(
+                [
+                    self.sp3_processor.compute(
+                        t=emission_epoch[sv],
+                        metadata=None,
+                        data=nav.xs(key=sv, level="sv"),
+                        tolerance=pd.Timedelta(hours=2),
+                    )
+                    for sv in pseudorange.index
+                ],
+                index=pseudorange.index.get_level_values("sv"),
+            )
+        else:
+
+            # If the data format is ephemeris, then compute the satellite coordinates at the emission epoch
+            # using the ephemeris data
+
+            # Iterate over the navigation data and compute the satellite coordinates at the emission epoch
+            sv_pos = []
+            for (toc, sv), ephemeris in nav.iterrows():
+                # Add the ephemeris time of clock to the ephemeris data
+                # This is due to data formatting # TODO: Fix this in the future
+                ephemeris["Toc"] = toc
+
+                # Compute the satellite coordinates at the emission epoch
+                sv_pos.append(
+                    self.ephemeris_processor(
+                        t=emission_epoch[sv],
+                        metadata=nav_metadata,
+                        data=ephemeris,
+                        system_time=True,
+                    )
+                )
+
+            # NOTE: The system time is used here to compute the satellite coordinates at the emission epoch
+            # This is done since the travel time in consecutive iterations in "compute_sv_coordinates" is computed
+            # using the approximate satellite coordinates and receiver location which doesn't have satellite
+            # clock bias correction but the ephemeris processor in deafult mode applies the satellite clock bias correction
+            # Hence, the system time kwarg is used to suppress the satellite clock bias correction in the ephemeris processor
+
+            # Stack the satellite coordinates into a DataFrame
+            sv_coords = pd.DataFrame(
+                data=sv_pos, index=nav.index.get_level_values("sv")
+            )
+
+        # Compute the sagna effect to correct for the Earth's rotation
+        sv_coords[["x", "y", "z"]] = sagnac_correction(
+            sv_position=sv_coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
+            dt=travel_time,
+        )
+
+        return sv_coords
+
+    def compute_sv_coordinates(
+        self,
+        reception_time: pd.Timestamp,
+        navigation_data: pd.DataFrame,
+        navigation_metadata: pd.Series,
+        pseudorange: pd.Series,
+        approx_receiver_location: pd.Series,
+        is_sp3: bool = False,
+    ) -> pd.DataFrame:
+        """Iteratively compute the satellite coordinates at the reception epoch.
+
+        This iteratively computes the satellite coordinates at the reception epoch by applying the satellite clock correction and the Sagnac effect.
+        Consecutive iterations are performed to ensure the satellite coordinates are accurate.
+
+
+        Args:
+            reception_time (pd.Timestamp): Reception time of the GPS observations.
+            navigation_data (pd.DataFrame): Navigation data.
+            navigation_metadata (pd.Series): Metadata for the navigation data.
+            pseudorange (pd.Series): Pseudorange of the GPS observations.
+            approx_receiver_location (pd.Series, optional): Approximate receiver location in ECEF coordinate. Defaults to None.
+            is_sp3 (bool, optional): If True, then the navigation data is in SP3 format. Defaults to False.
+
+        Returns:
+            pd.DataFrame: The processed satellite coordinates at the reception epoch.
+        """
+        # Get the satellite coordinates at the emission epoch
+        sv_coords_at_i = self._compute_sv_coordinates_at_emission_epoch(
+            reception_time=reception_time,
+            nav=navigation_data,
+            nav_metadata=navigation_metadata,
+            pseudorange=pseudorange,
+            approx_receiver_location=approx_receiver_location[["x", "y", "z", "cdt"]],
+            approx_sv_location=None,
+            is_sp3=is_sp3,
+        )
+
+        # Iterate over the satellite coordinates to correct for the satellite clock bias
+        for _ in range(self.SV_COORD_CORRECTION_ITER):
+            # Compute the satellite coordinates at the reception epoch
+            sv_coords_at_i = self._compute_sv_coordinates_at_emission_epoch(
+                reception_time=reception_time,
+                nav=navigation_data,
+                nav_metadata=navigation_metadata,
+                pseudorange=pseudorange,
+                approx_receiver_location=approx_receiver_location[
+                    ["x", "y", "z", "cdt"]
+                ],
+                approx_sv_location=sv_coords_at_i[["x", "y", "z"]],
+                is_sp3=is_sp3,
+            )
+
+        return sv_coords_at_i
+
+    def bootstrap(
+        self,
+        epoch: Epoch,
+    ) -> pd.Series:
+        """Bootstrap the receiver location using the WLS.
+
+        This is used to get an approximate receiver location for the WLS triangulation
+        which is further used to compute the satellite coordinates at the emission epoch.
+
+        Args:
+            epoch (Epoch): Epoch containing observation data and navigation data.
+
+        Returns:
+            pd.Series: The approximate receiver location in ECEF coordinate.
+        """
+        # Process the satellite coordinates at the reception epoch
+        coords = self._compute_sv_coordinates_at_emission_epoch(
+            reception_time=epoch.timestamp,
+            nav=epoch.nav_data,
+            nav_metadata=epoch.nav_meta,
+            pseudorange=epoch.obs_data[Epoch.L1_CODE_ON],
+            approx_receiver_location=None,
+            approx_sv_location=None,
+            is_sp3=epoch.profile.get("navigation_format", "ephemeris") == "sp3",
+        )
+        # Correct for the satellite clock bias
+        pseudorange = (
+            epoch.obs_data[self.L1_CODE_ON]
+            + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
+        )
+
+        # Get the base solution using WLS
+        base_solution = wls_triangulation(
+            pseudorange=pseudorange.to_numpy(dtype=np.float64),
+            sv_pos=coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
+            x0=np.zeros(4),
+            max_iter=1000,
+            eps=1e-7,
+        )
+        # Convert the base solution to a pandas series
+        solution = pd.Series(
+            {
+                "x": base_solution["solution"][0],
+                "y": base_solution["solution"][1],
+                "z": base_solution["solution"][2],
+                "cdt": base_solution["solution"][3],
+            }
+        )
+
+        # Compute the latitude, longitude and height of the receiver based on the base solution
+        lat, lon, height = geocentric_to_ellipsoidal(
+            x=solution["x"],
+            y=solution["y"],
+            z=solution["z"],
+            max_iter=1000,
+        )
+
+        # Attach the latitude, longitude and height to the solution
+        solution["lat"] = lat
+        solution["lon"] = lon
+        solution["height"] = height
+
+        return solution
+
     def preprocess(
         self,
         epoch: Epoch,
@@ -376,13 +460,13 @@ class GPSPreprocessor(Preprocessor):
             epoch.approximate_coords = self.bootstrap(epoch)
 
         # Get the satellite coordinates at the emission epoch
-        coords = self.process_sv_coordinate(
+        coords = self.compute_sv_coordinates(
             reception_time=epoch.timestamp,
             navigation_data=epoch.nav_data,
             navigation_metadata=epoch.nav_meta,
             pseudorange=epoch.obs_data[self.L1_CODE_ON],
             approx_receiver_location=epoch.approximate_coords,
-            no_clock_correction=kwargs.get("no_clock_correction", False),
+            is_sp3=epoch.profile.get("navigation_format", "ephemeris") == "sp3",
         )
 
         # Get the elevation and azimuth of the satellites and attach it to the coords
@@ -472,7 +556,10 @@ class GPSPreprocessor(Preprocessor):
             pseudorange -= coords["tropospheric_correction"]
             phase -= coords["tropospheric_correction"]
 
-        if epoch.profile.get("apply_iono", False) and epoch.profile.get("mode", "dual") == "single": # Only apply ionospheric correction for single mode
+        if (
+            epoch.profile.get("apply_iono", False)
+            and epoch.profile.get("mode", "dual") == "single"
+        ):  # Only apply ionospheric correction for single mode
             # Check if the ionospheric correction parameters are available
             if epoch.nav_meta.get("IONOSPHERIC CORR", None) is None:
                 raise ValueError(
@@ -487,12 +574,14 @@ class GPSPreprocessor(Preprocessor):
             )
             # Apply the ionospheric correction
             pseudorange -= coords["ionospheric_correction"]
-            phase -= coords["ionospheric_correction"]
+            phase += coords[
+                "ionospheric_correction"
+            ]  # Sign is flipped for the phase measurements
 
-        # Apply the satelllite color correction to the pseudorange and phase measurements
+        # Apply the satelllite clock correction to the pseudorange and phase measurements
         # The clock bias is calculated as the product of the satellite clock bias and the speed of light
-        pseudorange += SPEED_OF_LIGHT * coords["dt"]
-        phase += SPEED_OF_LIGHT * coords["dt"]
+        pseudorange += SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
+        phase += SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
 
         return pd.concat([pseudorange, phase], axis=1), coords
 

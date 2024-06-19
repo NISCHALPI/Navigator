@@ -12,8 +12,15 @@ from numba import float64, njit
 # Constants
 MU = 3.986005e14  # Gravitational constant of the Earth (m^3/s^2)
 omega_e = 7.2921151467e-5  # Angular velocity of the Earth (rad/s)
+F = -4.442807633e-10  # Constant used in relativistic clock correction
 
-__all__ = ["ephm_to_coord_gps"]
+__all__ = [
+    "week_anamonaly",
+    "eccentric_anomaly",
+    "relativistic_clock_correction",
+    "clock_correction",
+    "ephm_to_coord_gps",
+]
 
 
 @njit(
@@ -50,7 +57,7 @@ def week_anamonaly(t: float, t_oe: float) -> float:
     fastmath=True,
     cache=True,
 )
-def _eccentric_anomaly(
+def eccentric_anomaly(
     t_k: float,
     sqrt_a: float,
     delta_n: float,
@@ -88,6 +95,98 @@ def _eccentric_anomaly(
             break
 
     return E_k
+
+
+@njit(
+    float64(
+        float64,
+        float64,
+        float64,
+    ),
+    cache=True,
+)
+def relativistic_clock_correction(sqrt_A: float, Ek: float, e: float) -> float:
+    """Calculate the relativistic clock correction.
+
+    Args:
+        sqrt_A (pd.Series): Square root of the semi-major axis of the orbit.
+        Ek (pd.Series): Keplers eccentric anomaly.
+        e (pd.Series): Eccentricity of the orbit.
+    """
+    # See : https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf page 98
+    return F * e * sqrt_A * np.sin(Ek)
+
+
+@njit(
+    float64(
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+        float64,
+    ),
+    cache=True,
+)
+def clock_correction(
+    t: float,
+    a_f0: float,
+    a_f1: float,
+    a_f2: float,
+    t_oc: float,
+    t_oe: float,
+    sqrt_A: float,
+    delta_n: float,
+    M_0: float,
+    e: float,
+    t_gd: float,
+) -> float:
+    """Calculate the clock correction. See GPS ICD 200 Page 98: https://www.gps.gov/technical/icwg/IS-GPS-200N.pdf X.
+
+    All the time must be in seconds of GPS week for the GPS, Galileo and BeiDou satellites.
+
+    Args:
+        t (float): Time to compute the clock correction at.
+        a_f0 (float): SV clock bias.
+        a_f1 (float): SV clock drift.
+        a_f2 (float): SV clock drift rate.
+        t_oc (float): Time of clock.
+        t_oe (float): Time of ephemeris.
+        sqrt_A (float): Square root of the semi-major axis of the orbit.
+        delta_n (float): Mean motion difference.
+        M_0 (float): Mean anomaly at reference time.
+        e (float): Eccentricity of the orbit.
+        t_gd (float): Group delay differential.
+
+    Returns:
+        float: Clock correction.
+    """
+    # Compute Ek usinge pre-corrected time
+    Ek = eccentric_anomaly(
+        t_k=week_anamonaly(t=t, t_oe=t_oe),
+        sqrt_a=sqrt_A,
+        delta_n=delta_n,
+        M_0=M_0,
+        e=e,
+    )
+
+    # Get Relativitic clock correction
+    t_r = relativistic_clock_correction(
+        sqrt_A=sqrt_A,
+        Ek=Ek,
+        e=e,
+    )
+
+    # Compute delta_t with week anomally
+    delta_t = t - t_oc
+
+    # Compute clock correction
+    return a_f0 + a_f1 * delta_t + a_f2 * delta_t**2 + t_r - t_gd
 
 
 # See ICD Page 106
@@ -165,7 +264,7 @@ def ephm_to_coord_gps(
     a = sqrt_a**2
 
     # Compute eccentric anomaly
-    E_k = _eccentric_anomaly(
+    E_k = eccentric_anomaly(
         t_k=t_k,
         sqrt_a=sqrt_a,
         delta_n=delta_n,

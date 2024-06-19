@@ -149,23 +149,23 @@ class IonoSphericalErrorModel(BaseErrorModel):
         Returns:
             Epoch: The epoch with the error model applied.
         """
-        I = self.rv_variable.rvs(size=1).flatten()
+        rvs_error = self.rv_variable.rvs(size=1).flatten()  #
         # Check if the error shape and epoch shape are the same
-        if I.shape[0] != epoch.obs_data.shape[0]:
+        if rvs_error.shape[0] != epoch.obs_data.shape[0]:
             raise ValueError(
-                f"Error shape {I.shape} and epoch shape {epoch.obs_data.shape[0]} are not the same."
+                f"Error shape {rvs_error.shape} and epoch shape {epoch.obs_data.shape[0]} are not the same."
             )
-        I_2 = I * (L2_FREQ / L1_FREQ) ** 2
+        I_2 = rvs_error * (L2_FREQ / L1_FREQ) ** 2
 
         # Apply ionospheric spherical error
-        epoch.obs_data[epoch.L1_CODE_ON] += I
+        epoch.obs_data[epoch.L1_CODE_ON] += rvs_error
         epoch.obs_data[epoch.L2_CODE_ON] += I_2
 
         # Apply ionospheric spherical error on phase measurements
-        epoch.obs_data[epoch.L1_PHASE_ON] -= I
+        epoch.obs_data[epoch.L1_PHASE_ON] -= rvs_error
         epoch.obs_data[epoch.L2_PHASE_ON] -= I_2
 
-        epoch.real_coord["IONO_ERROR"] = I
+        epoch.real_coord["IONO_ERROR"] = rvs_error
 
         return epoch
 
@@ -372,7 +372,9 @@ class MultivariatePoisson(rv_continuous):
     def _rvs(
         self,
         size: Optional[Union[int, Tuple[int]]] = None,
-        random_state: Optional[Union[int, np.random.RandomState]] = None,
+        random_state: Optional[  # noqa : ARG002
+            Union[int, np.random.RandomState]
+        ] = None,
     ) -> np.ndarray:
         """Generate random samples from the multivariate Poisson distribution.
 

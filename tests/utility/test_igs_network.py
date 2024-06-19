@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from navigator.utility.igs_network import IGSNetwork
+from navigator.utils.igs_network import IGSNetwork
 import numpy as np
 
 

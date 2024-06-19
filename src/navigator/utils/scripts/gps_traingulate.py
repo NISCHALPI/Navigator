@@ -104,7 +104,7 @@ def wls(
 
     logger.info("Epochifying the data!")
     # Epochify the data
-    epoches = list(Epoch.epochify(obs=obs_file, nav=nav_file, mode=mode))
+    epoches = list(Epoch.from_rinex(obs=obs_file, nav=nav_file, mode=mode))
     logger.info(f"Found {len(epoches)} epoches!")
 
     # Filter out epoches with less than 5 satellites
@@ -247,7 +247,7 @@ def ukf(
     logger.info("Triangulating using Unscented Kalman Filter (UKF)!")
 
     # Epochify the data
-    epoches = list(Epoch.epochify(obs=obs_file, nav=nav_file, mode=mode))
+    epoches = list(Epoch.from_rinex(obs=obs_file, nav=nav_file, mode=mode))
     logger.info(f"Found {len(epoches)} epoches!")
 
     # Filter out epoches with less than 5 satellites

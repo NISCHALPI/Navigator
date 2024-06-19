@@ -39,6 +39,9 @@ class IGPSSp3(AbstractIephemeris):
     The SP3 orbit files contain satellite orbit data at various time epochs.
     """
 
+    # Clock bias key for future use
+    SV_CLOCK_BIAS_KEY = "SVclockBias"
+
     def __init__(self) -> None:
         """Constructor method for the IGPSSp3 class."""
         super().__init__(feature="SP3 Orbit")
@@ -74,7 +77,7 @@ class IGPSSp3(AbstractIephemeris):
         t: pd.Timestamp | datetime,
         metadata: pd.Series,  # noqa: ARG002
         data: pd.DataFrame,
-        tolerance: int = 5,
+        tolerance: pd.Timedelta = pd.Timedelta(hours=2),
         **kwargs,  # noqa: ARG002
     ) -> pd.Series:
         """Compute the satellite position at a given time using interpolation.
@@ -96,18 +99,14 @@ class IGPSSp3(AbstractIephemeris):
         """
         # Check if x, y, z are available in columns
         # and 'time' is available in index
-        if not all([x in data.columns for x in ["x", "y", "z"]]):
-            raise ValueError("Missing x, y or z in data")
+        if not all([x in data.columns for x in ["x", "y", "z", "clock"]]):
+            raise ValueError("Missing x, y,z or clock in columns")
 
         if "time" != data.index.name:
             raise ValueError("Missing time in index")
 
         # Check that the time is between the first and last time
-        if not (
-            data.index.min() - pd.Timedelta(minutes=tolerance)
-            <= t
-            <= data.index.max() + pd.Timedelta(minutes=tolerance)
-        ):
+        if not (data.index.min() - tolerance <= t <= data.index.max() + tolerance):
             raise ValueError(
                 f"Time {t} is outside the time range of the data: Time range: {data.index.min()} - {data.index.max()}"
             )
@@ -123,22 +122,25 @@ class IGPSSp3(AbstractIephemeris):
             lambda x: (x - t0).total_seconds()
         )
 
-        # Fit a 11 degree polynomial to the x,y,z data
+        # Fit a 11 degree polynomial to the x,y,z, dt data
         x = subset["x"]
         y = subset["y"]
         z = subset["z"]
+        dt = subset["clock"]
         t_x = subset["time_elapsed"]
 
         # Fit a 11 degree polynomial to the x,y,z data
         x_poly = Polynomial.fit(t_x, x, 10)
         y_poly = Polynomial.fit(t_x, y, 10)
         z_poly = Polynomial.fit(t_x, z, 10)
+        dt_poly = Polynomial.fit(t_x, dt, 10)
         # Return the interpolated position
         return pd.Series(
             {
                 "x": x_poly((t - t0).total_seconds()),
                 "y": y_poly((t - t0).total_seconds()),
                 "z": z_poly((t - t0).total_seconds()),
+                self.SV_CLOCK_BIAS_KEY: dt_poly((t - t0).total_seconds()),
             }
         )
 
@@ -147,7 +149,7 @@ class IGPSSp3(AbstractIephemeris):
         t: pd.Timestamp | datetime,
         metadata: pd.Series,  # noqa: ARG002
         data: pd.DataFrame,
-        tolerance: int = 5,
+        tolerance: pd.Timedelta = pd.Timedelta(hours=2),
         **kwargs,
     ) -> pd.Series:
         """Compute the satellite position at a given time using interpolation.
@@ -156,7 +158,7 @@ class IGPSSp3(AbstractIephemeris):
             t (pd.Timestamp | datetime): Time of epoch.
             metadata (pd.Series): Metadata of the SP3 orbit file.
             data (pd.DataFrame): DataFrame of the SP3 orbit file. (See SP3 Parser)
-            tolerance (int): Tolerance in sp3 extra interpolation.
+            tolerance (pd.Timedelta): Tolerance in sp3 extra interpolation.
             kwargs: Additional keyword arguments.
 
         Returns:
