@@ -33,11 +33,8 @@ def elevation_and_azimuthal(
     Returns:
         tuple: A tuple containing the elevation and azimuthal angles of the satellites. (E, A)
     """
-    if satellite_positions.ndim == 1:
-        satellite_positions = satellite_positions[np.newaxis, :]
-
     # Calculate the local ENU coordinates of the observer
-    e_hat, n_hat, u_hat = geocentric_to_enu(
+    enu = geocentric_to_enu(
         observer_position[0], observer_position[1], observer_position[2]
     )
 
@@ -46,10 +43,10 @@ def elevation_and_azimuthal(
     los = los / np.linalg.norm(los, axis=1, keepdims=True)
 
     # Calculate the elevation angle
-    E = np.arcsin(np.dot(los, u_hat))
+    E = np.arcsin(np.dot(los, enu[2]))
 
     # Calculate the azimuthal angle
-    A = np.arctan2(np.dot(los, e_hat), np.dot(los, n_hat))
+    A = np.arctan2(np.dot(los, enu[0]), np.dot(los, enu[1]))
 
     # Convert the angles to degrees
     E = np.degrees(E)
@@ -60,7 +57,4 @@ def elevation_and_azimuthal(
     # Wrap the elevation angles to the range [-90, 90]
     E = (E + 90) % 180 - 90
 
-    if E.size == 1:
-        E = E.item()
-        A = A.item()
     return E, A

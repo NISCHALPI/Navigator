@@ -122,7 +122,7 @@ class EpochCollection:
             )
 
         # Set a profile
-        self.profile = profile if not dummy else Epoch.DUMMY
+        self.profile = profile if not dummy else Epoch.INITIAL
 
         # Set the real coordinates of the receiver
         self.real_coords = real_coords
@@ -376,7 +376,9 @@ class EpochCollection:
         # Update the profile of the epochs with the profile of the collection
         for epoch in self._epochs:
             epoch.profile = self._profile
-            epoch.real_coord = self._real_coords
+            epoch.real_coord = (
+                self._real_coords if self._real_coords is not None else epoch.real_coord
+            )
             yield epoch
 
     def __getitem__(self, index: int | slice) -> Epoch:

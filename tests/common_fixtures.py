@@ -16,37 +16,51 @@ __all__ = [
 @pytest.fixture
 def navfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/AMC400USA_R_20230391700_01H_GN.rnx")
+    return os.path.join(cwd, "rinexsamples/rnx/AMC400USA_R_20230391700_01H_GN.rnx")
 
 
 @pytest.fixture
 def obsfilepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/AMC400USA_R_20230391700_01H_30S_MO.crx")
+    return os.path.join(cwd, "rinexsamples/rnx/AMC400USA_R_20230391700_01H_30S_MO.crx")
 
 
 @pytest.fixture
 def sp3_legacy_filepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/igs19663.sp3.Z")
+    return os.path.join(cwd, "rinexsamples/rnx/igs19663.sp3.Z")
 
 
 @pytest.fixture
 def sp3_filepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/IGS0OPSFIN_20233090000_01D_15M_ORB.SP3.gz")
+    return os.path.join(
+        cwd, "rinexsamples/rnx/IGS0OPSFIN_20233090000_01D_15M_ORB.SP3.gz"
+    )
 
 
 @pytest.fixture
-def safran_sim_nav_filepath():
+def skydel_sim_nav_filepath():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/SkydelRINEX_S_20242100_7200S_GN.rnx")
+    return os.path.join(cwd, "rinexsamples/sim/SkydelRINEX_S_20242100_7200S_GN.rnx")
 
 
 @pytest.fixture
-def safran_sim_true_state_filepath():
+def skydel_sim_g10_l1c():
     cwd = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(cwd, "rinexsamples/SAFRAN_SIM_SAMPE.csv")
+    return os.path.join(cwd, "rinexsamples/sim/Skydel_G10_C1C.csv")
+
+
+@pytest.fixture
+def skydel_sim_obs_filepath():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(cwd, "rinexsamples/sim/SkydelRINEX_S_20242100_7200S_MO.rnx")
+
+
+@pytest.fixture
+def skyder_true_reciever_state_filepath():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(cwd, "rinexsamples/sim/Skydel_reciever_pos.csv")
 
 
 @pytest.fixture

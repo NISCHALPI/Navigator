@@ -2,18 +2,18 @@ import pytest
 from navigator.parse import Parser, IParseGPSNav
 from navigator.core import Satellite, IGPSEphemeris
 from tests.common_fixtures import (
-    safran_sim_nav_filepath,
-    safran_sim_true_state_filepath,
+    skydel_sim_nav_filepath,
+    skydel_sim_g10_l1c,
 )
 import numpy as np
 import pandas as pd
 
 
-def test_ephemeris_alograthim(safran_sim_nav_filepath, safran_sim_true_state_filepath):
+def test_ephemeris_alograthim(skydel_sim_nav_filepath, skydel_sim_g10_l1c):
     # Unpack the nav_data
-    metadata, data = IParseGPSNav().parse(filename=safran_sim_nav_filepath)
+    metadata, data = IParseGPSNav().parse(filename=skydel_sim_nav_filepath)
     # Read the true state csv file
-    g10_true = pd.read_csv(safran_sim_true_state_filepath)
+    g10_true = pd.read_csv(skydel_sim_g10_l1c)
 
     # Create a gps ephemris processor
     ephemeris_processor = Satellite(iephemeris=IGPSEphemeris())
