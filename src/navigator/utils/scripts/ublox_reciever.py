@@ -9,7 +9,7 @@ import pandas as pd
 import pyubx2 as ubx
 import tqdm
 
-from ..logger.logger import get_logger
+from ...logger.logger import get_logger
 from ..ublox.commands import NAV_PVT, RXM_RAWX, RXM_SFRBX
 from ..ublox.profile import StreamingProfile
 

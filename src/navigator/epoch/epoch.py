@@ -81,7 +81,11 @@ class Epoch:
     OBSERVABLES = [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON]
 
     # Relvant columns
-    MINIMUM_REQUIRED_COLUMNS = [L1_CODE_ON, L2_CODE_ON]
+    MINUMUM_REQUIRED_COLUMNS_MAP = {
+        "single": [L1_CODE_ON, L1_PHASE_ON],
+        "dual": [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON],
+        "phase": [L1_CODE_ON, L2_CODE_ON, L1_PHASE_ON, L2_PHASE_ON],
+    }
 
     # Single Frequency Profile
     SINGLE = {
@@ -218,7 +222,9 @@ class Epoch:
         obs_data = (
             self.purify(
                 obs_data,
-                relevant_columns=(self.MINIMUM_REQUIRED_COLUMNS),
+                relevant_columns=Epoch.MINUMUM_REQUIRED_COLUMNS_MAP.get(
+                    self.profile["mode"]
+                ),
             )
             if purify
             else obs_data

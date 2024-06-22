@@ -352,14 +352,53 @@ class Triangulate(AbstractTriangulate):
             lat (float): The latitude of the coordinates.
             lon (float): The longitude of the coordinates.
             zoom (int): The zoom level of the map. Defaults to 10.
+            tiles (str): The type of map tiles to use. Defaults to "OpenStreetMap".
 
         Returns:
             folium.Map: The map with the coordinates plotted.
         """
         # Create a map centered at the coordinates
-        m = folium.Map(location=[lat, lon], zoom_start=zoom)
-
+        m = folium.Map(
+            location=[lat, lon],
+            zoom_start=zoom,
+            tiles='https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community',
+        )
         # Add a marker at the coordinates
         folium.Marker([lat, lon], popup=f"({lat}, {lon})").add_to(m)
+
+        return m
+
+    @staticmethod
+    def plot_trajectory(
+        lat: pd.Series, lon: pd.Series, zoom: int = 20, markers: bool = True
+    ) -> folium.Map:
+        """Plots the trajectory on a map.
+
+        Args:
+            lat (pd.Series): The latitude of the trajectory.
+            lon (pd.Series): The longitude of the trajectory.
+            zoom (int): The zoom level of the map. Defaults to 10.
+            markers (bool): A flag to add markers at each point. Defaults to True.
+
+        Returns:
+            folium.Map: The map with the trajectory plotted.
+        """
+        # Create a map centered at the coordinates
+        m = folium.Map(
+            location=[lat.mean(), lon.mean()],
+            zoom_start=zoom,
+            tiles='https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community',
+        )
+        # Add a marker at the coordinates
+        if markers:
+            for i in range(len(lat)):
+                folium.Marker([lat[i], lon[i]], popup=f"({lat[i]}, {lon[i]})").add_to(m)
+
+        # Add a line to the map
+        folium.PolyLine(
+            list(zip(lat, lon)), color="blue", weight=2.5, opacity=1
+        ).add_to(m)
 
         return m

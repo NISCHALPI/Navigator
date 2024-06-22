@@ -168,7 +168,7 @@ class ExtendedKalmanInterface(IKalman):
         P0: np.ndarray,
         epoches: list[Epoch],
         **kwargs,  # noqa : ARG
-    ) -> dict[str, DataFrame | np.ndarray]:
+    ) -> tuple[DataFrame, dict[str, np.ndarray]]:
         """Computes the fixed interval smoothing estimates for the given epoches.
 
         Args:
@@ -178,7 +178,7 @@ class ExtendedKalmanInterface(IKalman):
             **kwargs: Additional keyword arguments.
 
         Returns:
-            dict[str, DataFrame | np.ndarray]: Dictionary containing the state estimates, covariance matrix, and the innovation residuals.
+           tuple[DataFrame, dict[str, np.ndarray]]: State estimates and additional outputs.
 
         Note:
             - The epoches must be contiguous i.e have the same satellites as the initial epoch. (See navigator.epoch.EpochCollection for more information)
@@ -199,7 +199,6 @@ class ExtendedKalmanInterface(IKalman):
         z = np.vstack([m[0] for m in meas])  # (T, 2 * num_sv)
         sv_pos = np.stack([m[1] for m in meas])  # (T, 2 * num_sv, 3)
 
-        print(z.shape, sv_pos.shape)
         # Batch Process the epoches
         outs = self._filter.batch_smoothing(
             x0=x0,

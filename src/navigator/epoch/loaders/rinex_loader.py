@@ -73,11 +73,12 @@ def from_rinex_dataframes(
     navigation_data: pd.DataFrame,
     navigation_metadata: pd.Series,
     station_name: tp.Optional[str] = None,
-    mode: str = 'maxsv',
+    matching_mode: str = 'maxsv',
     trim: bool = True,
     drop_na: bool = True,
     column_mapper: tp.Optional[tp.List[str]] = None,
     matching_threshold: pd.Timedelta = pd.Timedelta(hours=3),
+    profile : dict[str, str| bool] = Epoch.INITIAL,
 ) -> tp.Iterator[Epoch]:
     """Loads the RINEX data to an epoch object.
 
@@ -91,12 +92,13 @@ def from_rinex_dataframes(
         navigation_data (pd.DataFrame): The navigation data.
         navigation_metadata (pd.Series): The navigation metadata.
         station_name (str, optional): The station name. Defaults to None.
-        mode (str, optional): The mode of matching the navigation data.[maxsv | nearest]. Defaults to 'maxsv'.
+        matching_mode (str, optional): The mode of matching the navigation data.[maxsv | nearest]. Defaults to 'maxsv'.
         trim (bool, optional): Intersect satellite vehicles in observation and navigation data. Defaults to True.
         drop_na (bool, optional): If True, the NaN values will be dropped from relevant columns. Defaults to True.
         column_mapper (tp.List[str], optional): The column mapper. Defaults to None.
         matching_threshold (pd.Timedelta, optional): The matching threshold to match the observation and navigation data. Defaults to pd.Timedelta(hours=3).
-
+        profile (dict[str, str| bool], optional): The profile of the epoch. Defaults to Epoch.INITIAL.
+        
     Returns:
         tp.List[Epoch]: A list of epoch objects.
     """
@@ -122,7 +124,7 @@ def from_rinex_dataframes(
         # Get the nearest navigation fragment
         optimal_nav_frag = obs_frags.nearest_nav_fragment(
             nav_fragments=navigation_data,
-            mode=mode,
+            mode=matching_mode,
             matching_threshold=matching_threshold,
         )
         yield Epoch(
@@ -135,7 +137,7 @@ def from_rinex_dataframes(
             purify=drop_na,
             station=obs_frags.station_name if station_name != "CUSTOM" else None,
             columns_mapping=column_mapper,
-            profile=Epoch.INITIAL,
+            profile=profile,
         )
 
 
@@ -235,7 +237,7 @@ def from_rinex_files(
         navigation_data=navdata,
         navigation_metadata=navmeta,
         station_name=station_name,
-        mode=mode,
+        matching_mode=mode,
         trim=trim,
         drop_na=drop_na,
         column_mapper=column_mapper,

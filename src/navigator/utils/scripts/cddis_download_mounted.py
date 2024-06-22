@@ -11,8 +11,8 @@ from pathlib import Path
 import click
 import tqdm
 
-from ..ftpserver.mount_server import CDDISMountServer
-from ..logger.logger import get_logger
+from ...download.ftpserver.mount_server import CDDISMountServer
+from ...logger.logger import get_logger
 
 # ------------------------------------------ Set the logging level ------------------------------
 

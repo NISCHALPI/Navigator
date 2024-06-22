@@ -376,9 +376,10 @@ class EpochCollection:
         # Update the profile of the epochs with the profile of the collection
         for epoch in self._epochs:
             epoch.profile = self._profile
-            epoch.real_coord = (
-                self._real_coords if self._real_coords is not None else epoch.real_coord
-            )
+
+            # If the real coordinates are provided, update the epoch with the real coordinates
+            if self._real_coords is not None:
+                epoch.real_coord = self._real_coords
             yield epoch
 
     def __getitem__(self, index: int | slice) -> Epoch:
