@@ -10,16 +10,16 @@ from ...epoch.epoch import Epoch
 from ...parse.iparse.nav.iparse_gps_nav import IParseGPSNav
 from ...parse.iparse.obs.iparse_gps_obs import IParseGPSObs
 from .fetchers import fetch_sp3
-from .fragments.gps_framgents import FragNav, FragObs
 
 __all__ = [
+    "get_fragments_idx_from_nav",
     "get_sp3_data",
     "get_noon_of_unique_days",
     "from_rinex_dataframes",
     "from_precise_ephemeris",
 ]
 
-
+  
 def get_sp3_data(
     timestamps: tp.List[pd.Timestamp],
     max_workers: int = 4,
@@ -47,7 +47,6 @@ def get_sp3_data(
 
     return pd.concat([sp3[1] for sp3 in sp3_data], axis=0).sort_index()
 
-
 def get_noon_of_unique_days(timestamps: tp.List[pd.Timestamp]) -> tp.List[pd.Timestamp]:
     """Get the noon of the unique days in the timestamps.
 
@@ -65,7 +64,53 @@ def get_noon_of_unique_days(timestamps: tp.List[pd.Timestamp]) -> tp.List[pd.Tim
 
     return [day + delta for day in unique_days]
 
-
+# TODO: Add the compatibility for other GNSS systems
+def get_fragments_idx_from_nav(
+    observation_data: pd.DataFrame, 
+    navigation_data: pd.DataFrame,
+    mode: str = "maxsv",
+    matching_threshold: pd.Timedelta = pd.Timedelta(hours=3),
+) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Matches the observation timestamps to the navigation timestamps based on the mode.
+    
+    The dataframes must have a MultiIndex with the levels 'time' and 'sv'.
+    
+    Args:
+        observation_data (pd.DataFrame): Observation data.
+        navigation_data (pd.DataFrame): Navigation data.
+        mode (str, optional): Mode to match the timestamps (maxsv | nearest). Defaults to "maxsv".
+        matching_threshold (pd.Timedelta, optional): Matching threshold within which the timestamps are matched. Defaults to pd.Timedelta(hours=3).
+    
+    Returns:
+        list[tuple[pd.Timestamp, pd.Timestamp]]: List of matched timestamps.
+    """
+    # Get the timestamps of the observations.
+    obsTimestamps = observation_data.index.get_level_values("time").unique()
+    
+    # Get the timestamps and crossponding number of satellites in the navigation data.
+    timeSVMap = {time : len(navigation_data.loc[time]) for time in navigation_data.index.get_level_values("time").unique()}
+    
+    # Match the timestamps based on the mode.
+    matchesTimestamps = []
+    for obsTime in obsTimestamps:
+        # Get the timestamps within the threshold.
+        navTimes = [time for time in timeSVMap.keys() if abs(time - obsTime) <= matching_threshold]
+        
+        # If no timestamps are found, skip.
+        if len(navTimes) == 0:
+            raise ValueError(f"No Navigation Data found for {obsTime} within +- 3 hours.")
+        
+        if mode.lower() == "maxsv":
+            # Return the timestamp with the maximum number of satellites.
+            matchesTimestamps.append((obsTime, max(navTimes, key=lambda time: timeSVMap[time])))         
+        elif mode.lower() == "nearest":
+            # Return the timestamp with the nearest timestamp.
+            matchesTimestamps.append((obsTime, min(navTimes, key=lambda time: abs(time - obsTime))))
+        else:
+            raise ValueError(f"Mode must be in ['maxsv', 'nearest']. Got {mode}.")
+        
+    return matchesTimestamps
+          
 # TODO: Add the compatibility for other GNSS systems
 def from_rinex_dataframes(
     observation_data: pd.DataFrame,
@@ -108,38 +153,28 @@ def from_rinex_dataframes(
             "The observation data is empty. Could not parse the observation file."
         )
 
-    # Fragment the observation data
-    observational_fragments: list[FragObs] = FragObs.fragmentify(
-        obs_data=observation_data,
-        station=station_name,
-        obs_meta=observation_metadata,
+    # Get the matches timestamps
+    matchesTimestamps = get_fragments_idx_from_nav(
+        observation_data=observation_data,
+        navigation_data=navigation_data,
+        mode=matching_mode,
+        matching_threshold=matching_threshold,
     )
-    navigation_data: list[FragNav] = FragNav.fragmentify(
-        nav_data=navigation_data,
-        station=station_name,
-        nav_meta=navigation_metadata,
-    )
-
-    for obs_frags in observational_fragments:
-        # Get the nearest navigation fragment
-        optimal_nav_frag = obs_frags.nearest_nav_fragment(
-            nav_fragments=navigation_data,
-            mode=matching_mode,
-            matching_threshold=matching_threshold,
-        )
+    
+    for obsTime, navTime in matchesTimestamps:
+        # Make the epoch object
         yield Epoch(
-            timestamp=obs_frags.epoch_time,
-            obs_data=obs_frags.obs_data,
-            obs_meta=obs_frags.metadata,
-            nav_data=optimal_nav_frag.nav_data,
-            nav_meta=optimal_nav_frag.metadata,
+            timestamp=obsTime,
+            obs_data=observation_data.loc[obsTime],
+            obs_meta=observation_metadata,
+            nav_data=navigation_data.loc[[navTime]], # Do not drop the time index here since it is TOC
+            nav_meta=navigation_metadata,
             trim=trim,
             purify=drop_na,
-            station=obs_frags.station_name if station_name != "CUSTOM" else None,
+            station=station_name,
             columns_mapping=column_mapper,
             profile=profile,
         )
-
 
 # # TODO: Add the compatibility for other GNSS systems
 def from_precise_ephemeris(
@@ -173,28 +208,23 @@ def from_precise_ephemeris(
         )
 
     # Fragment the observation data
-    observational_fragments: list[FragObs] = FragObs.fragmentify(
-        obs_data=observation_data,
-        station=station_name,
-        obs_meta=observation_metadata,
-    )
-
-    for obs_frags in observational_fragments:
+    obsTimes : list[pd.Timestamp] = observation_data.index.get_level_values("time").unique()
+    
+    for t in obsTimes:
         # Reference the sp3 data to the epoch
         nav_data = sp3_data
 
         yield Epoch(
-            timestamp=obs_frags.epoch_time,
-            obs_data=obs_frags.obs_data,
-            obs_meta=obs_frags.metadata,
+            timestamp=t,
+            obs_data=observation_data.loc[t],
+            obs_meta=observation_metadata,
             nav_data=nav_data,
-            nav_meta=pd.Series(),
+            station=station_name,
             trim=trim,
             purify=drop_na,
             profile=Epoch.SP3,
             columns_mapping=column_mapper,
         )
-
 
 def from_rinex_files(
     observation_file: Path,
@@ -205,6 +235,7 @@ def from_rinex_files(
     drop_na: bool = True,
     column_mapper: tp.Optional[tp.List[str]] = None,
     matching_threshold: pd.Timedelta = pd.Timedelta(hours=3),
+    profile : dict[str, str| bool] = Epoch.INITIAL,
 ) -> tp.Iterator[Epoch]:
     """Loads the RINEX files to an epoch object.
 
@@ -217,7 +248,8 @@ def from_rinex_files(
         drop_na (bool, optional): If True, the NaN values will be dropped from relevant columns. Defaults to True.
         column_mapper (tp.List[str], optional): The column mapper. Defaults to None.
         matching_threshold (pd.Timedelta, optional): The matching threshold to match the observation and navigation data. Defaults to pd.Timedelta(hours=3).
-
+        profile (dict[str, str| bool], optional): The profile of the epoch. Defaults to Epoch.INITIAL.
+        
     Returns:
         tp.List[Epoch]: A list of epoch objects.
     """
@@ -242,4 +274,5 @@ def from_rinex_files(
         drop_na=drop_na,
         column_mapper=column_mapper,
         matching_threshold=matching_threshold,
+        profile=profile,
     )
