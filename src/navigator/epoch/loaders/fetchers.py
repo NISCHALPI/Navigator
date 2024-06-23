@@ -24,7 +24,7 @@ from ...parse.base_parse import Parser
 from ...parse.iparse.nav.iparse_gps_nav import IParseGPSNav
 from ...parse.iparse.sp3.iparse_sp3_gps import IParseSP3GPS
 
-__all__ = ['fetch_nav_data', 'fetch_sp3']
+__all__ = ["fetch_nav_data", "fetch_sp3"]
 
 
 # TODO: Add the compatibility for other GNSS systems

@@ -17,7 +17,7 @@ def test_ephemeris_alograthim(skydel_sim_nav_filepath, skydel_sim_g10_l1c):
 
     # Create a gps ephemris processor
     ephemeris_processor = Satellite(iephemeris=IGPSEphemeris())
-    state_cols = ['ECEF X (m)', 'ECEF Y (m)', 'ECEF Z (m)', 'Clock Correction (s)']
+    state_cols = ["ECEF X (m)", "ECEF Y (m)", "ECEF Z (m)", "Clock Correction (s)"]
 
     # Start time of simulation
     startTime = pd.Timestamp.fromisoformat("2024-01-02 10:00:00")

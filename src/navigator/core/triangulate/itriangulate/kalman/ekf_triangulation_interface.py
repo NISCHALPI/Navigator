@@ -82,8 +82,8 @@ class ExtendedKalmanInterface(IKalman):
         self.P0 = P0
 
         # Initialize the estimates
-        self._filter.R = R
-        self._filter.Q = Q(dt=dt, autocorrelation=Q_0)
+        self.R = R
+        self.Q = Q(dt=dt, autocorrelation=Q_0)
 
         # Initialize the dynamics model
         self.F = G(dt)
@@ -136,6 +136,8 @@ class ExtendedKalmanInterface(IKalman):
             x_posterior=self.x0,
             P_posterior=self.P0,
             z=z,
+            Q=self.Q,
+            R=self.R,
             fx=self.fx,
             FJacobian=self.FJacobian,
             hx=self.hx,
@@ -204,6 +206,8 @@ class ExtendedKalmanInterface(IKalman):
             x0=x0,
             P0=P0,
             z_ts=z,
+            Q=self.Q.repeat(len(x0), axis=0),
+            R=self.R.repeat(len(x0), axis=0),
             fx=self.fx,
             FJacobian=self.FJacobian,
             hx=self.hx,
@@ -224,3 +228,48 @@ class ExtendedKalmanInterface(IKalman):
 
     def _dim_state(self) -> int:
         return 8
+
+
+# TODO: Implement the AdaptiveEKF class
+class AdaptiveEKF(ExtendedKalmanInterface):
+
+    def __init__(
+        self,
+        dt: float,
+        num_sv: int,
+        x0: np.ndarray,
+        P0: np.ndarray,
+        R: np.ndarray,
+        Q_0: np.ndarray,
+        alpha: float,
+        log_innovation: bool = False,
+        code_only: bool = False,
+    ) -> None:
+        """Initializes the ExtendedKalmanInterface object.
+
+        Args:
+            dt (float): Time step.
+            num_sv (int): Number of satellites.
+            x0 (np.ndarray): Initial state vector. (8,)
+            P0 (np.ndarray): Initial state covariance matrix. (8, 8)
+            R (np.ndarray): Measurement noise covariance matrix. (num_sv * 2, num_sv * 2)
+            Q_0 (np.ndarray): Power spectral density of the continuous process white noise. (8, 8)
+            alpha (float): Adaptive factor for adjusting the noise covariance matrix.
+            log_innovation (bool): Flag to log the innovation.
+            code_only (bool): Flag to indicate if the filter is used for code measurements or both code and carrier measurements.
+        """
+        super().__init__(
+            dt=dt,
+            num_sv=num_sv,
+            x0=x0,
+            P0=P0,
+            R=R,
+            Q_0=Q_0,
+            log_innovation=log_innovation,
+            code_only=code_only,
+        )
+
+        # Initialize the adaptive factor
+        self.alpha = alpha
+
+    pass

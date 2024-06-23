@@ -18,7 +18,7 @@ def test_epochify(obsfilepath, navfilepath):
             navigation_file=nav_path,
             station_name="AMC400USA",
             column_mapper={k: k for k in Epoch.OBSERVABLES},
-            profile=Epoch.DUAL
+            profile=Epoch.DUAL,
         )
     )
 

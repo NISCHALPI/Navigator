@@ -45,8 +45,8 @@ def test_gps_triangulation_on_sim_dataset(
     )
     # Read the true receiver state
     true_state = pd.read_csv(skyder_true_reciever_state_filepath, index_col=0)
-    position_colnames = ['ECEF X (m)', 'ECEF Y (m)', 'ECEF Z (m)']
-    triangulate_pos_colnames = ['x', 'y', 'z']
+    position_colnames = ["ECEF X (m)", "ECEF Y (m)", "ECEF Z (m)"]
+    triangulate_pos_colnames = ["x", "y", "z"]
 
     # Create Triangulate object
     triangulator = Triangulate(

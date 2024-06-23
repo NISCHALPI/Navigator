@@ -7,4 +7,5 @@ from .rinex_loader import (
     from_rinex_files,
     get_noon_of_unique_days,
     get_sp3_data,
+    from_observation_file,
 )

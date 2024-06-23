@@ -361,8 +361,8 @@ class Triangulate(AbstractTriangulate):
         m = folium.Map(
             location=[lat, lon],
             zoom_start=zoom,
-            tiles='https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            attr='Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community',
+            tiles="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            attr="Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community",
         )
         # Add a marker at the coordinates
         folium.Marker([lat, lon], popup=f"({lat}, {lon})").add_to(m)
@@ -388,8 +388,8 @@ class Triangulate(AbstractTriangulate):
         m = folium.Map(
             location=[lat.mean(), lon.mean()],
             zoom_start=zoom,
-            tiles='https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            attr='Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community',
+            tiles="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            attr="Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community",
         )
         # Add a marker at the coordinates
         if markers:

@@ -133,10 +133,38 @@ class IParseGPSObs(IParse):
             Tuple[pd.Series, pd.DataFrame]: A tuple containing the metadata as a Pandas Series and the parsed data as a Pandas DataFrame.
         """
         # Open the header of the RINEX file to determine the version
-        rinex_version = gr.rinexinfo(filename)["version"]
+        rinex_version = self.get_rinex_version(filename)
 
         # Dispatch the parsing to the appropriate method based on the RINEX version
         if str(rinex_version).startswith("2"):
             return self._dispatch_rinex2(filename, **kwargs)
 
         return self._dispatch_rinex3(filename, **kwargs)
+
+    @staticmethod
+    def get_rinex_version(filename: str | Path) -> str:
+        """Get the RINEX version of a file.
+
+        This method reads the header of a RINEX file and returns the version number.
+
+        Args:
+            filename (str | Path): The path to the RINEX file to parse.
+
+        Returns:
+            str: The version number of the RINEX file.
+        """
+        return gr.rinexinfo(filename)["version"]
+
+    @staticmethod
+    def get_timestamps(filename: str | Path) -> pd.Series:
+        """Get the timestamps of a RINEX file.
+
+        This method reads the timestamps from a RINEX file and returns them as a Pandas Series.
+
+        Args:
+            filename (str | Path): The path to the RINEX file to parse.
+
+        Returns:
+            pd.Series: The timestamps of the RINEX file.
+        """
+        return pd.to_datetime(gr.gettime(filename))

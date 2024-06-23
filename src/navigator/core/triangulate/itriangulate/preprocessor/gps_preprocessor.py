@@ -239,7 +239,10 @@ class GPSPreprocessor(Preprocessor):
         # If the data format is ephemeris, then compute the satellite coordinates at the emission epoch
         # Compute the travel time of the GPS signal
         travel_time = self._approx_travel_time(
-            pseudorange=pseudorange.to_numpy(dtype=np.float64),
+            pseudorange=(
+                pseudorange.to_numpy(dtype=np.float64)
+                - SPEED_OF_LIGHT * rcvr_clock_bias
+            ),  # Correct for the receiver clock bias if available
             approximate_sv_coords=approx_sv,
             approx_receiver_location=approx_rcvr,
         )
@@ -283,15 +286,20 @@ class GPSPreprocessor(Preprocessor):
                         t=emission_epoch[sv],
                         metadata=nav_metadata,
                         data=ephemeris,
-                        system_time=True,
+                        system_time=(
+                            True
+                            if (approx_rcvr is not None and approx_sv is not None)
+                            else False
+                        ),
                     )
                 )
 
-            # NOTE: The system time is used here to compute the satellite coordinates at the emission epoch
-            # This is done since the travel time in consecutive iterations in "compute_sv_coordinates" is computed
-            # using the approximate satellite coordinates and receiver location which doesn't have satellite
-            # clock bias correction but the ephemeris processor in deafult mode applies the satellite clock bias correction
-            # Hence, the system time kwarg is used to suppress the satellite clock bias correction in the ephemeris processor
+            # NOTE: The "system time" kwargs is used here to compute the satellite coordinates at the emission epoch given
+            # the emission epoch on GPS time. If the approximate receiver location and approximate satellite location are available,
+            # then the system time is set to True. This is because the satellite clock bias correction should not be applied to the
+            # to the emission epoch. However, if the approximate receiver location and approximate satellite location are not available,
+            # the pseudorange is used to calculate the travel time. In this case, the satellite clock bias correction must be applied to the
+            # emission epoch since the pseudorange contains the satellite clock bias correction.
 
             # Stack the satellite coordinates into a DataFrame
             sv_coords = pd.DataFrame(
@@ -580,10 +588,17 @@ class GPSPreprocessor(Preprocessor):
 
         # Apply the satelllite clock correction to the pseudorange and phase measurements
         # The clock bias is calculated as the product of the satellite clock bias and the speed of light
-        pseudorange += SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
-        phase += SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
+        bias_corrected_pseudorange = (
+            pseudorange + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
+        )
+        bias_corrected_phase = (
+            phase + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
+        )
 
-        return pd.concat([pseudorange, phase], axis=1), coords
+        return (
+            pd.concat([bias_corrected_pseudorange, bias_corrected_phase], axis=1),
+            coords,
+        )
 
     def __call__(
         self,
