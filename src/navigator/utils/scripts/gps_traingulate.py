@@ -189,7 +189,9 @@ def wls(
                 - Skip: {N}
                 """
     )
-    df = triangulator.triangulate_time_series(epoches=triangulation_epoches, override=True)
+    df = triangulator.triangulate_time_series(
+        epoches=triangulation_epoches, override=True
+    )
     logger.info("Traingulation Completed! Saving the data!")
 
     # Convert to dataframe

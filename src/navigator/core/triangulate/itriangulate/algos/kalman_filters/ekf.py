@@ -435,7 +435,6 @@ class ExtendedKalmanFilter:
                 self.TERMS["StateJacobian"],
             ]
         }
-
         # Run the EKF for each time step
         for t in range(z_ts.shape[0]):
             # Perform the predictupdate step of the EKF
@@ -585,6 +584,7 @@ class AdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         dim_x: int,
         dim_z: int,
         alpha: float,
+        adaptive_after: int = 10,
     ) -> None:
         """Initialize the Adaptive Extended Kalman Filter (AEKF).
 
@@ -592,6 +592,7 @@ class AdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
             dim_x (int): Dimension of the state vector
             dim_z (int): Dimension of the measurement vector
             alpha (float): Adaptive factor for the noise covariance matrix estimation
+            adaptive_after (int): Number of time steps after which to start adaptive estimation. Default is 0.
 
         Returns:
             None
@@ -601,6 +602,8 @@ class AdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         if not 0 <= alpha <= 1:
             raise ValueError("Adaptive factor must in the range [0, 1]")
         self.alpha = alpha
+        self.adaptive_after = adaptive_after
+        self.count = 0
 
     def update_noise_covariance(
         self,
@@ -626,15 +629,22 @@ class AdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         Returns:
             tuple[np.ndarray, np.ndarray]: Updated process noise covariance matrix and the updated measurement noise covariance matrix
         """
-        # Compute the estimated process noise covariance matrix
-        Q_est = self.alpha * Q_prev + (1 - self.alpha) * (
-            KG @ np.outer(innovation_residual, innovation_residual) @ KG.T
-        )
+        if self.count >= self.adaptive_after:
+            # Compute the estimated process noise covariance matrix
+            Q_est = self.alpha * Q_prev + (1 - self.alpha) * (
+                KG @ np.outer(innovation_residual, innovation_residual) @ KG.T
+            )
 
-        # Compute the estimated measurement noise covariance matrix
-        R_est = self.alpha * R_prev + (1 - self.alpha) * (
-            np.outer(posterior_residual, posterior_residual) + H @ P_prior @ H.T
-        )
+            # Compute the estimated measurement noise covariance matrix
+            R_est = self.alpha * R_prev + (1 - self.alpha) * (
+                np.outer(posterior_residual, posterior_residual) + H @ P_prior @ H.T
+            )
+        else:
+            Q_est = Q_prev
+            R_est = R_prev
+
+        # Increment the adaptive counter
+        self.count += 1
 
         return Q_est, R_est
 
@@ -767,9 +777,7 @@ class AdaptiveExtendedKalmanFilter(ExtendedKalmanFilter):
         # Initialize the intermediate terms
         outs = {
             term: []
-            for term in self.TERMS.values()
-            if term
-            in [
+            for term in [
                 self.TERMS["PriorEstimate"],
                 self.TERMS["PriorCovariance"],
                 self.TERMS["PosteriorEstimate"],
