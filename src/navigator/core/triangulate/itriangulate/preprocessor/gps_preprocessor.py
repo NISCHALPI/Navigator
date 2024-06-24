@@ -40,7 +40,7 @@ class GPSPreprocessor(Preprocessor):
     L2_PHASE_ON = Epoch.L2_PHASE_ON
 
     # Satellite Coord Correction Iterations
-    SV_COORD_CORRECTION_ITER = 10
+    SV_COORD_CORRECTION_ITER = 2
 
     # Create a GPS satellite ephemeris processor
     ephemeris_processor = IGPSEphemeris()
@@ -50,35 +50,12 @@ class GPSPreprocessor(Preprocessor):
         """Initializes the preprocessor with the GPS constellation."""
         super().__init__(constellation="G")
 
-    def _compute_satellite_azimuth_and_elevation(
-        self, sv_coords: np.ndarray, approx_receiver_location: pd.Series
-    ) -> tuple[pd.Series, pd.Series]:
-        """Compute the azimuth and elevation of the satellites.
-
-        Args:
-            sv_coords (pd.DataFrame): Satellite coordinates at the reception epoch.
-            approx_receiver_location (pd.Series): Approximate receiver location in ECEF coordinate.
-
-        Returns:
-            tuple[pd.Series, pd.Series]: The azimuth and elevation of the satellites.
-        """
-        # Compute the azimuth and elevation of the satellites
-        E, A = elevation_and_azimuthal(
-            sv_coords[["x", "y", "z"]].values,
-            approx_receiver_location[["x", "y", "z"]].values,
-        )
-
-        # Attach the azimuth and elevation to the satellite coordinates
-        return pd.Series(data=E, index=sv_coords.index, name="elevation"), pd.Series(
-            data=A, index=sv_coords.index, name="azimuth"
-        )
-
-    def _compute_tropospheric_correction(
+    def compute_tropospheric_correction(
         self,
         day_of_year: int,
         sv_coords: pd.DataFrame,
         approx_receiver_location: pd.Series,
-    ) -> pd.Series:
+    ) -> np.ndarray:
         """Compute the tropospheric correction for the GPS observations.
 
         Args:
@@ -87,31 +64,26 @@ class GPSPreprocessor(Preprocessor):
             approx_receiver_location (pd.Series): Approximate receiver location in ECEF coordinate.
 
         Returns:
-            pd.Series: The tropospheric correction for the GPS observations.
+            np.ndarray: The tropospheric correction for the GPS observations.
         """
         # Compute the tropospheric correction
-        corr = []
+        return sv_coords.apply(
+            lambda row: tropospheric_delay_correction(
+                latitude=approx_receiver_location["lat"],
+                elevation=row["elevation"],
+                height=approx_receiver_location["height"],
+                day_of_year=day_of_year,
+            ),
+            axis=1,
+        ).to_numpy(dtype=np.float64)
 
-        for index, row in sv_coords.iterrows():
-            corr.append(
-                tropospheric_delay_correction(
-                    latitude=approx_receiver_location["lat"],
-                    elevation=row["elevation"],
-                    height=approx_receiver_location["height"],
-                    day_of_year=day_of_year,
-                )
-            )
-        return pd.Series(
-            data=corr, index=sv_coords.index, name="tropospheric_correction"
-        )
-
-    def _compute_ionospheric_correction(
+    def compute_ionospheric_correction(
         self,
         sv_coords: pd.DataFrame,
         approx_receiver_location: pd.Series,
         time: pd.Timestamp,
         iono_params: pd.Series,
-    ) -> pd.Series:
+    ) -> np.ndarray:
         """Compute the ionospheric correction for the GPS observations.
 
         Args:
@@ -122,38 +94,33 @@ class GPSPreprocessor(Preprocessor):
             **kwargs: Additional keyword arguments.
 
         Returns:
-            pd.Series: The ionospheric correction for the GPS observations.
+            np.ndarray: The ionospheric correction for the GPS observations.
 
         """
         # Calculate the gps in seconds of the week
         t = (time - pd.Timestamp("1980-01-06")).total_seconds() % (7 * 24 * 60 * 60)
 
-        # Compute the ionospheric correction
-        iono_corr = []
-        for index, row in sv_coords.iterrows():
-            iono_corr.append(
-                klobuchar_ionospheric_correction(
-                    elev=row["elevation"],
-                    azimuth=row["azimuth"],
-                    latitude=approx_receiver_location["lat"],
-                    longitude=approx_receiver_location["lon"],
-                    tow=t,
-                    alpha0=iono_params["alpha0"],
-                    alpha1=iono_params["alpha1"],
-                    alpha2=iono_params["alpha2"],
-                    alpha3=iono_params["alpha3"],
-                    beta0=iono_params["beta0"],
-                    beta1=iono_params["beta1"],
-                    beta2=iono_params["beta2"],
-                    beta3=iono_params["beta3"],
-                )
-            )
+        # Compute the ionospheric correction using vectorized operations
+        return sv_coords.apply(
+            lambda row: klobuchar_ionospheric_correction(
+                elev=row["elevation"],
+                azimuth=row["azimuth"],
+                latitude=approx_receiver_location["lat"],
+                longitude=approx_receiver_location["lon"],
+                tow=t,
+                alpha0=iono_params["alpha0"],
+                alpha1=iono_params["alpha1"],
+                alpha2=iono_params["alpha2"],
+                alpha3=iono_params["alpha3"],
+                beta0=iono_params["beta0"],
+                beta1=iono_params["beta1"],
+                beta2=iono_params["beta2"],
+                beta3=iono_params["beta3"],
+            ),
+            axis=1,
+        ).to_numpy(dtype=np.float64)
 
-        return pd.Series(
-            data=iono_corr, index=sv_coords.index, name="ionospheric_correction"
-        )
-
-    def _approx_travel_time(
+    def travel_time(
         self,
         pseudorange: np.ndarray,
         approximate_sv_coords: np.ndarray | None = None,
@@ -184,7 +151,7 @@ class GPSPreprocessor(Preprocessor):
             / SPEED_OF_LIGHT
         )
 
-    def _compute_sv_coordinates_at_emission_epoch(
+    def compute_sv_coordinates_at_emission_epoch(
         self,
         reception_time: pd.Timestamp,
         pseudorange: pd.Series,
@@ -233,12 +200,9 @@ class GPSPreprocessor(Preprocessor):
             else None
         )
 
-        # Correct the reception time for the receiver clock bias
-        reception_time -= pd.to_timedelta(rcvr_clock_bias, unit="s")
-
         # If the data format is ephemeris, then compute the satellite coordinates at the emission epoch
         # Compute the travel time of the GPS signal
-        travel_time = self._approx_travel_time(
+        travel_time = self.travel_time(
             pseudorange=(
                 pseudorange.to_numpy(dtype=np.float64)
                 - SPEED_OF_LIGHT * rcvr_clock_bias
@@ -249,7 +213,11 @@ class GPSPreprocessor(Preprocessor):
 
         # Convert to time delta
         emission_epoch = pd.Series(
-            reception_time - pd.to_timedelta(travel_time, unit="s"),
+            reception_time
+            - pd.to_timedelta(travel_time, unit="s")  # Correct for the travel time
+            - pd.to_timedelta(
+                rcvr_clock_bias, unit="s"
+            ),  # Correct for the receiver clock bias
             index=pseudorange.index.get_level_values("sv"),
         )
 
@@ -269,7 +237,6 @@ class GPSPreprocessor(Preprocessor):
                 index=pseudorange.index.get_level_values("sv"),
             )
         else:
-
             # If the data format is ephemeris, then compute the satellite coordinates at the emission epoch
             # using the ephemeris data
 
@@ -341,7 +308,7 @@ class GPSPreprocessor(Preprocessor):
             pd.DataFrame: The processed satellite coordinates at the reception epoch.
         """
         # Get the satellite coordinates at the emission epoch
-        sv_coords_at_i = self._compute_sv_coordinates_at_emission_epoch(
+        sv_coords_at_i = self.compute_sv_coordinates_at_emission_epoch(
             reception_time=reception_time,
             nav=navigation_data,
             nav_metadata=navigation_metadata,
@@ -354,7 +321,7 @@ class GPSPreprocessor(Preprocessor):
         # Iterate over the satellite coordinates to correct for the satellite clock bias
         for _ in range(self.SV_COORD_CORRECTION_ITER):
             # Compute the satellite coordinates at the reception epoch
-            sv_coords_at_i = self._compute_sv_coordinates_at_emission_epoch(
+            sv_coords_at_i = self.compute_sv_coordinates_at_emission_epoch(
                 reception_time=reception_time,
                 nav=navigation_data,
                 nav_metadata=navigation_metadata,
@@ -384,7 +351,7 @@ class GPSPreprocessor(Preprocessor):
             pd.Series: The approximate receiver location in ECEF coordinate.
         """
         # Process the satellite coordinates at the reception epoch
-        coords = self._compute_sv_coordinates_at_emission_epoch(
+        coords = self.compute_sv_coordinates_at_emission_epoch(
             reception_time=epoch.timestamp,
             nav=epoch.nav_data,
             nav_metadata=epoch.nav_meta,
@@ -467,6 +434,7 @@ class GPSPreprocessor(Preprocessor):
             # Get the bootstrap receiver location
             epoch.approximate_coords = self.bootstrap(epoch)
 
+        #############################  Compute the Satellite Coordinates #############################
         # Get the satellite coordinates at the emission epoch
         coords = self.compute_sv_coordinates(
             reception_time=epoch.timestamp,
@@ -478,12 +446,14 @@ class GPSPreprocessor(Preprocessor):
         )
 
         # Get the elevation and azimuth of the satellites and attach it to the coords
-        coords["elevation"], coords["azimuth"] = (
-            self._compute_satellite_azimuth_and_elevation(
-                sv_coords=coords, approx_receiver_location=epoch.approximate_coords
-            )
+        coords["elevation"], coords["azimuth"] = elevation_and_azimuthal(
+            satellite_positions=coords[["x", "y", "z"]].to_numpy(dtype=np.float64),
+            observer_position=epoch.approximate_coords[["x", "y", "z"]].to_numpy(
+                dtype=np.float64
+            ),
         )
 
+        #############################  Smoothing the Epoch Data #############################
         # If the epoch is smoothed, then apply swap the smoothed key as C1C
         if epoch.is_smoothed:
             if BaseSmoother.SMOOOTHING_KEY in epoch.obs_data.columns:
@@ -491,6 +461,7 @@ class GPSPreprocessor(Preprocessor):
                     BaseSmoother.SMOOOTHING_KEY
                 ]  # Swap the smoothed key as C1C
 
+        #############################  Print the Epoch Information #############################
         # Extract the keyword arguments
         if kwargs.get("verbose", False):
             print(f"Epoch: {epoch.timestamp}")
@@ -503,6 +474,8 @@ class GPSPreprocessor(Preprocessor):
             )
 
         # Check if the mode is dual or single and process the observations accordingly
+
+        ######################### Dual Frequency Processing #########################
         if epoch.profile.get("mode", "single") == "dual":
             # Check if the L1 and L2 code observations are available
             if (
@@ -513,13 +486,9 @@ class GPSPreprocessor(Preprocessor):
                     f"Invalid observation data. Must contain both L1 Code({self.L1_CODE_ON}) and L2 Code observations({self.L2_CODE_ON}) to perform dual mode processing."
                 )
             # Compute the ionospheric free combination
-            pseudorange = pd.Series(
-                ionosphere_free_combination(
-                    p1=epoch.obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64),
-                    p2=epoch.obs_data[self.L2_CODE_ON].to_numpy(dtype=np.float64),
-                ),
-                index=epoch.obs_data.index,
-                name=self.L1_CODE_ON,
+            codeEF = ionosphere_free_combination(
+                p1=epoch.obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64),
+                p2=epoch.obs_data[self.L2_CODE_ON].to_numpy(dtype=np.float64),
             )
 
             # Check if the L1 and L2 phase observations are available
@@ -532,71 +501,87 @@ class GPSPreprocessor(Preprocessor):
                 )
 
             # Compute the ionospheric free combination for the phase measurements
-            phase = pd.Series(
-                ionosphere_free_combination(
-                    p1=epoch.obs_data[self.L1_PHASE_ON].to_numpy(dtype=np.float64)
-                    * L1_WAVELENGTH,  # Scale the L1 phase to meters
-                    p2=epoch.obs_data[self.L2_PHASE_ON].to_numpy(dtype=np.float64)
-                    * L2_WAVELENGTH,  # Scale the L2 phase to meters
-                ),
-                index=epoch.obs_data.index,
-                name=self.L1_PHASE_ON,
+            phaseEF = ionosphere_free_combination(
+                p1=epoch.obs_data[self.L1_PHASE_ON].to_numpy(dtype=np.float64)
+                * L1_WAVELENGTH,  # Scale the L1 phase to meters
+                p2=epoch.obs_data[self.L2_PHASE_ON].to_numpy(dtype=np.float64)
+                * L2_WAVELENGTH,  # Scale the L2 phase to meters
             )
 
+        ######################### Single Frequency Processing #########################
         elif epoch.profile.get("mode", "single") == "single":
             # Get the pseudorange
-            pseudorange = epoch.obs_data[self.L1_CODE_ON]
-            phase = epoch.obs_data[self.L1_PHASE_ON] * L1_WAVELENGTH
+            codeEF = epoch.obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64)
+            phaseEF = (epoch.obs_data[self.L1_PHASE_ON] * L1_WAVELENGTH).to_numpy(
+                dtype=np.float64
+            )
 
         else:
             raise ValueError(
                 f"Invalid mode flag: {epoch.profile.get('mode', 'single')}. Supported modes are ['dual', 'single']"
             )
 
-        # Apply Troposheric Correction
+        ### Below are the corrections that can be applied to the pseudorange and phase measurements ###
+
+        ######################### Apply the Satellite Clock Correction #########################
+        # Apply the satelllite clock correction to the pseudorange and phase measurements
+        # The clock bias is calculated as the product of the satellite clock bias and the speed of light
+        codeEF = (
+            codeEF + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY].values
+        )
+        phaseEF = (
+            phaseEF + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY].values
+        )
+
+        ######################### Apply the Tropospheric Correction #########################
         if epoch.profile.get("apply_tropo", False):
-            coords["tropospheric_correction"] = self._compute_tropospheric_correction(
+            coords["tropospheric_correction"] = self.compute_tropospheric_correction(
                 day_of_year=epoch.timestamp.dayofyear,
                 sv_coords=coords,
                 approx_receiver_location=epoch.approximate_coords,
             )
             # Correct the pseudorange for the tropospheric correction
-            pseudorange -= coords["tropospheric_correction"]
-            phase -= coords["tropospheric_correction"]
+            codeEF = (
+                codeEF - coords["tropospheric_correction"].values
+            )  # Do not change this to -= as it will change the original data!
+            phaseEF = (
+                phaseEF - coords["tropospheric_correction"].values
+            )  # Do not change this to -= as it will change the original data!
 
+        ######################### Apply the Ionospheric Correction #########################
+        # Only apply ionospheric correction for single mode processing
         if (
             epoch.profile.get("apply_iono", False)
             and epoch.profile.get("mode", "dual") == "single"
-        ):  # Only apply ionospheric correction for single mode
+        ):
+
             # Check if the ionospheric correction parameters are available
             if epoch.nav_meta.get("IONOSPHERIC CORR", None) is None:
                 raise ValueError(
                     "Invalid ionospheric correction parameters. Must contain ['IONOSPHERIC CORR'] in the navigation metadata."
                 )
 
-            coords["ionospheric_correction"] = self._compute_ionospheric_correction(
+            coords["ionospheric_correction"] = self.compute_ionospheric_correction(
                 sv_coords=coords,
                 approx_receiver_location=epoch.approximate_coords,
                 time=epoch.timestamp,
                 iono_params=epoch.nav_meta.get("IONOSPHERIC CORR", None),
             )
             # Apply the ionospheric correction
-            pseudorange -= coords["ionospheric_correction"]
-            phase += coords[
-                "ionospheric_correction"
-            ]  # Sign is flipped for the phase measurements
+            codeEF = codeEF - coords["ionospheric_correction"].values
 
-        # Apply the satelllite clock correction to the pseudorange and phase measurements
-        # The clock bias is calculated as the product of the satellite clock bias and the speed of light
-        bias_corrected_pseudorange = (
-            pseudorange + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
-        )
-        bias_corrected_phase = (
-            phase + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
-        )
+            # Apply the ionospheric correction to the phase measurements
+            # NOTE: The ionospheric correction sign is negative in the phase measurements
+            phaseEF = phaseEF - coords["ionospheric_correction"].values
+
+        ######################### Return the Pseudorange and Satellite States #########################
 
         return (
-            pd.concat([bias_corrected_pseudorange, bias_corrected_phase], axis=1),
+            pd.DataFrame(
+                data=np.column_stack([codeEF, phaseEF]),
+                index=epoch.obs_data.index,
+                columns=[Epoch.L1_CODE_ON, Epoch.L1_PHASE_ON],
+            ),
             coords,
         )
 
