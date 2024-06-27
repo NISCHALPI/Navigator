@@ -20,7 +20,7 @@ __all__ = [
     "NAV_PVT",
     "RXM_RAWX",
     "RXM_SFRBX",
-    "CFG_RATE"
+    "CFG_RATE",
 ]
 
 
@@ -449,7 +449,7 @@ class RXM_SFRBX(BaseCommand):
             Dict[str, str]: The units for the parsed payload data.
         """
         raise NotImplementedError("The units method is not implemented for RXM-SFRBX.")
-    
+
 
 class CFG_RATE(BaseCommand):
     """Class for the CFG-RATE command."""
@@ -458,7 +458,9 @@ class CFG_RATE(BaseCommand):
         """Constructor for the CFG-RATE class."""
         super().__init__("CFG", "RATE")
 
-    def config_command(self, measRate: int = 1000, navRate: int = 1, timeRef: int = 0) -> ubx.UBXMessage:
+    def config_command(
+        self, measRate: int = 1000, navRate: int = 1, timeRef: int = 0
+    ) -> ubx.UBXMessage:
         """Return the configuration command message rate.
 
         Args:
@@ -475,6 +477,20 @@ class CFG_RATE(BaseCommand):
             cfgData=[
                 ("CFG_RATE_MEAS", measRate),
                 ("CFG_RATE_NAV", navRate),
-                ("CFG_RATE_TIME_REF", timeRef),
+                ("CFG_RATE_TIMEREF", timeRef),
             ],
         )
+
+    def parse_ubx_message(self, ubx_message: ubx.UBXMessage) -> pd.DataFrame:
+        """Return the parsed payload data as a pandas DataFrame."""
+        raise NotImplementedError(
+            "The parse_ubx_message method is not implemented for CFG-RATE."
+        )
+
+    def units(self) -> tp.Dict[str, str]:
+        """Return the units for the parsed payload data.
+
+        Returns:
+            Dict[str, str]: The units for the parsed payload data.
+        """
+        raise NotImplementedError("The units method is not implemented for CFG-RATE.")

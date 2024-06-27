@@ -28,14 +28,15 @@ from logging import Logger
 from queue import Queue
 from socket import socket
 from threading import Event, Lock, Thread
+from time import sleep
 
 import pyubx2 as ubx
 from serial import Serial
 
 __all__ = ["Controller"]
 
-DEFAULT_COMMAND_WAIT_TIME = 0.1
-DEFAULT_NAV_WIAT_TIME = 1.1
+DEFAULT_COMMAND_WAIT_TIME = 0.001
+DEFAULT_NAV_WIAT_TIME = 1.0
 
 
 class Controller:
@@ -89,58 +90,78 @@ class Controller:
         self.has_logger: bool = logger is not None
         self.logger: tp.Optional[Logger] = logger
         self.no_check: bool = no_check
-
-        self.__io_queue: Queue[ubx.UBXMessage] = Queue()
-        self.__ack_queue: Queue[ubx.UBXMessage] = Queue()
-
-        self._stop_event = Event()
-        self._lock: Lock = Lock()
-
-        self._io_thread: Thread = Thread(target=self._start_io_logic)
-        self._io_thread.start()
-
-        # Flush counter
-        self.__flush_counter = 0
-
-        if not self.no_check:
-            self._clear_output_rate()
-
-    def _start_io_logic(self) -> None:
-        """Start the I/O thread."""
-        reader: ubx.UBXReader = ubx.UBXReader(
+        self.reader = ubx.UBXReader(
             datastream=self.stream, msgmode=ubx.GET, protfilter=ubx.UBX_PROTOCOL
         )
-        while not self._stop_event.is_set():
+
+        # Queues for storing messages
+        self.io_queue: Queue[ubx.UBXMessage] = Queue()
+        self.ack_queue: Queue[ubx.UBXMessage] = Queue()
+
+        # Event flag for stopping the I/O thread
+        self.stop_event = Event()
+        self.lock: Lock = Lock()
+
+        # I/O thread for handling I/O operations
+        self.io_thread: Thread = Thread(target=self.start_io_logic)
+        self.io_thread.start()
+
+        if not self.no_check:
+            self.clear_output_rate()
+
+    def clear_ack_queue(self) -> None:
+        """Clear the acknowledgment queue."""
+        # Acquire the lock to ensure thread safety
+        with self.lock:
+            while not self.ack_queue.empty():
+                self.ack_queue.get()
+        return
+
+    def clear_io_queue(self) -> None:
+        """Clear the I/O queue."""
+        # Acquire the lock to ensure thread safety
+        with self.lock:
+            while not self.io_queue.empty():
+                self.io_queue.get()
+        return
+
+    def start_io_logic(self) -> None:
+        """Starts the I/O thread which reads the incoming data from the stream."""
+        while not self.stop_event.is_set():
             if self.stream.in_waiting:
                 try:
-                    with self._lock:
-                        _, parsed = reader.read()
+                    with self.lock:
+                        _, parsed = self.reader.read()
                         if parsed is not None:
                             if parsed.identity.startswith("ACK"):
-                                self.__ack_queue.put(parsed)
+                                self.ack_queue.put(parsed)
                             else:
-                                self.__io_queue.put(parsed)
-                                self.__flush_counter += 1
-
+                                self.io_queue.put(parsed)
                             if self.has_logger:
-                                self.logger.info(f"Received: {parsed}")
+                                self.logger.info(f"Received: {parsed.identity}")
 
                 except Exception as e:
                     if self.has_logger:
+
                         self.logger.error(e)
                     continue
 
-    def _send_control_command(self, command: ubx.UBXMessage) -> None:
+        return
+
+    def send_control_command(self, command: ubx.UBXMessage) -> None:
         """Send a command to the Ublox receiver.
 
         Args:
             command: The command to be sent.
         """
-        with self._lock:
+        # Acquire the lock to ensure thread safety
+        with self.lock:
             self.stream.write(command.serialize())
 
+        # Log the command if a logger is provided
         if self.has_logger:
             self.logger.info(f"Sent: {command}")
+
         return
 
     def send_config_command(
@@ -155,18 +176,18 @@ class Controller:
         Returns:
             The acknowledgment from the receiver if wait_for_ack is True, else None.
         """
-        # Clear the acknowledgment queue
-        with self._lock:
-            while not self.__ack_queue.empty():
-                self.__ack_queue.get()
-
+        # Clear the acknowledgment queue first to avoid any stale data
+        self.clear_ack_queue()
         # Write the command to the stream
-        self._send_control_command(command)
+        self.send_control_command(command)
 
-        # Wait for the acknowledgment if required
         if wait_for_ack:
-            return self.__ack_queue.get(timeout=DEFAULT_COMMAND_WAIT_TIME)
-
+            # Wait for the acknowledgment
+            while True:
+                sleep(DEFAULT_COMMAND_WAIT_TIME)
+                with self.lock:
+                    if not self.ack_queue.empty():
+                        return self.ack_queue.get()
         return None
 
     def send_poll_command(self, command: ubx.UBXMessage) -> None:
@@ -175,15 +196,16 @@ class Controller:
         Args:
             command: The command to be sent.
         """
-        self._send_control_command(command)
+        # Send the command
+        self.send_control_command(command)
         return
 
-    def _clear_output_rate(self) -> None:
+    def clear_output_rate(self) -> None:
         """Clear the output rate of all message types for MSGOUT."""
         cfg_msg = [msg for msg in ubx.UBX_CONFIG_DATABASE if "CFG_MSGOUT" in msg]
 
         for msg in cfg_msg:
-            ack = self.send_config_command(
+            self.send_config_command(
                 command=ubx.UBXMessage.config_set(
                     layers=ubx.SET_LAYER_RAM,
                     transaction=ubx.TXN_NONE,
@@ -191,31 +213,21 @@ class Controller:
                 ),
                 wait_for_ack=True,
             )
-
-        if ack is None or ack.identity != "ACK-ACK":
-            raise RuntimeError(
-                """Unable to clear the output rate of all message types i.e the device should not show anything in message view in U-center.
-                Manually set all message rates to 0 and use the no_check flag in the constructor."""
-            )
-
         # Clear the queue
-        while not self.__ack_queue.empty():
-            self.__ack_queue.get()
-        while not self.__io_queue.empty():
-            self.__io_queue.get()
+        self.clear_ack_queue()
+        self.clear_io_queue()
         return
 
     def stop(self) -> None:
         """Stop the controller."""
         # Stop the I/O thread
-        self._stop_event.set()
-        self._io_thread.join()
-
+        self.stop_event.set()
+        self.io_thread.join()
         # user is responsible for closing the stream
         return
 
-    def flush_n_messages(self, n: int) -> list[ubx.UBXMessage]:
-        """Flush n messages from the queue.
+    def flush_messages(self) -> list[ubx.UBXMessage]:
+        """Flush the available messages from the queue.
 
         Args:
             n: The number of messages to flush.
@@ -223,25 +235,13 @@ class Controller:
         Returns:
             The flushed messages.
         """
-        messages = []
         # Acquire the lock to ensure thread safety
-        with self._lock:
-            if self.__flush_counter < n:
-                raise ValueError(
-                    "The number of messages to flush is greater than the number of messages in the queue."
-                )
-
-            for _ in range(n):
-                messages.append(self.__io_queue.get())
-
-            self.__flush_counter -= n
+        with self.lock:
+            messages = []
+            while not self.io_queue.empty():
+                messages.append(self.io_queue.get())
 
         return messages
-
-    def __len__(self) -> int:
-        """Return the number of messages in the queue."""
-        with self._lock:
-            return self.__flush_counter
 
     def __repr__(self) -> str:
         """Return the string representation of the object."""

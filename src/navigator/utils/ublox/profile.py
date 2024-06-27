@@ -93,9 +93,11 @@ class StreamingProfile:
 
     def collect(
         self,
-        n: int = -1,
         parse: bool = False,
-    ) -> dict[str, list[ubx.UBXMessage]]:
+    ) -> tuple[
+        int,
+        dict[str, list[ubx.UBXMessage]],
+    ]:
         """Collects data from the receiver.
 
         Args:
@@ -103,19 +105,9 @@ class StreamingProfile:
             parse (bool): If True, the messages are parsed. Defaults to False.
 
         Returns:
-            Tuple[List[UBXMessage], List[UBXMessage]]: The collected navigation and rinex data.
+            tuple[int, dict[str, list[ubx.UBXMessage]]]: The number of messages collected and the messages.
         """
-        # Check the length of the message queue
-        if n < 0:
-            n = len(self.controller)
-
-        if len(self.controller) < n:
-            raise ValueError(
-                f"Message queue length ({len(self.controller)}) is less than {n}"
-            )
-
-        get_io_msg = self.controller.flush_n_messages(n)
-
+        get_io_msg = self.controller.flush_messages()
         # Make a dictionary to store the messages
         cmd_data_map = {str(cmd): [] for cmd in self.commands}
 
@@ -127,7 +119,7 @@ class StreamingProfile:
                     cmd_data_map[msg.identity].append(
                         cmd.parse_ubx_message(msg) if parse else msg
                     )
-        return cmd_data_map
+        return (int(len(get_io_msg)), cmd_data_map)
 
     def start(self) -> None:
         """Starts the collection of data.

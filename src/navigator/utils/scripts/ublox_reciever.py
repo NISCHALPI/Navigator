@@ -10,7 +10,7 @@ import pyubx2 as ubx
 import tqdm
 
 from ...logger.logger import get_logger
-from ..ublox.commands import NAV_PVT, RXM_RAWX, RXM_SFRBX
+from ..ublox.commands import CFG_RATE, NAV_PVT, RXM_RAWX, RXM_SFRBX
 from ..ublox.profile import StreamingProfile
 
 DEFAULT_COMMAND_WAIT_TIME = 0.01
@@ -46,19 +46,22 @@ def main(
 
 def dump_periodic_messages(
     profile: StreamingProfile, rxm_log_file: Path, pvt_log_file: Path
-) -> None:
+) -> int:
     """Dumps the periodic messages to the log files.
 
     Args:
         profile (StreamingProfile): The streaming profile object.
         rxm_log_file (Path): The path to the RXM-RAWX log file.
         pvt_log_file (Path): The path to the NAV-PVT log file.
+
+    Returns:
+        int: The number of messages collected and dumped.
     """
     # WAIL for the command to be executed
     sleep(DUMP_MESSAGE_WAIT_TIME + DEFAULT_COMMAND_WAIT_TIME)
 
     # Get the data
-    data = profile.collect()
+    num_msg, data = profile.collect()
 
     # Write the data to the log files
     for msg in data["RXM-RAWX"]:
@@ -72,7 +75,7 @@ def dump_periodic_messages(
 
     sleep(DEFAULT_COMMAND_WAIT_TIME)
 
-    return
+    return num_msg
 
 
 @main.command(name="log")
@@ -120,6 +123,14 @@ def dump_periodic_messages(
     default=60,
     help="Time to collect data. Default: 60 seconds",
 )
+@click.option(
+    "-r",
+    "--rate",
+    required=False,
+    type=click.FloatRange(min=1),
+    default=1,
+    help="Rate [Hz] to collect data. Default: 1 Hz",
+)
 def log(
     ctx: click.Context,
     device: Path,
@@ -127,6 +138,7 @@ def log(
     rxm_log_path: Path,
     pvt_log_path: Path,
     time: float,
+    rate: float,
 ) -> None:
     """Loggs the data from the Ublox receiver into UBX files."""
     # Get the logger from the context
@@ -141,6 +153,21 @@ def log(
         no_check=False,
     )
 
+    # Sent the rate to the receiver
+    in_ms = int(1000 / rate)
+
+    # Set the rate with the logger
+    logger.info(f"Setting the rate to {rate} Hz.")
+
+    # Send the rate to the receiver
+    rateCmd = CFG_RATE().config_command(measRate=in_ms, navRate=1, timeRef=0)
+
+    # Send the command to the receiver
+    out = profile.controller.send_config_command(rateCmd, wait_for_ack=True)
+    if out.identity != "ACK-ACK":
+        click.echo("Failed to set the rate.")
+        click.Abort()
+
     # Open the log files
     with (
         rxm_log_path.open("wb") as rxm_log_file,
@@ -153,9 +180,15 @@ def log(
         TIMESPACE = range(0, int(time), int(DUMP_MESSAGE_WAIT_TIME))
 
         # Create a progress bar for the data collection
-        with tqdm.tqdm(total=len(TIMESPACE), desc="Collecting Data") as pbar:
+        n = 0
+        with tqdm.tqdm(total=len(TIMESPACE), desc=f"Collected {n} messages") as pbar:
             for _ in TIMESPACE:
-                dump_periodic_messages(profile, rxm_log_file, pvt_log_file)
+                msg_collected = dump_periodic_messages(
+                    profile, rxm_log_file, pvt_log_file
+                )
+                n += msg_collected
+                # Update the progress bar
+                pbar.set_description(f"Collected {n} messages")
                 pbar.update(1)
 
         profile.stop()
