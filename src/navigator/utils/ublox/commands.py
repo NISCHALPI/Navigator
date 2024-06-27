@@ -20,6 +20,7 @@ __all__ = [
     "NAV_PVT",
     "RXM_RAWX",
     "RXM_SFRBX",
+    "CFG_RATE"
 ]
 
 
@@ -448,3 +449,32 @@ class RXM_SFRBX(BaseCommand):
             Dict[str, str]: The units for the parsed payload data.
         """
         raise NotImplementedError("The units method is not implemented for RXM-SFRBX.")
+    
+
+class CFG_RATE(BaseCommand):
+    """Class for the CFG-RATE command."""
+
+    def __init__(self) -> None:
+        """Constructor for the CFG-RATE class."""
+        super().__init__("CFG", "RATE")
+
+    def config_command(self, measRate: int = 1000, navRate: int = 1, timeRef: int = 0) -> ubx.UBXMessage:
+        """Return the configuration command message rate.
+
+        Args:
+            measRate (int): Measurement rate in ms. Defaults to 1000.
+            navRate (int): Navigation rate in cycles. Defaults to 1.
+            timeRef (int): Time reference. Defaults to 0.
+
+        Returns:
+            UBXMessage: The configuration command message rate.
+        """
+        return ubx.UBXMessage.config_set(
+            layers=ubx.SET_LAYER_RAM,
+            transaction=ubx.TXN_NONE,
+            cfgData=[
+                ("CFG_RATE_MEAS", measRate),
+                ("CFG_RATE_NAV", navRate),
+                ("CFG_RATE_TIME_REF", timeRef),
+            ],
+        )

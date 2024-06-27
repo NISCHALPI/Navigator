@@ -303,6 +303,30 @@ class Triangulate(AbstractTriangulate):
         return pd.DataFrame(results)
 
     @staticmethod
+    def _enu_error(predicted: np.ndarray, actual: np.ndarray) -> np.ndarray:
+        """Computes the error between the computed location and the actual location in ENU coordinates.
+
+        Args:
+            predicted (np.ndarray): The predicted location in WG84 coordinates.(3,)
+            actual (np.ndarray): The actual location in WG84 coordinates.(3,)
+
+        Returns:
+            np.ndarray: The computed error in meters. ["E_error", "N_error", "U_error"]
+        """
+        # Calculate the unit vectors e, n, u at the actual location
+        e_hat, n_hat, u_hat = geocentric_to_enu(*actual)
+
+        # Calculate the error vector from the actual to predicted location
+        error = predicted - actual
+
+        # Project the error vector onto the unit vectors
+        E_error = np.dot(error, e_hat)
+        N_error = np.dot(error, n_hat)
+        U_error = np.dot(error, u_hat)
+
+        return np.array([E_error, N_error, U_error])
+
+    @staticmethod
     def enu_error(predicted: pd.DataFrame, actual: pd.Series) -> pd.DataFrame:
         """Computes the error between the computed location and the actual location in ENU coordinates.
 
@@ -323,26 +347,36 @@ class Triangulate(AbstractTriangulate):
             raise ValueError(
                 "Predicted location must have x, y, z coordinates in WG84 coordinates."
             )
-        # Grab the unit vectors e, n, u at the actual location
-        e_hat, n_hat, u_hat = geocentric_to_enu(
-            x=actual["x"],
-            y=actual["y"],
-            z=actual["z"],
+
+        return (
+            predicted[["x", "y", "z"]]
+            .apply(
+                lambda row: Triangulate._enu_error(row.to_numpy(), actual.to_numpy()),
+                axis=1,
+            )
+            .apply(lambda x: pd.Series(x, index=["E_error", "N_error", "U_error"]))
         )
 
-        # Error vector from actual to predicted location
-        error = predicted[["x", "y", "z"]] - actual[["x", "y", "z"]]
+        # # Grab the unit vectors e, n, u at the actual location
+        # e_hat, n_hat, u_hat = geocentric_to_enu(
+        #     x=actual["x"],
+        #     y=actual["y"],
+        #     z=actual["z"],
+        # )
 
-        # Project the error vector onto the unit vectors
-        E_error = np.dot(error, e_hat)
-        N_error = np.dot(error, n_hat)
-        U_error = np.dot(error, u_hat)
+        # # Error vector from actual to predicted location
+        # error = predicted[["x", "y", "z"]] - actual[["x", "y", "z"]]
 
-        # Return the error in ENU coordinates
-        return pd.DataFrame(
-            {"E_error": E_error, "N_error": N_error, "U_error": U_error},
-            index=predicted.index,
-        )
+        # # Project the error vector onto the unit vectors
+        # E_error = np.dot(error, e_hat)
+        # N_error = np.dot(error, n_hat)
+        # U_error = np.dot(error, u_hat)
+
+        # # Return the error in ENU coordinates
+        # return pd.DataFrame(
+        #     {"E_error": E_error, "N_error": N_error, "U_error": U_error},
+        #     index=predicted.index,
+        # )
 
     @staticmethod
     def plot_coordinates(lat: float, lon: float, zoom: int = 20) -> folium.Map:

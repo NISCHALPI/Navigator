@@ -73,7 +73,7 @@ def non_linear_weighted_least_squares(
             break
 
         # Update the guess
-        x_prev += dx
+        x_prev = x_prev + dx
 
     # Compute the error covariance matrix of the residuals
     residuals = y - f(x_prev, *f_args)

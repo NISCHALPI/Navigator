@@ -142,6 +142,61 @@ class IParseGPSObs(IParse):
         return self._dispatch_rinex3(filename, **kwargs)
 
     @staticmethod
+    def _multiindex_interpolator(
+        df: pd.DataFrame, method: str, order: int | None = None, **kwargs
+    ) -> pd.DataFrame:
+        """Helper method to interpolate missing values in a DataFrame with a MultiIndex.
+
+        Args:
+            df (pd.DataFrame): The DataFrame to interpolate.
+            method (str): The method to use for interpolation.
+            order (int | None): The order of the interpolation method.
+            **kwargs: Additional keyword arguments to pass to the interpolation method.
+
+        Returns:
+            pd.DataFrame: The DataFrame with missing values interpolated.
+        """
+        index = df.index
+        # Drop the index
+        df = df.reset_index(drop=True)
+        # Interpolate the missing values
+        # NOTE: This is due to inconsistency in the `pandas` library when interpolating with a MultiIndex
+        df = df.interpolate(method=method, order=order, **kwargs)
+
+        return df.set_index(index)
+
+    @staticmethod
+    def interpolate_missing_values(
+        obsData: pd.DataFrame, method: str = "cubic", order: int | None = None, **kwargs
+    ) -> pd.DataFrame:
+        """Interpolate missing values range measurements in a DataFrame.
+
+        This method interpolates missing values in a DataFrame using the specified method.
+
+        Args:
+            obsData (pd.DataFrame): The DataFrame to interpolate.
+            method (str): The method to use for interpolation. Default is 'cubic'.
+            order (int | None): The order of the interpolation method.
+            **kwargs: Additional keyword arguments to pass to the interpolation method.
+
+        Returns:
+            pd.DataFrame: The DataFrame with missing values interpolated.
+        """
+        return (
+            obsData.reorder_levels(["sv", "time"])
+            .groupby(level="sv")
+            .apply(
+                lambda x: IParseGPSObs._multiindex_interpolator(
+                    x, method=method, order=order, **kwargs
+                )
+            )
+            .droplevel(0)
+            .reorder_levels(["time", "sv"])
+            .sort_index()
+            .dropna()
+        )
+
+    @staticmethod
     def get_rinex_version(filename: str | Path) -> str:
         """Get the RINEX version of a file.
 

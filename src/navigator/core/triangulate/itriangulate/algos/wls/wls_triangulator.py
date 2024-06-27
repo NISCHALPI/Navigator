@@ -71,7 +71,6 @@ def wls_triangulation(
         f_args=(sv_pos,),
         HJacobian_args=(sv_pos,),
     )
-
     # Calculate the DOPS for satellites
     H = HJacobian_at(sol, sv_pos)
 

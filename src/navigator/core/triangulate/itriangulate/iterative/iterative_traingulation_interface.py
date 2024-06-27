@@ -15,12 +15,12 @@ Usage:
 
 import numpy as np
 import pandas as pd
+import tqdm
 
 from .....epoch import Epoch
 from .....utils.transforms.coordinate_transforms import geocentric_to_ellipsoidal
 from ..algos.wls import wls_triangulation
 from ..itriangulate import Itriangulate
-import tqdm
 
 __all__ = ["IterativeTriangulationInterface"]
 
@@ -185,8 +185,11 @@ class IterativeTriangulationInterface(Itriangulate):
             pd.DataFrame: The computed iterative triangulation.
         """
         # Initialize the error covariance matrix
-        weight = np.eye(len(epoches[0]))
-        errorCovarience = np.zeros((len(epoches[0]), len(epoches[0])))
+        measdim = (
+            len(epoches[0].obs_data) if self.code_only else len(epoches[0].obs_data) * 2
+        )
+        weight = np.eye(measdim).astype(np.float64)
+        errorCovarience = np.zeros((measdim, measdim)).astype(np.float64)
 
         # Get initial SV filter
         filter = sv_filter if sv_filter is not None else epoches[0].common_sv
