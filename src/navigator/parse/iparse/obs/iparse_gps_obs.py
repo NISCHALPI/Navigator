@@ -167,7 +167,10 @@ class IParseGPSObs(IParse):
 
     @staticmethod
     def interpolate_missing_values(
-        obsData: pd.DataFrame, method: str = "cubic", order: int | None = None, **kwargs
+        obsData: pd.DataFrame,
+        method: str = "from_derivatives",
+        order: int | None = None,
+        **kwargs,
     ) -> pd.DataFrame:
         """Interpolate missing values range measurements in a DataFrame.
 
@@ -175,7 +178,7 @@ class IParseGPSObs(IParse):
 
         Args:
             obsData (pd.DataFrame): The DataFrame to interpolate.
-            method (str): The method to use for interpolation. Default is 'cubic'.
+            method (str): The method to use for interpolation. Default is 'from_derivatives'.
             order (int | None): The order of the interpolation method.
             **kwargs: Additional keyword arguments to pass to the interpolation method.
 

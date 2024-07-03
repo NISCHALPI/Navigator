@@ -54,7 +54,7 @@ class ExtendedKalmanInterface(IKalman):
         R: np.ndarray,
         Q_0: np.ndarray,
         log_innovation: bool = False,
-        code_only: bool = False,
+        code_only: bool = True,
     ) -> None:
         """Initializes the ExtendedKalmanInterface object.
 
@@ -207,7 +207,6 @@ class ExtendedKalmanInterface(IKalman):
         self,
         x0: np.ndarray,
         P0: np.ndarray,
-        # epoches: list[Epoch],
         z: np.ndarray,
         sv_pos: np.ndarray,
         **kwargs,  # noqa : ARG
@@ -218,6 +217,8 @@ class ExtendedKalmanInterface(IKalman):
             x0 (np.ndarray): Initial state vector.
             P0 (np.ndarray): Initial state covariance matrix.
             epoches (list[Epoch]): List of epoches.
+            z (np.ndarray): Range measurements. (T, num_sv)
+            sv_pos (np.ndarray): Satellite positions. (T, num_sv, 3)
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -225,6 +226,7 @@ class ExtendedKalmanInterface(IKalman):
 
         Note:
             - The epoches must be contiguous i.e have the same satellites as the initial epoch. (See navigator.epoch.EpochCollection for more information)
+            - One can use the epoches_to_timeseries method to convert the epoches to a timeseries of measurements and satellite positions.
         """
         # Process all the epoches to get a timeseries of measurements and sv positions
         # z, sv_pos = self.epoches_to_timeseries(epoches)

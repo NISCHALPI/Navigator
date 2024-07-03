@@ -31,7 +31,6 @@ Note:
 """
 
 from abc import ABC, abstractmethod
-from copy import deepcopy
 
 import folium
 import numpy as np
@@ -93,7 +92,7 @@ class AbstractTriangulate(ABC):
             pd.Series | pd.DataFrame: The computed triangulated location.
         """
         return self.itriangulate._compute(
-            deepcopy(epoch),  # Deep copy the epoch to avoid modifying the original
+            epoch,
             *args,
             **kwargs,
         )
@@ -327,34 +326,35 @@ class Triangulate(AbstractTriangulate):
         return np.array([E_error, N_error, U_error])
 
     @staticmethod
-    def enu_error(predicted: pd.DataFrame, actual: pd.Series) -> pd.DataFrame:
+    def enu_error(predicted: pd.DataFrame, actual: pd.DataFrame) -> pd.DataFrame:
         """Computes the error between the computed location and the actual location in ENU coordinates.
 
         Args:
             predicted (pd.DataFrame): The predicted location in WG84 coordinates.
-            actual (pd.Series): The actual location in WG84 coordinates.
+            actual (pd.DataFrame): The actual location in WG84 coordinates.
 
         Returns:
             pd.DataFrame: The computed error in meters. ["E_error", "N_error", "U_error"]
         """
-        # Check if the actual location has x, y, z coordinates
-        if all([coord not in actual.index for coord in ["x", "y", "z"]]):
-            raise ValueError(
-                "Actual location must have x, y, z coordinates in WG84 coordinates."
-            )
-        # Check if the predicted location has x, y, z coordinates
-        if all([coord not in predicted.columns for coord in ["x", "y", "z"]]):
-            raise ValueError(
-                "Predicted location must have x, y, z coordinates in WG84 coordinates."
+        # Check x, y, z columns are present
+        if not all([col in predicted.columns for col in ["x", "y", "z"]]):
+            raise ValueError("Predicted DataFrame must have columns ['x', 'y', 'z']")
+        if not all([col in actual.columns for col in ["x", "y", "z"]]):
+            raise ValueError("Actual DataFrame must have columns ['x', 'y', 'z']")
+
+        # Calculate the error in ENU coordinates
+        error = []
+
+        for i in range(len(predicted)):
+            error.append(
+                Triangulate._enu_error(
+                    predicted[["x", "y", "z"]].iloc[i].to_numpy(),
+                    actual[["x", "y", "z"]].iloc[i].to_numpy(),
+                )
             )
 
-        return (
-            predicted[["x", "y", "z"]]
-            .apply(
-                lambda row: Triangulate._enu_error(row.to_numpy(), actual.to_numpy()),
-                axis=1,
-            )
-            .apply(lambda x: pd.Series(x, index=["E_error", "N_error", "U_error"]))
+        return pd.DataFrame(
+            error, columns=["E_error", "N_error", "U_error"], index=predicted.index
         )
 
         # # Grab the unit vectors e, n, u at the actual location

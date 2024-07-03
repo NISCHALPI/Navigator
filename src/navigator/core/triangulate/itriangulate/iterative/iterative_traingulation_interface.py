@@ -44,7 +44,7 @@ class IterativeTriangulationInterface(Itriangulate):
 
     """
 
-    def __init__(self, code_only: bool = False) -> None:
+    def __init__(self, code_only: bool = True) -> None:
         """Initialize the GPSIterativeTriangulationInterface.
 
         Args:

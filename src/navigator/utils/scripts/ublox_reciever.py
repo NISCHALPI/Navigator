@@ -166,7 +166,8 @@ def log(
     out = profile.controller.send_config_command(rateCmd, wait_for_ack=True)
     if out.identity != "ACK-ACK":
         click.echo("Failed to set the rate.")
-        click.Abort()
+        # Exit the program
+        raise click.Abort()
 
     # Open the log files
     with (

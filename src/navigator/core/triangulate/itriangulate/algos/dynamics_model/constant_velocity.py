@@ -92,6 +92,8 @@ def Q(dt: float, autocorrelation: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Process noise matrix.
     """
-    G_ = G(dt)
+    A = np.array([[dt**3 / 3, dt**2 / 2], [dt**2 / 2, dt]], dtype=np.float64)
 
-    return G_ @ autocorrelation @ G_.T
+    F = np.kron(np.eye(4), A)
+
+    return F @ autocorrelation @ F.T

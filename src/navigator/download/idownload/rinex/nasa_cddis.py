@@ -281,9 +281,9 @@ class NasaCddisV3:
         year: int,
         day: int,
         save_path: Path,
-        num_files: int = -1,
+        num_files: int = 1,
         no_pbar: bool = False,
-        match_string: str = None,
+        match_string: str = "JPL",
         *args,  # noqa : ARG006
         **kwargs,  # noqa : ARG006
     ) -> None:
@@ -298,9 +298,9 @@ class NasaCddisV3:
             year (int): The year of the RINEX files.
             day (int): The day of the RINEX files. [1-366]
             save_path (Path): The path to save the downloaded files.
-            num_files (int): The number of files to download (default is -1).
+            num_files (int): The number of files to download  (default is 1)
             no_pbar (bool): If True, disables the progress bar (default is False).
-            match_string (str): The string to match in the file names (default is None).
+            match_string (str): The string to match in the file names (default is JPL).
             *args: Variable length argument list.
             **kwargs: Arbitrary keyword arguments.
 
