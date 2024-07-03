@@ -2,10 +2,10 @@
 
 <img src="./mics/Navigator_transparent.png" alt="Navigator Logo" width="400"/>
 
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](https://img.shields.io/badge/License-Proprietary-red.svg)
-[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://img.shields.io/badge/Python-3.10-blue.svg)
-[![University of Alabama](https://img.shields.io/badge/University-Alabama-blue.svg)](https://img.shields.io/badge/University-Alabama-blue.svg)
-[![PNTF Lab](https://img.shields.io/badge/Quantime-PNTF-blue.svg)](https://img.shields.io/badge/Quantime-PNTF-blue.svg)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](./LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/)
+[![University of Alabama](https://img.shields.io/badge/University-Alabama-blue.svg)](https://www.ua.edu/)
+[![PNTF Lab](https://img.shields.io/badge/Quantime-PNTF-blue.svg)](https://quantime.ua.edu/pntf-team.html)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
