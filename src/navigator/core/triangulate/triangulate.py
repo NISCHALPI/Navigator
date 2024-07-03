@@ -33,8 +33,10 @@ Note:
 from abc import ABC, abstractmethod
 
 import folium
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import tqdm
 
 from ...dispatch.base_dispatch import AbstractDispatcher
@@ -377,6 +379,66 @@ class Triangulate(AbstractTriangulate):
         #     {"E_error": E_error, "N_error": N_error, "U_error": U_error},
         #     index=predicted.index,
         # )
+
+    @staticmethod
+    def enu_boxen_plot(
+        error_dict: dict[str, pd.DataFrame],
+        save_path: str | None = None,
+        DPI: int = 300,
+    ) -> plt.Figure:
+        """Plots the East-North-Up (ENU) errors for different models and saves the plot.
+
+        Note each DataFrame in the error_dict should have columns ['East', 'North', 'Up'] representing the ENU errors.
+        Use the 'Triangulate.enu_error' method to compute the ENU errors.
+
+        Args:
+            error_dict (Dict[str, pd.DataFrame]): Dictionary where keys are model names and values are DataFrames containing the ENU errors.
+            save_path (str, optional): Path to save the plot image. Defaults to None.
+            DPI (int, optional): Dots per inch (DPI) setting for the saved plot image. Defaults to 300.
+
+        Returns:
+            None: The plot is saved to the specified path
+        """
+        # Initialize an empty list to store the melted DataFrames
+        melted_dfs = []
+
+        # Process each model's DataFrame
+        for model_name, enuError_df in error_dict.items():
+            # Ensure the DataFrame columns are named ['East', 'North', 'Up']
+            enuError_df.columns = ['East', 'North', 'Up']
+
+            # Apply absolute value to the errors
+            enuError_df = enuError_df.abs()
+
+            # Melt the DataFrame
+            enuError_melted = enuError_df.melt(
+                var_name='Error Type', value_name='Error'
+            )
+
+            # Add a column to identify the model
+            enuError_melted['Model'] = model_name
+
+            # Append the melted DataFrame to the list
+            melted_dfs.append(enuError_melted)
+
+        # Combine all the melted DataFrames
+        combined_df = pd.concat(melted_dfs, ignore_index=True, axis=0)
+
+        # Plot the data
+        fig, ax = plt.subplots(figsize=(8, 6))
+        sns.boxenplot(x='Error Type', y='Error', hue='Model', data=combined_df)
+
+        plt.title('ENU Errors for Different Models')
+        plt.ylabel('Error [m]')
+        plt.xlabel('Error Type')
+        plt.legend(title='Model')
+        plt.tight_layout()
+
+        # Save the plot
+        if save_path is not None:
+            plt.savefig(save_path, dpi=DPI)
+
+        return fig
 
     @staticmethod
     def plot_coordinates(lat: float, lon: float, zoom: int = 20) -> folium.Map:

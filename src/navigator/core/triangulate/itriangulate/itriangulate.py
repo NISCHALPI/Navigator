@@ -24,6 +24,7 @@ Note:
 
 from abc import ABC, abstractmethod
 
+import numpy as np
 import pandas as pd
 
 from ....epoch import Epoch
@@ -110,11 +111,11 @@ class Itriangulate(ABC):
         # If the constellation is not supported, raise an error
         raise ValueError(f"Invalid constellation: {first_prn}")
 
+    @staticmethod
     def _preprocess(
-        self,
         epoch: Epoch,
         computational_format: bool = False,
-        sv_filter: list[str] = None,
+        sv_filter: list[str] | None = None,
         code_only: bool = False,
         **kwargs,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -131,7 +132,7 @@ class Itriangulate(ABC):
             tuple[pd.DataFrame, pd.DataFrame]: range and satellite position dataframes.
         """
         # Auto dispatch the preprocessor
-        preprocesser = self._auto_dispatch_preprocessor(epoch)
+        preprocesser = Itriangulate._auto_dispatch_preprocessor(epoch)
 
         # Preprocess the data
         range_df, sv_df = preprocesser.preprocess(epoch, **kwargs)
@@ -145,6 +146,44 @@ class Itriangulate(ABC):
             )
 
         return range_df, sv_df
+
+    @staticmethod
+    def epoches_to_timeseries(
+        epoches: list[Epoch],
+        computational_format: bool = True,
+        sv_filter: list[str] | None = None,
+        code_only: bool = True,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Converts the epoches to a timeseries of measurements and satellite positions.
+
+        Args:
+            epoches (list[Epoch]): List of epoches.
+            computational_format (bool): Flag to return the data in computational format.
+            sv_filter (list[str]): List of satellite PRNs to filter.
+            code_only (bool): Flag to indicate if the triangulation is code-only i.e no carrier phase measurements are used.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: Measurements and satellite positions.
+        """
+        # Process all the epoches to get a timeseries of measurements and sv positions
+        meas = [
+            Itriangulate._preprocess(
+                epoch=epoch,
+                computational_format=computational_format,
+                sv_filter=sv_filter,
+                code_only=code_only,
+            )
+            for epoch in epoches
+        ]
+
+        return (
+            np.vstack(
+                [m[0] for m in meas]
+            ),  # (T, 2 * num_sv) if not code_only else (T, num_sv)
+            np.stack(
+                [m[1] for m in meas]
+            ),  # (T, 2 * num_sv, 3) if not code_only else (T, num_sv, 3)
+        )
 
     def __call__(
         self,

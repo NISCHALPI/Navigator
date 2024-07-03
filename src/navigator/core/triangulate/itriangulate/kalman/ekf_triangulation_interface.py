@@ -121,40 +121,6 @@ class ExtendedKalmanInterface(IKalman):
             }
         )
 
-    def epoches_to_timeseries(
-        self, epoches: list[Epoch]
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Converts the epoches to a timeseries of measurements and satellite positions.
-
-        Args:
-            epoches (list[Epoch]): List of epoches.
-
-        Returns:
-            tuple[np.ndarray, np.ndarray]: Measurements and satellite positions.
-        """
-        # Get the initial sv_map
-        sv_map = epoches[0].obs_data.index
-
-        # Process all the epoches to get a timeseries of measurements and sv positions
-        meas = [
-            self._preprocess(
-                epoch=epoch,
-                computational_format=True,
-                sv_filter=sv_map,
-                code_only=self.code_only,
-            )
-            for epoch in epoches
-        ]
-
-        return (
-            np.vstack(
-                [m[0] for m in meas]
-            ),  # (T, 2 * num_sv) if not code_only else (T, num_sv)
-            np.stack(
-                [m[1] for m in meas]
-            ),  # (T, 2 * num_sv, 3) if not code_only else (T, num_sv, 3)
-        )
-
     def _compute(self, epoch: Epoch, **kwargs) -> Series | DataFrame:
         """Computes the state vector estimate for the given epoch.
 
@@ -229,7 +195,11 @@ class ExtendedKalmanInterface(IKalman):
             - One can use the epoches_to_timeseries method to convert the epoches to a timeseries of measurements and satellite positions.
         """
         # Process all the epoches to get a timeseries of measurements and sv positions
-        # z, sv_pos = self.epoches_to_timeseries(epoches)
+        # z, sv_pos = self.epoches_to_timeseries(
+        #     epoches=epoches,
+        #     sv_filter=epoches[0].common_sv,
+        #     code_only=self.code_only,
+        # )
 
         # Make a Time Series of the noise covariance matrix
         Q_ts = np.stack([self.Q for _ in range(z.shape[0])])
@@ -260,11 +230,65 @@ class ExtendedKalmanInterface(IKalman):
 
         return state, outs
 
+    def batch_filtering(
+        self,
+        x0: np.ndarray,
+        P0: np.ndarray,
+        z: np.ndarray,
+        sv_pos: np.ndarray,
+        **kwargs,  # noqa : ARG
+    ) -> tuple[DataFrame, dict[str, np.ndarray]]:
+        """Computes the fixed interval smoothing estimates for the given epoches.
+
+        Args:
+            x0 (np.ndarray): Initial state vector.
+            P0 (np.ndarray): Initial state covariance matrix.
+            z (np.ndarray): Measurements.
+            sv_pos (np.ndarray): Satellite positions.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+           tuple[DataFrame, dict[str, np.ndarray]]: State estimates and additional outputs.
+
+        Note:
+            - The epoches must be contiguous i.e have the same satellites as the initial epoch. (See navigator.epoch.EpochCollection for more information)
+        """
+        # Process all the epoches to get a timeseries of measurements and sv positions
+        # z, sv_pos = self.epoches_to_timeseries(epoches)
+
+        # Make a Time Series of the noise covariance matrix
+        Q_ts = np.stack([self.Q for _ in range(z.shape[0])])
+        R_ts = np.stack([self.R for _ in range(z.shape[0])])
+
+        # Batch Process the epoches
+        outs = self._filter.batch_filtering(
+            x0=x0,
+            P0=P0,
+            z_ts=z,
+            Q=Q_ts,
+            R=R_ts,
+            fx=self.fx,
+            FJacobian=self.FJacobian,
+            hx=self.hx,
+            HJacobian=self.HJacobian,
+            fx_kwargs={},
+            hx_kwargs={"sv_pos": sv_pos},
+            FJ_kwargs={},
+            HJ_kwargs={"sv_pos": sv_pos},
+        )
+
+        # Process the state estimates
+        state = DataFrame(outs["x_posterior"], columns=self.state)
+
+        # Remove the state estimates from the outs dictionary
+        outs.pop("x_posterior")
+
+        return state, outs
+
     def _dim_state(self) -> int:
         return 8
 
 
-# TODO: Implement the AdaptiveEKF class
 class AdaptiveExtendedKalmanInterface(ExtendedKalmanInterface):
 
     def __init__(
