@@ -405,18 +405,18 @@ class Triangulate(AbstractTriangulate):
         # Process each model's DataFrame
         for model_name, enuError_df in error_dict.items():
             # Ensure the DataFrame columns are named ['East', 'North', 'Up']
-            enuError_df.columns = ['East', 'North', 'Up']
+            enuError_df.columns = ["East", "North", "Up"]
 
             # Apply absolute value to the errors
             enuError_df = enuError_df.abs()
 
             # Melt the DataFrame
             enuError_melted = enuError_df.melt(
-                var_name='Error Type', value_name='Error'
+                var_name="Error Type", value_name="Error"
             )
 
             # Add a column to identify the model
-            enuError_melted['Model'] = model_name
+            enuError_melted["Model"] = model_name
 
             # Append the melted DataFrame to the list
             melted_dfs.append(enuError_melted)
@@ -426,12 +426,12 @@ class Triangulate(AbstractTriangulate):
 
         # Plot the data
         fig, ax = plt.subplots(figsize=(8, 6))
-        sns.boxenplot(x='Error Type', y='Error', hue='Model', data=combined_df)
+        sns.boxenplot(x="Error Type", y="Error", hue="Model", data=combined_df)
 
-        plt.title('ENU Errors for Different Models')
-        plt.ylabel('Error [m]')
-        plt.xlabel('Error Type')
-        plt.legend(title='Model')
+        plt.title("ENU Errors for Different Models")
+        plt.ylabel("Error [m]")
+        plt.xlabel("Error Type")
+        plt.legend(title="Model")
         plt.tight_layout()
 
         # Save the plot

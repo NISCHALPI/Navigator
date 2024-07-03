@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "navigator"
-version = "0.1.0"
+version = "3.0.0"
 description = "A RINEX processing library"
 authors = ["NischalBhattarai <nbhattarai@crimson.ua.edu>"]
 license = "MIT"
@@ -8,7 +8,6 @@ readme = "README.md"
 
 [tool.poetry.scripts]
 rinex3-download-nasa = "navigator.utils.scripts.cddis_download:main"
-rinex3-dir-ops = "navigator.utils.scripts.dir_ops:main"
 triangulate = "navigator.utils.scripts.gps_traingulate:main"
 ubx-reciever = "navigator.utils.scripts.ublox_reciever:main"
 
