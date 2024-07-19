@@ -20,7 +20,9 @@ from ..algos.ionosphere.klobuchar_ionospheric_model import (
 )
 from ..algos.rotations import sagnac_correction
 from ..algos.smoothing.base_smoother import BaseSmoother
-from ..algos.troposphere.tropospheric_delay import tropospheric_delay_correction
+from ..algos.troposphere.tropospheric_delay import (
+    saastamoinen_tropospheric_correction_with_neil_mapping,
+)
 from ..algos.wls.wls_triangulator import wls_triangulation
 from .preprocessor import Preprocessor
 
@@ -68,10 +70,10 @@ class GPSPreprocessor(Preprocessor):
         """
         # Compute the tropospheric correction
         return sv_coords.apply(
-            lambda row: tropospheric_delay_correction(
-                latitude=approx_receiver_location["lat"],
-                elevation=row["elevation"],
-                height=approx_receiver_location["height"],
+            lambda row: saastamoinen_tropospheric_correction_with_neil_mapping(
+                latitude_of_receiver=approx_receiver_location["lat"],
+                elevation_angle_of_satellite=row["elevation"],
+                height_of_receiver=approx_receiver_location["height"],
                 day_of_year=day_of_year,
             ),
             axis=1,
@@ -361,9 +363,17 @@ class GPSPreprocessor(Preprocessor):
             is_sp3=epoch.profile.get("navigation_format", "ephemeris") == "sp3",
         )
         # Correct for the satellite clock bias
+        if epoch.profile.get("mode", "single") == "dual":
+            pseudorange = ionosphere_free_combination(
+                p1=epoch.obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64),
+                p2=epoch.obs_data[self.L2_CODE_ON].to_numpy(dtype=np.float64),
+            )
+        else:
+            pseudorange = epoch.obs_data[self.L1_CODE_ON].to_numpy(dtype=np.float64)
+
+        # Correct for the satellite clock bias
         pseudorange = (
-            epoch.obs_data[self.L1_CODE_ON]
-            + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
+            pseudorange + SPEED_OF_LIGHT * coords[IGPSEphemeris.SV_CLOCK_BIAS_KEY]
         )
 
         # Get the base solution using WLS
@@ -389,7 +399,7 @@ class GPSPreprocessor(Preprocessor):
             x=solution["x"],
             y=solution["y"],
             z=solution["z"],
-            max_iter=1000,
+            max_iter=100,
         )
 
         # Attach the latitude, longitude and height to the solution

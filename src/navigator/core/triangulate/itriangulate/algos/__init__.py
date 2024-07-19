@@ -20,4 +20,6 @@ from .combinations import (
     wide_lane_combination,
 )
 from .ionosphere.klobuchar_ionospheric_model import klobuchar_ionospheric_correction
-from .troposphere.tropospheric_delay import tropospheric_delay_correction
+from .troposphere.tropospheric_delay import (
+    saastamoinen_tropospheric_correction_with_neil_mapping,
+)

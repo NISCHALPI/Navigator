@@ -220,7 +220,9 @@ class ParametricExtendedInterface(pl.LightningModule):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: The predicted state vector and covariance matrix.
         """
-        pred_outs = self.parametric_filter.predict(x=x, P=P, Q=self.Q, f_args=())
+        pred_outs = self.parametric_filter.predict(
+            x_posterior=x, P_posterior=P, Q=self.Q, f_args=()
+        )
 
         return (
             pred_outs[ParametricExtendedKalmanFilter.TERMS["PredictedEstimate"]],

@@ -134,6 +134,17 @@ class ParametricExtendedKalmanFilter(nn.Module):
         self._f = joint_jacobian_transform(f)
         self._h = joint_jacobian_transform(h)
 
+    def to_SPD(self, M: torch.Tensor) -> torch.Tensor:
+        """Converts a matrix to a symmetric positive definite matrix.
+
+        Args:
+            M (torch.Tensor): The matrix to be converted to SPD.
+
+        Returns:
+            torch.Tensor: The SPD matrix.
+        """
+        return (M + M.T) / 2
+
     def predict(
         self,
         x_posterior: torch.Tensor,
@@ -159,7 +170,7 @@ class ParametricExtendedKalmanFilter(nn.Module):
         F, x_prior = self._f(x_posterior, *f_args)
 
         P_prior = F @ P_posterior @ F.T + Q
-
+        P_prior = self.to_SPD(P_prior)
         return {
             self.TERMS["PriorEstimate"]: x_prior,
             self.TERMS["PriorCovariance"]: P_prior,
@@ -196,15 +207,16 @@ class ParametricExtendedKalmanFilter(nn.Module):
         y = z - z_pred
         # Compute the innovation covariance matrix
         S = H @ P_prior @ H.T + R
+        S = self.to_SPD(S)
         # Compute the Kalman gain
         K = P_prior @ H.T @ torch.linalg.inv(S)
-
         # Update the state vector
         x_post = x_prior + K @ y
         # Update the state covariance matrix using joseph form since
         # EKF is not guaranteed to be optimal
         factor = torch.eye(self.dim_x, device=x_post.device, dtype=x_post.dtype) - K @ H
         P_post = factor @ P_prior @ factor.T + K @ R @ K.T
+        P_post = self.to_SPD(P_post)
 
         return {
             self.TERMS["PosteriorEstimate"]: x_post,

@@ -2,6 +2,7 @@
 
 from .fetchers import fetch_nav_data, fetch_sp3
 from .rinex_loader import (
+    from_observation_dataframe,
     from_observation_file,
     from_precise_ephemeris,
     from_rinex_dataframes,

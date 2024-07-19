@@ -145,7 +145,7 @@ def discretized_process_noise_matrix(dt: float, Q_0: torch.Tensor) -> torch.Tens
         torch.Tensor: Process noise matrix.
     """
     A = torch.tensor([[dt**3 / 3, dt**2 / 2], [dt**2 / 2, dt]])
-    F = torch.kron(torch.eye(4), A)
+    F = torch.kron(torch.eye(len(Q_0) // 2), A).double()
 
     return F @ Q_0 @ F.T
 

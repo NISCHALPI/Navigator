@@ -1,6 +1,6 @@
 """Import all tropospheric correction models."""
 
 from .tropospheric_delay import (
-    filtered_troposphere_correction,
-    tropospheric_delay_correction,
+    saastamoinen_tropospheric_correction_with_neil_mapping,
+    tropospheic_delay_with_neil_map,
 )

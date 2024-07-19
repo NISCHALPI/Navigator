@@ -42,10 +42,10 @@ def gaussain_log_likelihood(
         >>> print(loss)
     """
     # Calculate the log determinant of the innovation covariance matrix
-    log_det = torch.linalg.slogdet(innovation_covariance)[1]
+    slog_det = torch.linalg.slogdet(innovation_covariance)
 
     return -0.5 * (
-        log_det + innovation @ torch.linalg.inv(innovation_covariance) @ innovation
+        slog_det[1] + innovation @ torch.linalg.inv(innovation_covariance) @ innovation
     )
 
 

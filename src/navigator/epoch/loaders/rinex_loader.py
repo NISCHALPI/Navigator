@@ -20,6 +20,7 @@ __all__ = [
     "from_precise_ephemeris",
     "split_dataframe_by_day",
     "from_rinex_files",
+    "from_observation_dataframe",
 ]
 
 
@@ -340,6 +341,75 @@ def from_rinex_files(
     )
 
 
+# TODO: Add the compatibility for other GNSS systems
+def from_observation_dataframe(
+    observation_data: pd.DataFrame,
+    observation_metadata: pd.Series,
+    station_name: tp.Optional[str] = None,
+    mode: str = "maxsv",
+    trim: bool = True,
+    drop_na: bool = True,
+    column_mapper: tp.Optional[tp.List[str]] = None,
+    matching_threshold: pd.Timedelta = pd.Timedelta(hours=3),
+    profile: dict[str, str | bool] = Epoch.INITIAL,
+    logging: bool = False,
+    download_station: str = "JPL",
+) -> tp.Iterator[Epoch]:
+    """Loads the observation data to an epoch object.
+
+    This method will fetch the navigation data from the NASA CDDIS server automatically.
+
+    Args:
+        observation_data (pd.DataFrame): The observation data.
+        observation_metadata (pd.Series): The observation metadata.
+        station_name (str, optional): The station name. Defaults to None.
+        mode (str, optional): The mode of matching the navigation data.[maxsv | nearest]. Defaults to 'maxsv'.
+        trim (bool, optional): Intersect satellite vehicles in observation and navigation data. Defaults to True.
+        drop_na (bool, optional): If True, the NaN values will be dropped from relevant columns. Defaults to True.
+        column_mapper (tp.List[str], optional): The column mapper. Defaults to None.
+        matching_threshold (pd.Timedelta, optional): The matching threshold to match the observation and navigation data. Defaults to pd.Timedelta(hours=3).
+        profile (dict[str, str| bool], optional): The profile of the epoch. Defaults to Epoch.INITIAL.
+        logging (bool, optional): If True, the logging will be enabled. Defaults to False.
+        download_station (str, optional): The station to download the navigation data. Defaults to "JPL".
+
+    Returns:
+        tp.List[Epoch]: A list of epoch objects.
+    """
+    # Get the noon days of the observation file
+    # Seperate the data by day
+    obsDataFrames = split_dataframe_by_day(observation_data)
+
+    # Download the navigation data for each day
+    navDataFrames = {
+        key: fetch_nav_data(date=key, logging=logging, station=download_station)
+        for key in obsDataFrames.keys()
+    }
+
+    # Load the data
+    epoches = []
+
+    for key in obsDataFrames.keys():
+        epoches.extend(
+            list(
+                from_rinex_dataframes(
+                    observation_data=obsDataFrames[key],
+                    observation_metadata=observation_metadata,
+                    navigation_data=navDataFrames[key][1],
+                    navigation_metadata=navDataFrames[key][0],
+                    station_name=station_name,
+                    matching_mode=mode,
+                    trim=trim,
+                    drop_na=drop_na,
+                    column_mapper=column_mapper,
+                    matching_threshold=matching_threshold,
+                    profile=profile,
+                )
+            )
+        )
+
+    return epoches
+
+
 ## TODO: Add the compatibility for other GNSS systems
 def from_observation_file(
     observation_file: Path,
@@ -378,35 +448,16 @@ def from_observation_file(
     # Load the observation data
     obsmeta, obsdata = obsParser.parse(observation_file)
 
-    # Seperate the data by day
-    obsDataFrames = split_dataframe_by_day(obsdata)
-
-    # Download the navigation data for each day
-    navDataFrames = {
-        key: fetch_nav_data(date=key, logging=logging, station=download_station)
-        for key in obsDataFrames.keys()
-    }
-
-    # Load the data
-    epoches = []
-
-    for key in obsDataFrames.keys():
-        epoches.extend(
-            list(
-                from_rinex_dataframes(
-                    observation_data=obsDataFrames[key],
-                    observation_metadata=obsmeta,
-                    navigation_data=navDataFrames[key][1],
-                    navigation_metadata=navDataFrames[key][0],
-                    station_name=station_name,
-                    matching_mode=mode,
-                    trim=trim,
-                    drop_na=drop_na,
-                    column_mapper=column_mapper,
-                    matching_threshold=matching_threshold,
-                    profile=profile,
-                )
-            )
-        )
-
-    return epoches
+    return from_observation_dataframe(
+        observation_data=obsdata,
+        observation_metadata=obsmeta,
+        station_name=station_name,
+        mode=mode,
+        trim=trim,
+        drop_na=drop_na,
+        column_mapper=column_mapper,
+        matching_threshold=matching_threshold,
+        profile=profile,
+        logging=logging,
+        download_station=download_station,
+    )
