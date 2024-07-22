@@ -30,7 +30,7 @@ Methods:
 import numpy as np
 import pandas as pd
 
-from .egnos_tropospheric_correction_model import EgnosTroposphericModel
+from .seasonal_atmospheric_model import get_average_at, get_seasonal_value_at
 
 __all__ = ["NeilMapping"]
 
@@ -72,21 +72,21 @@ class NeilMapping:
 
     seasonal_hydrostatic_variation = pd.DataFrame(
         {
-            "da": {
+            "a": {
                 15: 0.0,
                 30: 1.2709626e-05,
                 45: 2.652366e-05,
                 60: 3.4000452e-05,
                 75: 4.1202191e-05,
             },
-            "db": {
+            "b": {
                 15: 0.0,
                 30: 2.1414979e-05,
                 45: 3.0160779e-05,
                 60: 7.2562722e-05,
                 75: 0.00011723375,
             },
-            "dc": {
+            "c": {
                 15: 0.0,
                 30: 9.01284e-05,
                 45: 4.3497037e-05,
@@ -121,8 +121,6 @@ class NeilMapping:
             },
         }
     )
-    Dmin_southern = 211.0
-    Dmin_northern = 28.0
 
     # Height correction parameters
     a_ht = 2.53e-5
@@ -139,7 +137,6 @@ class NeilMapping:
         elevation: float,
         height: float,
         day_of_year: int,
-        hemisphere: bool = True,  # noqa : ARG002
     ) -> tuple[float, float]:
         """This function calculates the mapping function for the tropospheric delay using Neil mapping function.
 
@@ -148,7 +145,6 @@ class NeilMapping:
             elevation (float): The elevation angle of the satellite in degrees.
             height (float): The height of the receiver above the sea level in meters.
             day_of_year (int): The day of the year. [1-365]
-            hemisphere (bool, optional): The hemisphere. Defaults to True meaning northern hemisphere else southern hemisphere.
 
 
         Returns:
@@ -194,7 +190,9 @@ class NeilMapping:
         return numerator / denominator
 
     def _get_dry_parameters(
-        self, latitude: float, day_of_year: int, hemisphere: bool = True
+        self,
+        latitude: float,
+        day_of_year: int,
     ) -> pd.Series:
         """This function calculates the dry parameters for the Neil mapping function.
 
@@ -208,24 +206,29 @@ class NeilMapping:
 
         """
         # Get the interpolated values for the latitude
-        average_dry = EgnosTroposphericModel._interpolate_closest_two_latitude_index(
-            latitude=latitude, frame=self.average_hydrostatic_parameter
+        a = get_seasonal_value_at(
+            average=self.average_hydrostatic_parameter,
+            amplitude=self.seasonal_hydrostatic_variation,
+            key="a",
+            day_of_year=day_of_year,
+            latitude=latitude,
         )
-        seasonal_dry = EgnosTroposphericModel._interpolate_closest_two_latitude_index(
-            latitude=latitude, frame=self.seasonal_hydrostatic_variation
+        b = get_seasonal_value_at(
+            average=self.average_hydrostatic_parameter,
+            amplitude=self.seasonal_hydrostatic_variation,
+            key="b",
+            day_of_year=day_of_year,
+            latitude=latitude,
+        )
+        c = get_seasonal_value_at(
+            average=self.average_hydrostatic_parameter,
+            amplitude=self.seasonal_hydrostatic_variation,
+            key="c",
+            day_of_year=day_of_year,
+            latitude=latitude,
         )
 
-        # Propogate the interpolated values to the day of year
-        average_dry -= seasonal_dry.values * np.cos(
-            2
-            * np.pi
-            * (
-                (day_of_year - self.Dmin_northern if hemisphere else self.Dmin_southern)
-                / 365.25
-            )
-        )
-
-        return average_dry
+        return pd.Series({"a": a, "b": b, "c": c})
 
     def _get_wet_parameters(self, latitude: float) -> pd.Series:
         """This function calculates the wet parameters for the Neil mapping function.
@@ -238,6 +241,9 @@ class NeilMapping:
             pd.Series: The wet parameters for the Neil mapping function. (a, b, c)
 
         """
-        return EgnosTroposphericModel._interpolate_closest_two_latitude_index(
-            latitude=latitude, frame=self.average_wet_parameter
-        )
+        # Get the interpolated values for the latitude
+        a = get_average_at(data=self.average_wet_parameter, key="a", latitude=latitude)
+        b = get_average_at(data=self.average_wet_parameter, key="b", latitude=latitude)
+        c = get_average_at(data=self.average_wet_parameter, key="c", latitude=latitude)
+
+        return pd.Series({"a": a, "b": b, "c": c})

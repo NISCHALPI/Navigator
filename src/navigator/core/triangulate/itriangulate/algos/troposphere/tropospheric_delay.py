@@ -14,10 +14,12 @@ Functions:
 
 from .neil_mapping import NeilMapping
 from .saastamoinen_model import SaastamoinenTroposphericModel
+from .unb3m import UNB3m
 
 __all__ = [
     "tropospheic_delay_with_neil_map",
     "saastamoinen_tropospheric_correction_with_neil_mapping",
+    "unb3m",
 ]
 
 
@@ -48,7 +50,6 @@ def tropospheic_delay_with_neil_map(
         elevation=elevation,
         height=height,
         day_of_year=day_of_year,
-        hemisphere=True if latitude >= 0 else False,
     )
     return ZHD * M_dry + ZWD * M_wet
 
@@ -76,6 +77,39 @@ def saastamoinen_tropospheric_correction_with_neil_mapping(
         latitude=latitude_of_receiver,
     )
 
+    return tropospheic_delay_with_neil_map(
+        ZHD=ZHD,
+        ZWD=ZWD,
+        latitude=latitude_of_receiver,
+        elevation=elevation_angle_of_satellite,
+        height=height_of_receiver,
+        day_of_year=day_of_year,
+    )
+
+
+def unb3m(
+    latitude_of_receiver: float,
+    elevation_angle_of_satellite: float,
+    height_of_receiver: float,
+    day_of_year: int,
+) -> float:
+    """Calculate the slant tropospheric delay using the UNB3M model with Neil mapping function.
+
+    Args:
+        latitude_of_receiver (float): The latitude of the receiver in degrees. [-90, 90]
+        elevation_angle_of_satellite (float): The elevation angle of the satellite in degrees.
+        height_of_receiver (float): The height of the receiver above the sea level in meters.
+        day_of_year (int): The day of the year. [1-365]
+
+    Returns:
+        float: The slant tropospheric delay in meters.
+    """
+    # Get the zenith hydrostatic delay  and zenith wet delay
+    ZHD, ZWD = UNB3m().get_zenith_delays(
+        latitude=latitude_of_receiver,
+        day_of_year=day_of_year,
+        height=height_of_receiver,
+    )
     return tropospheic_delay_with_neil_map(
         ZHD=ZHD,
         ZWD=ZWD,

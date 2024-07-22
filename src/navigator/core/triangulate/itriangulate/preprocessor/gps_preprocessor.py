@@ -22,6 +22,7 @@ from ..algos.rotations import sagnac_correction
 from ..algos.smoothing.base_smoother import BaseSmoother
 from ..algos.troposphere.tropospheric_delay import (
     saastamoinen_tropospheric_correction_with_neil_mapping,
+    unb3m,
 )
 from ..algos.wls.wls_triangulator import wls_triangulation
 from .preprocessor import Preprocessor
@@ -57,6 +58,7 @@ class GPSPreprocessor(Preprocessor):
         day_of_year: int,
         sv_coords: pd.DataFrame,
         approx_receiver_location: pd.Series,
+        model: str = "saastamoinen",
     ) -> np.ndarray:
         """Compute the tropospheric correction for the GPS observations.
 
@@ -64,20 +66,37 @@ class GPSPreprocessor(Preprocessor):
             day_of_year (int): Day of the year.
             sv_coords (pd.DataFrame): Satellite coordinates at the reception epoch.
             approx_receiver_location (pd.Series): Approximate receiver location in ECEF coordinate.
+            model (str, optional): The tropospheric model to use. Defaults to "saastamoinen".
 
         Returns:
             np.ndarray: The tropospheric correction for the GPS observations.
         """
         # Compute the tropospheric correction
-        return sv_coords.apply(
-            lambda row: saastamoinen_tropospheric_correction_with_neil_mapping(
-                latitude_of_receiver=approx_receiver_location["lat"],
-                elevation_angle_of_satellite=row["elevation"],
-                height_of_receiver=approx_receiver_location["height"],
-                day_of_year=day_of_year,
-            ),
-            axis=1,
-        ).to_numpy(dtype=np.float64)
+        if model == "saastamoinen":
+            return sv_coords.apply(
+                lambda row: saastamoinen_tropospheric_correction_with_neil_mapping(
+                    latitude_of_receiver=approx_receiver_location["lat"],
+                    elevation_angle_of_satellite=row["elevation"],
+                    height_of_receiver=approx_receiver_location["height"],
+                    day_of_year=day_of_year,
+                ),
+                axis=1,
+            ).to_numpy(dtype=np.float64)
+        elif model == "unb3m":  # noqa
+            return sv_coords.apply(
+                lambda row: unb3m(
+                    latitude_of_receiver=approx_receiver_location["lat"],
+                    elevation_angle_of_satellite=row["elevation"],
+                    height_of_receiver=approx_receiver_location["height"],
+                    day_of_year=day_of_year,
+                ),
+                axis=1,
+            ).to_numpy(dtype=np.float64)
+
+        else:
+            raise ValueError(
+                f"Invalid tropospheric model: {model}. Supported models are ['saastamoinen', 'unb3m']"
+            )
 
     def compute_ionospheric_correction(
         self,
@@ -549,6 +568,7 @@ class GPSPreprocessor(Preprocessor):
                 day_of_year=epoch.timestamp.dayofyear,
                 sv_coords=coords,
                 approx_receiver_location=epoch.approximate_coords,
+                model=epoch.profile.get("tropospheric_model", "saastamoinen"),
             )
             # Correct the pseudorange for the tropospheric correction
             codeEF = (

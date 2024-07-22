@@ -94,6 +94,7 @@ class Epoch:
         "mode": "single",
         "smoothed": False,
         "navigation_format": "ephemeris",
+        "tropospheric_model": "unb3m",
     }
     # Dual Frequency Profile
     DUAL = {
@@ -102,6 +103,7 @@ class Epoch:
         "mode": "dual",
         "smoothed": False,
         "navigation_format": "ephemeris",
+        "tropospheric_model": "unb3m",
     }
     # Initial Profile [Doesn't apply any corrections]
     INITIAL = {
@@ -110,6 +112,7 @@ class Epoch:
         "mode": "single",
         "smoothed": False,
         "navigation_format": "ephemeris",
+        "tropospheric_model": "saastamoinen",
     }
     # SP3 Profile
     SP3 = {
@@ -118,6 +121,7 @@ class Epoch:
         "mode": "single",
         "smoothed": True,
         "navigation_format": "sp3",
+        "tropospheric_model": "saastamoinen",
     }
     # Phase Profile
     PHASE = {
@@ -126,6 +130,7 @@ class Epoch:
         "mode": "phase",
         "smoothed": False,
         "navigation_format": "ephemeris",
+        "tropospheric_model": "saastamoinen",
     }
 
     # DUMMY
@@ -135,6 +140,7 @@ class Epoch:
         "mode": "dummy",
         "smoothed": False,
         "navigation_format": "ephemeris",
+        "tropospheric_model": "saastamoinen",
     }
 
     ALLOWED_PROFILE_KEYS = [
@@ -143,12 +149,14 @@ class Epoch:
         "mode",
         "smoothed",
         "navigation_format",
+        "tropospheric_model",
     ]
     MANDATORY_PROFILE_KEYS = [
         "apply_tropo",
         "apply_iono",
         "mode",
         "navigation_format",
+        "tropospheric_model",
     ]
 
     # IGS network
@@ -630,6 +638,50 @@ class Epoch:
             bool: True if ionospheric correction is applied, False otherwise.
         """
         return self.IONOSPHERIC_KEY in self.nav_meta
+
+    @property
+    def tropospheric_model(self) -> str:
+        """Get the tropospheric model used in the epoch.
+
+        Returns:
+            str: The tropospheric model used in the epoch.
+        """
+        return self.profile["tropospheric_model"]
+
+    @property
+    def navigation_format(self) -> str:
+        """Get the navigation format used in the epoch.
+
+        Returns:
+            str: The navigation format used in the epoch.
+        """
+        return self.profile["navigation_format"]
+
+    @tropospheric_model.setter
+    def tropospheric_model(self, value: str) -> None:
+        """Set the tropospheric model used in the epoch.
+
+        Args:
+            value (str): The value to set.
+        """
+        if value not in ["saastamoinen", "unb3m"]:
+            raise ValueError(
+                f"Tropospheric model must be either 'saastamoinen' or 'unb3m'. Got {value} instead."
+            )
+        self.profile["tropospheric_model"] = value
+
+    @navigation_format.setter
+    def navigation_format(self, value: str) -> None:
+        """Set the navigation format used in the epoch.
+
+        Args:
+            value (str): The value to set.
+        """
+        if value not in ["ephemeris", "sp3"]:
+            raise ValueError(
+                f"Navigation format must be either 'ephemeris' or 'sp3'. Got {value} instead."
+            )
+        self.profile["navigation_format"] = value
 
     def __gt__(self, other: "Epoch") -> bool:
         """Check if the epoch is greater than another epoch.
