@@ -605,7 +605,6 @@ class GPSPreprocessor(Preprocessor):
             phaseEF = phaseEF - coords["ionospheric_correction"].values
 
         ######################### Return the Pseudorange and Satellite States #########################
-
         return (
             pd.DataFrame(
                 data=np.column_stack([codeEF, phaseEF]),

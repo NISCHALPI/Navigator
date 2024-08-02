@@ -170,6 +170,7 @@ class IParseGPSObs(IParse):
         obsData: pd.DataFrame,
         method: str = "from_derivatives",
         order: int | None = None,
+        subset: tp.List[str] | None = None,
         **kwargs,
     ) -> pd.DataFrame:
         """Interpolate missing values range measurements in a DataFrame.
@@ -196,7 +197,7 @@ class IParseGPSObs(IParse):
             .droplevel(0)
             .reorder_levels(["time", "sv"])
             .sort_index()
-            .dropna()
+            .dropna(subset=subset, how="any")
         )
 
     @staticmethod

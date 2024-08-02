@@ -7,7 +7,6 @@ Links:
 """
 
 import numpy as np
-from numba import float64, njit
 
 # Constants
 MU = 3.986005e14  # Gravitational constant of the Earth (m^3/s^2)
@@ -23,10 +22,6 @@ __all__ = [
 ]
 
 
-@njit(
-    float64(float64, float64),
-    cache=True,
-)
 def week_anamonaly(t: float, t_oe: float) -> float:
     """Calculate the week anomally of the GPS, Galileo and BeiDou satellites.
 
@@ -46,17 +41,6 @@ def week_anamonaly(t: float, t_oe: float) -> float:
 
 
 # Helper Functions to compute E_k
-@njit(
-    float64(
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-    ),
-    fastmath=True,
-    cache=True,
-)
 def eccentric_anomaly(
     t_k: float,
     sqrt_a: float,
@@ -97,14 +81,6 @@ def eccentric_anomaly(
     return E_k
 
 
-@njit(
-    float64(
-        float64,
-        float64,
-        float64,
-    ),
-    cache=True,
-)
 def relativistic_clock_correction(sqrt_A: float, Ek: float, e: float) -> float:
     """Calculate the relativistic clock correction.
 
@@ -117,22 +93,6 @@ def relativistic_clock_correction(sqrt_A: float, Ek: float, e: float) -> float:
     return F * e * sqrt_A * np.sin(Ek)
 
 
-@njit(
-    float64(
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-    ),
-    cache=True,
-)
 def clock_correction(
     t: float,
     a_f0: float,
@@ -191,28 +151,6 @@ def clock_correction(
 
 # See ICD Page 106
 # Works for GPS, Galileo and BeiDou
-@njit(
-    float64[:](
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-        float64,
-    ),
-    cache=True,
-)
 def ephm_to_coord_gps(
     t: float,
     toe: float,

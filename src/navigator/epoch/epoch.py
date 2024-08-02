@@ -121,7 +121,7 @@ class Epoch:
         "mode": "single",
         "smoothed": True,
         "navigation_format": "sp3",
-        "tropospheric_model": "saastamoinen",
+        "tropospheric_model": "unb3m",
     }
     # Phase Profile
     PHASE = {
@@ -510,6 +510,25 @@ class Epoch:
 
         """
         self._profile["smoothed"] = value
+
+    def subset(self, sv: list[str]) -> "Epoch":
+        """Return a subset of the epoch containing only the specified satellite vehicles.
+
+        Args:
+            sv (list[str]): The satellite vehicles to include in the subset.
+
+        Returns:
+            Epoch: A subset of the epoch containing only the specified satellite vehicles.
+        """
+        return Epoch(
+            timestamp=self.timestamp,
+            obs_data=self.obs_data.loc[sv],
+            nav_data=self.nav_data.loc[(slice(None), sv), :],
+            obs_meta=self.obs_meta,
+            nav_meta=self.nav_meta,
+            station=self.station,
+            profile=self.profile,
+        )
 
     def trim(self) -> None:
         """Intersect the satellite vehicles in the observation data and navigation data.

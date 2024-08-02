@@ -1,14 +1,10 @@
 """Implements the least squares method for linear and non-linear observation models."""
 
-import numba as nb
 import numpy as np
 
 __all__ = ["weighted_least_square", "non_linear_weighted_least_squares"]
 
 
-@nb.njit(
-    "float64[:](float64[:], float64[:, :], float64[:, :])", fastmath=True, cache=True
-)
 def weighted_least_square(y: np.ndarray, H: np.ndarray, W: np.ndarray) -> np.ndarray:
     """Estimates the constant vector x using the weighted least squares method given noisy measurements y and a linear observation model H.
 
@@ -53,9 +49,7 @@ def non_linear_weighted_least_squares(
         HJacobian_args (tuple, optional): Additional arguments to pass to the Jacobian. Defaults to ().
 
     Returns:
-        tuple[np.ndarray, np.ndarray]:
-            - The estimated constant vector x of shape (N,).
-            - The final change in x (dx) of shape (N,) indicating convergence status.
+        tuple[np.ndarray, np.ndarray]: The estimated constant vector x of shape (N,) and the error covariance matrix of the residuals of shape (M, M).
     """
     x_prev = x0
     for _ in range(max_iter):

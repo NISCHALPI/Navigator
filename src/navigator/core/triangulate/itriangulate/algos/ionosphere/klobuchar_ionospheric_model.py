@@ -31,7 +31,6 @@ Note:
     The ionospheric delay is an important correction factor for accurate positioning in GNSS receivers, compensating for the delay introduced by the Earth's ionosphere. This module facilitates the application of the Klobuchar model for precise GNSS signal processing.
 """
 
-import numba as nb
 import numpy as np
 
 __all__ = ["klobuchar_ionospheric_correction"]
@@ -46,12 +45,6 @@ semi2rad = np.pi  # semisircles to radians
 deg2rad = np.pi / 180.0  # degrees to radians
 
 
-@nb.njit(
-    fastmath=True,
-    error_model="numpy",
-    boundscheck=True,
-    cache=True,
-)
 def klobuchar_ionospheric_correction(
     latitude: float,
     longitude: float,
