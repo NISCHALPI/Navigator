@@ -27,30 +27,7 @@ The Navigator is a Python-based GNSS library and toolkit tailored for GNSS PVT s
 
 
 ## Installation
-To install the library, user need to clone the repository from **Pntf Lab Server**(*10.116.24.69*) which is only accessible to authorized lab members. To use the **Lab Git Server**, user need to have access to the git user account. If you don't have access to the git user account, please contact the lab administrator.
-
-**Note: The server is only accessible from the UA network. If you are not on the UA network, you need to connect to the UA VPN first.**
-
-To install the library, first create a python virtual environment and activate it. 
-**Note: This assumes that you have python3.10 installed on your system.**
-```bash
-# Create a virtual environment
-python3 -m venv .venv
-
-# Activate the virtual environment
-source .venv/bin/activate
-```
-
-Now, after activating the virtual environment, you can install the library from the git server using a single command:
-```bash
-pip install git+ssh://git@10.116.24.69:2222/home/git/Navigator.git
-```
-
-Optionally to clone the repository from the git server, use the following command:
-```bash
-git clone ssh://git@10.116.24.69:2222/home/git/Navigator.git
-```
-**Note: A password prompt will appear if you are not using an SSH key.**
+To install the library, user need to clone the repository and pip install the library. This is not published in PyPi.
 
 
 
